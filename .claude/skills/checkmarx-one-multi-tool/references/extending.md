@@ -120,7 +120,10 @@ Examples: presets, policies, webhooks, scheduled scans, reports, identity provid
 Create `presets.py` (etc.) mirroring `applications.py`, wire it into `multitool.py`'s
 dispatch table, and—if it belongs in a tenant blueprint—add a section to
 `provision.apply_blueprint` and the example blueprint. Document new endpoints in
-`references/cxone-api.md` so the next task is even easier.
+`references/cxone-api.md` so the next task is even easier. Then run
+`python validate_spec.py` and act on what it reports — see SKILL.md "Know
+what's available" for how to resolve each finding type (`IAM-PLANE`,
+`KNOWN-OMIT`, `METHOD?`, `ABSENT`) rather than leaving it as noise.
 
 ## When to use CLI or MCP instead of new code
 

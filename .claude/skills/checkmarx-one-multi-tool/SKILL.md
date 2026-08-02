@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.36.0
+  version: 3.36.1
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -218,11 +218,43 @@ discoverable, not things to infer). Load what's relevant to the task at hand:
   weighted preset/incremental overrides), `triage_rules.yaml` (the realism model),
   `activity.yaml` (agent cadence/mix/caps). Adjust behavior here before touching code.
 - **`validate_spec.py`** — after any endpoint change, run it to confirm code/docs
-  match the spec (CODE→SPEC, DOCS→SPEC).
+  match the spec (CODE→SPEC, DOCS→SPEC). It resolves both a literal endpoint
+  string (`api.get("projects")`) and one assigned to a module-level constant
+  first (`_ENDPOINT = "audit-events"` then `api.paginate(_ENDPOINT, ...)`) — no
+  special style is required to stay visible to it. Act on what it reports
+  rather than treating a flag as noise to ignore:
+  - **`OK`** — nothing to do.
+  - **`IAM-PLANE`** — already-recognized Keycloak admin paths; if you add a
+    *new* one (e.g. another `/auth/admin/realms/{tenant}/...` lookup) and it
+    shows as `ABSENT` instead, add its normalized path to `IAM_PLANE_PATHS` in
+    `validate_spec.py` — it's correct, just not yet on the allowlist.
+  - **`KNOWN-OMIT`** — already-documented live-validated-but-undocumented
+    endpoints; if you add another one, add it to `KNOWN_SPEC_OMISSIONS`
+    (with a one-line reason) rather than leaving it as a bare `ABSENT`.
+  - **`METHOD?`** — the path exists but the bundled export only captured some
+    methods on it (a known export gap, see `spec/CLEANUP_NOTES.md` "Known
+    export limitations") — confirm the missing method on Stoplight or the
+    live tenant before relying on it, don't assume the gap means it's invalid.
+  - **`ABSENT`** (anything not already covered above) — real drift or a
+    genuinely new endpoint: verify it against the live per-tenant spec
+    (`references/api-index.md` "Where to look"), then either fix the code/doc
+    path or fold the correction into `spec/cxone_openapi.json` following the
+    live-sync procedure in `spec/CLEANUP_NOTES.md`.
 
 When the spec is thin on a request *body* (some POST bodies were stripped), don't
 keep guessing — send one minimal probe and read the error: CxOne's 400s enumerate
 the valid values (that's how the report `sections`/`scanners` sets were nailed down).
+
+**Reference spec freshness.** `welcome`/`version`/`--help` print "Reference spec
+last synced: `<date>` (N days ago)" from `spec/LAST_SYNCED`, with a warning past
+`cxone.STALE_REFERENCE_DAYS` (90). Don't just notice that warning — act on it:
+follow the live-spec sync procedure in `spec/CLEANUP_NOTES.md` ("Live sync"
+sections show worked examples), and when you're done, update `spec/LAST_SYNCED`,
+`cxone_openapi.json`'s own `info.x-last-synced`/`info.x-sync-notes`, and
+`spec/CLEANUP_NOTES.md`'s top summary line **together** — the three drifting
+apart is exactly the "N days ago" figure quietly becoming a lie about how fresh
+the spec actually is. A code-only change (no live-tenant re-check) should NOT
+touch any of the three.
 
 
 ## Operator fast path (read this first — it makes runs fast *and* correct)

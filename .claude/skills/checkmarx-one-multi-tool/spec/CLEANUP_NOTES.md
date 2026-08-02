@@ -1,9 +1,11 @@
 # OpenAPI Spec — Cleanup Notes
 
 `cxone_openapi.json` here is a cleaned copy of the Checkmarx One OpenAPI export
-(`openapi: 3.0.3`, 180 paths), generated from Stoplight docs on 2026-06-27.
-**Last live-sync check: 2026-07-21** (see `info.x-last-synced` /
-`info.x-sync-notes` in the file itself, and the "Live sync" section below).
+(`openapi: 3.0.3`, 188 paths), generated from Stoplight docs on 2026-06-27.
+**Last live-sync check: 2026-07-31** — this line, `spec/LAST_SYNCED`, and the
+file's own `info.x-last-synced`/`info.x-sync-notes` must always agree; update
+all three together (see "spec/LAST_SYNCED" below) whenever a sync pass touches
+this file, and see the "Live sync" sections below for what's been checked so far.
 Changes applied to the raw export:
 
 1. **Removed** `/abc123...` — a placeholder for a presigned upload URL (its own
