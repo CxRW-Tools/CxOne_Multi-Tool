@@ -43,6 +43,13 @@ Shipped 2026-07-31 → 08-01 (not previously on this roadmap):
 - **Current SCA state** (`ops/sca_live_state.py`) — SCA scans are immutable;
   `results show`, both triage paths, and the already-triaged check now read
   `pendingState` rather than the frozen scan state.
+- **Audit trail** (`audit.py`, `audit` verb) — search/export tenant activity via
+  `GET /api/audit-events` (replaces the deprecated `GET /api/audit`), with
+  `--type`/`--resource`/`--user`/`--search` filters, `--human-readable` UUID
+  resolution via IAM admin lookups, and `--csv` export. Coverage is still
+  growing platform-side (some engines, e.g. IaC, only emit events for a subset
+  of actions) — a thin/empty result is a coverage gap, not a bug.
+  *(was roadmap #3)*
 
 ## Priority matrix (remaining)
 
@@ -50,12 +57,11 @@ Shipped 2026-07-31 → 08-01 (not previously on this roadmap):
 |---|---|---|---|---|
 | 1 | Policy management + incidents | `policy` (new) | HIGH | Medium |
 | 2 | GitLab / Azure DevOps / Bitbucket onboarding | `project` (extend) | HIGH | Low-Medium |
-| 3 | Audit trail | `audit` (new) | MEDIUM | Low |
-| 4 | Feedback apps (Slack / Jira / Teams / etc.) | `feedback` (new) | MEDIUM | Medium-High |
-| 5 | DAST triage | `ops/triage/` (extend) | MED-LOW | Low |
-| 6 | Custom triage states | `ops/triage/` (extend) | MED-LOW | Low |
-| 7 | Pre-commit hook setup | `hooks` (new) | LOW | Low |
-| 8 | Bring Your Own Results (BYOR / SARIF import) | `byor` (new) | LOW | Low |
+| 3 | Feedback apps (Slack / Jira / Teams / etc.) | `feedback` (new) | MEDIUM | Medium-High |
+| 4 | DAST triage | `ops/triage/` (extend) | MED-LOW | Low |
+| 5 | Custom triage states | `ops/triage/` (extend) | MED-LOW | Low |
+| 6 | Pre-commit hook setup | `hooks` (new) | LOW | Low |
+| 7 | Bring Your Own Results (BYOR / SARIF import) | `byor` (new) | LOW | Low |
 
 All endpoint schemas are in `cxone-api.md`. Follow the module pattern in `extending.md`.
 
@@ -235,47 +241,7 @@ org = {"orgIdentity": workspace}
 
 ---
 
-## 3 — Audit Trail (`audit` module, MEDIUM)
-
-### Demo value
-Shows governance and accountability to compliance-focused stakeholders: who
-triaged what, when a project was created, when a scan ran. Compelling for SOC 2
-/ ISO 27001 conversations.
-
-### CLI commands to add
-```bash
-audit list [--from 30d|2026-01-01] [--to 2026-06-30] \
-    [--type triage|scan|user|project] \
-    [--user mary] [--limit 50]
-```
-
-### Module to create: `scripts/audit.py`
-```python
-class AuditManager:
-    def list_events(self, *, from_date=None, to_date=None,
-                    event_type=None, user=None, limit=50):
-        params = {"from": from_date, "to": to_date,
-                  "type": event_type, "user": user, "limit": limit}
-        return self.api.paginate("audit", results_key="events",
-                                 params={k: v for k, v in params.items() if v})
-```
-
-### Output format
-Table: `timestamp | actor | action | resource type | resource name | details`
-
-### Key implementation notes
-- Endpoint: `GET /api/audit` (AST plane). A newer `GET /api/audit-events` also exists; prefer it if present.
-- Permission: `view-audit-trail`.
-- Date format is ISO-8601; support relative shorthands like `30d`, `7d` by
-  converting to absolute dates before the request.
-- Common event types: `triage`, `scan`, `project`, `user`, `group`, `policy`.
-- No mutations — this module is read-only, no dry-run guard needed.
-- Useful as the last step in a demo: `audit list --from 24h` shows everything
-  that was provisioned/scanned/triaged in the session.
-
----
-
-## 4 — Feedback App Integrations (`feedback` module, MEDIUM)
+## 3 — Feedback App Integrations (`feedback` module, MEDIUM)
 
 ### Demo value
 Closes the loop: "what happens after a vulnerability is found?" A Jira ticket
@@ -378,7 +344,7 @@ class FeedbackManager:
 
 ---
 
-## 5 — DAST Triage (extend `triage` module, MED-LOW)
+## 4 — DAST Triage (extend `triage` module, MED-LOW)
 
 ### Demo value
 DAST results already appear in tenants that have run DAST scans. The triage
@@ -431,7 +397,7 @@ Wire into `triage_operation._ENGINE_MAP`:
 
 ---
 
-## 6 — Custom Triage States (extend `triage` module, MED-LOW)
+## 5 — Custom Triage States (extend `triage` module, MED-LOW)
 
 ### Demo value
 Enterprise customers have process-specific states beyond the standard five
@@ -470,7 +436,7 @@ def list_custom_states(scanner="sast", show_deleted=False):
 
 ---
 
-## 7 — Pre-Commit Hook Setup (`hooks` module, LOW)
+## 6 — Pre-Commit Hook Setup (`hooks` module, LOW)
 
 ### Demo value
 The developer shift-left story: "here's how your engineers catch secrets before
@@ -511,7 +477,7 @@ class HooksManager:
 
 ---
 
-## 8 — Bring Your Own Results / SARIF Import (`byor` module, LOW)
+## 7 — Bring Your Own Results / SARIF Import (`byor` module, LOW)
 
 ### Demo value
 POVs where the customer already has results from another tool (Veracode, Snyk,

@@ -171,7 +171,7 @@ class ApiClient:
 
     # ------------------------------------------------------------ pagination
     def paginate(self, endpoint: str, results_key: str, params: dict | None = None,
-                 limit: int = _PAGE_LIMIT) -> list[Any]:
+                 limit: int = _PAGE_LIMIT, extra_headers: dict | None = None) -> list[Any]:
         page_indexed = endpoint.split("?", 1)[0].strip("/") in _PAGE_INDEXED_ENDPOINTS
         if page_indexed:
             limit = min(limit, _RESULTS_MAX_LIMIT)
@@ -180,7 +180,7 @@ class ApiClient:
         base = dict(params or {})
         while True:
             base.update({"limit": limit, "offset": offset})
-            page = self.get(endpoint, params=base) or {}
+            page = self.get(endpoint, params=base, extra_headers=extra_headers) or {}
             chunk = page.get(results_key) if isinstance(page, dict) else []
             chunk = chunk or []  # endpoint may return the key with a null value when empty
             items.extend(chunk)

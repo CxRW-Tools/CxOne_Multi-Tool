@@ -332,7 +332,7 @@ lived-in\", or \"scan a few projects and triage some results over the next hour.
 
 
 def _dispatch():
-    import iam, applications, onboard, scanconfig, purge, provision, export_blueprint, identities, ui, agent, envmgr, results, reports, workflows, ai_assist, triage_real
+    import iam, applications, onboard, scanconfig, purge, provision, export_blueprint, identities, ui, agent, envmgr, results, reports, workflows, ai_assist, triage_real, audit
     return {
         "iam": iam.main,
         "app": applications.main,
@@ -342,6 +342,7 @@ def _dispatch():
         "scan": _scan_entry,
         "results": results.main,
         "report": reports.main,
+        "audit": audit.main,
         "ai-assist": ai_assist.main,
         "assist": ai_assist.main,
         # Three distinct triage paths, named so they can never be confused:
@@ -383,6 +384,7 @@ Verbs:
   scan        trigger scans (by name/id or random %); also: scan status/history
   results     summarize / drill into findings (per project or per application)
   report      generate PDF/JSON/CSV scan reports and SBOMs
+  audit       search/export tenant audit trail (who did what, when)
   triage-simulate  FABRICATED triage for demo realism (weighted rolls; free)
   triage-real      REAL review of your code by this assistant, then real triage
   ai-assist        Checkmarx Assist: AI Triage / Remediation (real; spends credits)

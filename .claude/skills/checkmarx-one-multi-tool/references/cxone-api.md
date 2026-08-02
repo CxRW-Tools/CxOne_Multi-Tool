@@ -417,6 +417,52 @@ checkmarx.stoplight.io):**
 - Scope: **tenant-wide by default** (no `--projects` filter) — this is a
   snapshot across every project's current findings, not a per-project drill-down.
 
+## Audit trail — `audit.py`  (AST plane)
+
+`GET /api/audit-events` — tenant activity log (who did what, when). Replaces
+the deprecated `GET /api/audit` (still in the bundled spec, flagged
+deprecated in its own description — don't use it). Confirmed live-working via
+a reference implementation supplied for this feature; the bundled spec's
+`auditEvent` response schema is an unresolved `$ref` (same class of gap as
+the `feedback-app`/`policy_management_service_uri` paths noted at the top of
+`planned-features.md`), so the field list below is sourced from that
+live-validated run, not the bundled spec.
+
+**Request**
+- Headers: `Authorization: Bearer <token>`, **`Accept: application/json;
+  version=1.0`** — required; the client's default `Accept: application/json`
+  gets no special treatment from this endpoint, so `audit.py` passes it via
+  `extra_headers` (same pattern as `query_analytics_kpi`'s Content-Type).
+- Query: `startDate`, `endDate` (RFC3339, e.g. `2026-01-01T00:00:00Z`),
+  `limit` (≤ 1000, default 100), `offset` (record count, not a page index —
+  `ApiClient.paginate` already treats it that way by default, so no
+  page-indexed special-casing was needed here, unlike `/api/results`).
+- **Events are retained for the previous 365 days only**, and the platform
+  only began collecting them on **2026-03-29** — a query spanning further
+  back than that returns nothing for the earlier portion, which is normal,
+  not an error.
+
+**Response:** `{"events": [...], "totalFilteredCount": N, "_links": {...}}`.
+Each event (live-validated shape): `eventID`, `eventDate`, `eventType`
+(e.g. `project.created`, `user.login`), `auditResource` (e.g. `project`,
+`user`, `application`), `actionType`, `actionUserId` (a Keycloak user UUID),
+`ipAddress`, `data` (a nested dict whose keys vary by `eventType`).
+
+**Coverage is a moving target, not a fixed catalog.** Checkmarx keeps adding
+event emission engine by engine; as of this writing several engines (e.g. IaC)
+only emit events for a subset of their actions. Treat a thin or empty result
+for something you know happened as a platform coverage gap — say so — rather
+than concluding the action didn't occur or that this module is broken.
+
+**UUID resolution (`--human-readable`).** `actionUserId`/`userId`,
+`roleId`/`assignedRoles`/`unassignedRoles`, and `groupId` values are Keycloak
+IDs, resolved via the same IAM admin calls every other module already makes
+(`ApiClient.get(..., use_iam=True)` — no new URL construction needed):
+`users/{id}`, `roles-by-id/{id}`, and `groups` (list + match by id, since
+there's no single-group-by-id admin endpoint). Best-effort: a lookup miss
+(deleted principal) falls back to the raw UUID instead of raising, since
+resolution is a display nicety and shouldn't fail the whole query.
+
 ## Scanned source — `ops/source_fetch.py`  (AST plane)
 
 `GET /api/repostore/code/{scanId}` → **302** → pre-signed archive URL → zip of the
