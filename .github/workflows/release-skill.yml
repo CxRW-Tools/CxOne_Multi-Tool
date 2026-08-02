@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -21,10 +22,22 @@ jobs:
       - name: Package skill
         run: python scripts/package_skill.py checkmarx-one-multi-tool
 
+      - name: Determine release tag
+        id: tag
+        run: |
+          version=$(cat .claude/skills/checkmarx-one-multi-tool/VERSION)
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" dist/*.skill \
-            --title "${{ github.ref_name }}" \
-            --generate-notes
+          tag="${{ steps.tag.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/*.skill --clobber
+          else
+            gh release create "$tag" dist/*.skill \
+              --title "$tag" \
+              --generate-notes \
+              --target "${{ github.sha }}"
+          fi
