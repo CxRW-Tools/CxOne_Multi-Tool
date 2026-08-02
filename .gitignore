@@ -1,0 +1,20 @@
+# Packaged skill artifacts (build output, not source — see scripts/package_skill.py)
+dist/
+*.skill
+
+# Credentials / local runtime state — never commit these regardless of which
+# skill directory they show up under
+**/.env
+**/cxone.env
+**/cxone-identities.yaml
+**/.agent_state.json
+agent.log*
+
+# Python
+**/__pycache__/
+**/.venv/
+*.pyc
+
+# OS cruft (Mac + Windows dev machines)
+.DS_Store
+Thumbs.db

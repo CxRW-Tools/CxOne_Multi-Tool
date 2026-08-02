@@ -1,0 +1,69 @@
+# Example Checkmarx One demo-tenant blueprint.
+# Apply with:  python provision.py --blueprint blueprints/example-tenant.yaml --dry-run
+# Capture a LIVE tenant into this same schema with:  python multitool.py export
+#
+# Order of application is fixed by dependency: groups -> users -> applications
+# -> projects/onboarding -> scan config. Re-applying is idempotent where the
+# CxOne APIs allow (existing groups/users/apps are detected and skipped).
+
+tenant:
+  name: "Acme Bank Demo"
+
+groups:
+  - "Developers"
+  - "AppSec Team"
+
+# Group membership is how Checkmarx One scopes access, so put each user in the
+# group(s) that should see their work. Passwords here are DEMO-ONLY.
+users:
+  - username: "demo.dev"
+    email: "demo.dev@acme.test"
+    first_name: "Demo"
+    last_name: "Developer"
+    password: "Cx!demo2026"
+    temporary_password: false
+    groups: ["Developers"]
+    # roles: ast-app client roles (ast-viewer/ast-scanner/ast-admin/...) — a user
+    # with no role can sign in but see nothing. Realm roles also work as a fallback.
+    roles: ["ast-viewer"]
+  - username: "demo.appsec"
+    email: "demo.appsec@acme.test"
+    first_name: "Demo"
+    last_name: "AppSec"
+    password: "Cx!demo2026"
+    temporary_password: false
+    groups: ["AppSec Team"]
+    roles: ["ast-scanner"]
+
+applications:
+  - name: "Acme Online Banking"
+    description: "Customer-facing banking app"
+    criticality: 4
+    # Projects tagged with this key are auto-associated with the application.
+    project_tag: "app:banking"
+    tags: { team: "banking" }
+
+# Projects can be manual or onboarded from an SCM. Tag them so the application
+# rule above picks them up.
+projects:
+  - type: manual
+    name: "juice-shop"
+    groups: ["Developers"]
+    criticality: 3
+    tags: ["app:banking"]
+
+  - type: scm
+    scm_type: github
+    organization: "your-demo-org"
+    repository: "WebGoat"
+    main_branch: "main"
+    groups: ["Developers"]
+    criticality: 3
+    tags: ["app:banking"]
+
+# Optional per-project scan configuration applied after creation.
+scan_config:
+  default:
+    sast_preset: "ASA Premium"
+    incremental: false
+    engines: [sast, sca, kics]

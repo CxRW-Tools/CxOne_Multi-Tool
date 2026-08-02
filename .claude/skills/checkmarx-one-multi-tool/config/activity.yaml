@@ -1,0 +1,150 @@
+# Checkmarx One Multi-Tool — Activity model (autonomous/timed staggering)
+#
+# Controls WHEN the agent fires ACTIVITIES (scans AND triage) so a demo tenant
+# looks like real work happened over time: activity clusters in business hours,
+# tapers overnight and on weekends, arrives at irregular (Poisson) intervals, and
+# — critically — each project has its own intrinsic cadence so it isn't scanned
+# too often. All keys optional; shown values are the defaults.
+#
+# Cadence is intrinsic to the model + the agent's own private ledger
+# (scripts/.agent_state.json); it is NOT derived from the tenant's scan history
+# (that would be circular, since the agent is what creates that history).
+
+activity:
+  # ---------------------------------------------------------------------
+  # Project scope — WHICH projects the agent may touch. Applied before
+  # planning, so out-of-scope projects are never scheduled at all (they
+  # won't appear in `agent plan`, the ledger, or the tenant's history).
+  #
+  # Rules: EXCLUDES ALWAYS WIN over includes. If any include_* is set, a
+  # project must match at least one to be in scope; with no includes,
+  # everything not excluded is in scope. A mistake therefore fails safe —
+  # too few projects, never too many.
+  #
+  # Names: case-insensitive SUBSTRING by default ("Istio" catches
+  # "Istio - FAE" and "Istio - No FAE"); a pattern containing * ? or [
+  # is treated as a glob against the whole name ("ShopWorthy/*").
+  # Tags: "Demo" (has that tag key, any value) or "Demo:T&R" (key:value).
+  #
+  # Override per-run without editing this file:
+  #   agent run --exclude-projects "Istio" --include-tags "Demo"
+  #   (env: CXONE_AGENT_INCLUDE_PROJECTS / _EXCLUDE_PROJECTS /
+  #         _INCLUDE_TAGS / _EXCLUDE_TAGS)
+  # Precedence is per field: CLI flag > env var > this file.
+  # The same flags exist on `agent plan`, so you can preview a scope
+  # before running it.
+  projects:
+    include_names: []              # e.g. ["ShopWorthy/*", "BankCx/"]
+    exclude_names: []              # e.g. ["Istio", "scratch"]
+    include_tags: []               # e.g. ["Demo"] or ["Demo:T&R"]
+    exclude_tags: []               # e.g. ["DoNotScan"]
+
+  business_hours: [8, 18]          # local hours with peak activity
+  overnight_factor: 0.1            # relative rate outside business hours (0..1)
+  weekday_weights:                 # 0=Mon .. 6=Sun
+    "0": 1.0
+    "1": 1.0
+    "2": 1.0
+    "3": 1.0
+    "4": 0.9
+    "5": 0.15
+    "6": 0.1
+  events_per_business_hour: 2.35   # peak arrival rate (events/hour). Per-project
+                                   # spacing (below) throttles each project, so this
+                                   # mainly sets how lively the tenant feels overall.
+                                   # Raised 2.0 -> 2.35 alongside the triage weight
+                                   # below: event_mix is NORMALIZED by its sum, so
+                                   # raising triage alone would have diluted scan's
+                                   # share and quietly cut scanning ~15%. The two
+                                   # changes together hold the absolute scan rate
+                                   # steady (~1.1/hr) while triage rises ~50%.
+
+  # Relative weights of what happens. 'idle' inserts realistic empty gaps.
+  # Scans and triage both matter for realism ("real work" = scan, then review).
+  event_mix:
+    scan: 0.55
+    triage: 0.53                   # raised from 0.35 (~+50% triage frequency)
+    onboard: 0.02
+    idle: 0.08
+
+  scan:
+    projects_per_event: [1, 2]     # how many projects a single scan event touches
+    # Per-project intrinsic cadence. Each project is assigned a stable target
+    # interval by RANK across the tenant; it is NEVER scanned closer together than
+    # its interval (× jitter). The range below is intentionally tight so the
+    # busiest project lands a little under a day and legacy projects ~1.5 weeks
+    # (not many weeks) — i.e. a gentler falloff than a wide range gives.
+    #   8h floor  -> hard-cap territory for the busiest outlier (cap below)
+    #   312h (13d)-> the most-legacy project
+    interval_hours: [8, 312]
+    interval_skew: 1.3             # >1 biases toward the longer end, but lower than
+                                   # before so mid/legacy projects scan a bit more
+    max_per_project_per_day: 3     # hard ceiling per project per calendar day
+
+  triage:
+    scan_types: "sast,sca,iac,containers,secrets"
+    # Per-project triage cadence, rolled to CORRELATE with scan cadence (active
+    # projects get reviewed more) — ranked by each project's scan rank, with a
+    # slightly wider interval (you review less often than you scan).
+    # For a heavier "significant triage" run, tighten to e.g. [8, 160] with
+    # skew 1.1 and max_per_project_per_day 4 — and raise the caps below to match.
+    interval_hours: [11, 256]      # ~0.45d .. 10.7d per project (was [16, 384];
+                                   # divided by 1.5 so each project becomes
+                                   # eligible for review ~50% sooner)
+    interval_skew: 1.3
+    max_per_project_per_day: 3     # was 2 (+50%), so the tighter interval isn't
+                                   # immediately re-capped at the per-project level
+    follow_scan: true              # only triage a project with an un-reviewed scan
+    fraction_jitter: [0.6, 1.5]    # one jitter per pass, applied to all engines
+    # A triage pass touches every engine the project has, clearing this fraction of
+    # that engine's CURRENTLY-untriaged results — biased SAST (highest) > SCA > IaC
+    # > Secrets > Containers (lowest). So a pass might clear 20% of SAST but only 4%
+    # of Containers. Validated secrets are always marked Urgent. For a heavier
+    # pass, roughly double these (e.g. sast 0.35 ... containers 0.08) — doubled
+    # fractions engage the thorough/heavy intensity bands, and heavy carries its
+    # own per-pass human-volume cap (see triage_rules.yaml max_applied_per_pass).
+    engine_fractions:
+      sast: 0.20
+      sca: 0.12
+      iac: 0.08
+      secrets: 0.06
+      containers: 0.04
+    # Tenant-wide ceiling on the TOTAL results triaged in a single day (across all
+    # projects and engines), so even a large tenant never triages a huge number at
+    # once. Per-pass fractions already bound volume; this is the hard backstop.
+    # (A heavier pass needs this raised to actually land — e.g. 1500.)
+    # Raised 750 -> 1125 (+50%) to match the +50% triage FREQUENCY: per-pass
+    # volume (engine_fractions) is unchanged, but 50% more passes/day would
+    # otherwise hit this backstop and silently throttle the added frequency.
+    max_results_per_day: 1125
+
+  # Onboarding during autonomous runs is OFF by default and only ever pulls from
+  # this explicit allowlist (never arbitrary repos). Each repo is onboarded once.
+  onboard:
+    enabled: false
+    repos: []                      # e.g. ["your-demo-org/WebGoat", "your-demo-org/juice-shop"]
+
+  # Hard volume caps (tenant-wide safety rails, on top of per-project spacing).
+  caps:
+    max_events_per_hour: 6
+    max_scans_per_day: 20
+    max_triage_per_day: 18         # was 12 (+50%) — the tenant-wide daily ceiling
+                                   # had to move too, or it would cap the extra
+                                   # passes before they ever fired
+
+# ---------------------------------------------------------------------------
+# Multi-identity attribution (requires a cxone-identities.yaml next to your
+# cxone.env; see `identities list`). When secondaries exist, the agent assigns
+# each scan/triage event an identity: a stable per-project "owner" (so the
+# same person handles a project across days), with an occasional hand-off.
+identities:
+  # 0.0-1.0: how often the stable owner acts (the rest hands off to a random
+  # other identity). 1.0 = robotic consistency; 0.85 reads like a real team.
+  affinity: 0.85
+  # Whether the primary/admin key is itself a candidate owner for autonomous
+  # scan/triage events, alongside any registered secondaries. true = the admin
+  # is a team member too; false = ALL autonomous activity runs as registered
+  # secondaries only ("only Alice and Bob scan/triage, never the admin key").
+  # On-demand runs are controlled per-invocation instead, via
+  # --as auto-secondary / random-secondary.
+  include_primary: false

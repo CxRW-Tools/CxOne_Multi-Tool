@@ -1,0 +1,13 @@
+# Example identity pool — prefer `identities add/import` (they validate and
+# write this file for you), or COPY this next to your cxone.env as
+# cxone-identities.yaml and fill in real API keys. Do NOT put real keys in
+# this skill folder; the tool refuses to load an identities file from here.
+#
+# Each entry is one CxOne user whose API key was generated while logged in as
+# that user (Settings > Identity and Access Management > API Keys). All keys
+# must belong to the same tenant as your primary cxone.env key.
+identities:
+  - name: alice.dev          # optional label; derived from the JWT if omitted
+    api_key: "PASTE-ALICE-API-KEY"
+  - name: bob.appsec
+    api_key: "PASTE-BOB-API-KEY"

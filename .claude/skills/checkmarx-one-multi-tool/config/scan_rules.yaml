@@ -1,0 +1,50 @@
+# CxOne Swiss Knife — Scan Rules
+#
+# engines: List of scan engines to enable on every triggered scan.
+#   Supported values: sast, sca, kics, apisec, containers, microengines
+#   (microengines = scorecard + 2ms/secret detection; SCM API uses 2ms, scorecard in scannerTypes)
+#   Omit or leave empty to run ALL scanner types.
+#   The project's existing engine configuration is used as the base;
+#   only the listed engines will be included in the scan payload.
+#
+# overrides: Weighted single-roll overrides per setting (one roll per project, per setting).
+#   We GET current preset/incremental, then roll 1–100. If the roll falls in a band, we compare
+#   that value to current; only when different do we PATCH and report the change. Outcome percentages per setting sum to ≤ 100 (remainder = no override).
+#
+# Supported override settings: sastPreset (scan.config.sast.presetName), incremental (scan.config.sast.incremental).
+#
+# Opt out per run with `scan --no-overrides` (also `quickstart --no-overrides`) when a preset was
+# pinned via `scanconfig set` and must not be re-rolled. Editing/emptying this section is NOT needed.
+
+scanRules:
+
+  engines:
+    - sast
+    - sca
+    - kics
+    - apisec
+    - containers
+    - microengines
+
+  overrides:
+    # SAST preset: one roll; one of the outcomes below or no override
+    - setting: sastPreset
+      outcomes:
+        - value: "Base Preset"
+          percentage: 5
+        - value: "ASA Premium"
+          percentage: 10
+        - value: "Checkmarx Default"
+          percentage: 5
+        - value: "High and Medium"
+          percentage: 10
+      # 30% total → 70% keep current preset
+
+    # Incremental: one roll; true/false or no override
+    - setting: incremental
+      outcomes:
+        - value: false
+          percentage: 20
+        - value: true
+          percentage: 10
+      # 30% total → 70% keep current setting

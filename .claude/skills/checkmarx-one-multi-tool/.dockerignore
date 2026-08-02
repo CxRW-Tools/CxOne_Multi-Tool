@@ -1,0 +1,19 @@
+# Never let credentials or local state into the build context / image.
+**/.env
+**/cxone.env
+**/.agent_state.json
+scripts/.venv/
+**/__pycache__/
+*.skill
+agent.log*
+
+# Not needed at runtime (docs / spec / packaging artifacts).
+references/
+spec/
+blueprints/
+SKILL.md
+README.md
+
+# identity pool credentials — never bake into the image (delivered via env at launch)
+cxone-identities.yaml
+**/cxone-identities.yaml

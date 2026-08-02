@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkmarx One Multi-Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #f0f4f8;
+    color: #1e293b;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #0f1e3d 0%, #1a3a6b 100%);
+    color: white;
+    padding: 56px 40px 48px;
+    text-align: center;
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 100px;
+    padding: 4px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #93c5fd;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: 34px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+  }
+  .hero .tagline {
+    font-size: 17px;
+    color: #94a3b8;
+    max-width: 560px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  .hero-pill-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 28px;
+  }
+  .hero-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 100px;
+    padding: 5px 14px;
+    font-size: 13px;
+    color: #cbd5e1;
+  }
+  .hero-pill .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #34d399;
+    flex-shrink: 0;
+  }
+
+  /* ── Section shell ── */
+  .section {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 20px;
+  }
+
+  /* ── Capability grid ── */
+  .cap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .cap-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .cap-icon {
+    font-size: 20px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .cap-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+  .cap-desc {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  /* ── Feature flags ── */
+  .feature-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .feature-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #3b82f6;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .feature-card.green { border-left-color: #10b981; }
+  .feature-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+  .feature-desc {
+    font-size: 12.5px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  /* ── Tips ── */
+  .tips-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .tip-item {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .tip-num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #eff6ff;
+    color: #3b82f6;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .tip-text {
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.5;
+  }
+
+  /* ── Warning banner ── */
+  .warn-banner {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #92400e;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-top: 16px;
+  }
+  .warn-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Chat ── */
+  .chat-shell {
+    background: #f8fafc;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+  }
+  .chat-header {
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .chat-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0f1e3d, #1a3a6b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .chat-tenant {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .chat-tenant-sub {
+    font-size: 12px;
+    color: #64748b;
+  }
+  .chat-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    margin-left: auto;
+  }
+
+  .messages {
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .msg { display: flex; gap: 10px; max-width: 100%; }
+  .msg.user { flex-direction: row-reverse; }
+
+  .msg-avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    align-self: flex-end;
+  }
+  .msg.agent .msg-avatar { background: #eff6ff; color: #3b82f6; }
+  .msg.user  .msg-avatar { background: #0f1e3d; color: white; }
+
+  .msg-body { max-width: 78%; display: flex; flex-direction: column; gap: 4px; }
+  .msg.user .msg-body { align-items: flex-end; }
+
+  .msg-sender {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: #94a3b8;
+    padding: 0 4px;
+  }
+
+  .bubble {
+    border-radius: 16px;
+    padding: 12px 16px;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .msg.agent .bubble {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-bottom-left-radius: 4px;
+    color: #1e293b;
+  }
+  .msg.user .bubble {
+    background: #1e40af;
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+
+  .bubble p { margin-bottom: 8px; }
+  .bubble p:last-child { margin-bottom: 0; }
+  .bubble ul { margin: 6px 0 6px 16px; }
+  .bubble li { margin-bottom: 3px; }
+  .bubble strong { font-weight: 600; }
+  .bubble code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    background: rgba(0,0,0,0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .msg.user .bubble code { background: rgba(255,255,255,0.15); }
+
+  .note {
+    font-size: 11.5px;
+    background: #fef9c3;
+    border: 1px solid #fde68a;
+    color: #78350f;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-top: 6px;
+  }
+
+  /* results table inside bubble */
+  /* ── Verb reference ── */
+  .vtable { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
+  .vtable th {
+    text-align: left; font-weight: 600; border-bottom: 1px solid #e2e8f0;
+    padding: 7px 10px; color: #475569; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .vtable td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+  .vtable tr:last-child td { border-bottom: none; }
+  .vtable code {
+    background: #f1f5f9; border-radius: 4px; padding: 1px 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: #0f172a;
+    white-space: nowrap;
+  }
+  .vsay { color: #475569; font-style: italic; }
+  .vgroup td {
+    background: #f8fafc; font-weight: 600; color: #0f172a; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 10px;
+  }
+  .triage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 4px; }
+  @media (max-width: 720px) { .triage-grid { grid-template-columns: 1fr; } }
+  .triage-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; border-top: 3px solid #94a3b8; }
+  .triage-card.sim { border-top-color: #f59e0b; }
+  .triage-card.real { border-top-color: #10b981; }
+  .triage-card.ai { border-top-color: #8b5cf6; }
+  .triage-name { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 2px; }
+  .triage-who { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 8px; }
+  .triage-body { font-size: 12.5px; color: #475569; line-height: 1.5; }
+  .triage-cost { margin-top: 8px; font-size: 11.5px; font-weight: 600; }
+
+  .rtable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin-top: 8px;
+  }
+  .rtable th {
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 5px 8px;
+    color: #475569;
+    white-space: nowrap;
+  }
+  .rtable td {
+    padding: 5px 8px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    white-space: nowrap;
+  }
+  .rtable tr:last-child td { border-bottom: none; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .badge-green  { background: #d1fae5; color: #065f46; }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 4px 0;
+  }
+  .divider span {
+    font-size: 11px;
+    color: #94a3b8;
+    white-space: nowrap;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+  }
+
+  /* ── Safety section ── */
+  .safe-intro {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 18px 20px;
+    font-size: 13.5px;
+    color: #475569;
+    line-height: 1.65;
+    margin-bottom: 16px;
+  }
+  .safe-intro strong { color: #0f172a; font-weight: 600; }
+  .safe-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    counter-reset: safestep;
+  }
+  .safe-step {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #3b82f6;
+    border-radius: 8px;
+    padding: 14px 16px 14px 18px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .safe-step-num {
+    counter-increment: safestep;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: #0f1e3d;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .safe-step-num::before { content: counter(safestep); }
+  .safe-step-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 3px;
+  }
+  .safe-step-desc { font-size: 12.5px; color: #64748b; line-height: 1.55; }
+  .safe-step-desc code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11.5px;
+    background: rgba(0,0,0,0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: #334155;
+  }
+  .tenant-line {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    background: #0f1e3d;
+    color: #93c5fd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: inline-block;
+    margin: 4px 0 2px;
+  }
+
+  @media (max-width: 600px) {
+    .hero { padding: 36px 20px 32px; }
+    .hero h1 { font-size: 26px; }
+    .feature-row { grid-template-columns: 1fr; }
+    .msg-body { max-width: 90%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════ HERO ════════════ -->
+<div class="hero">
+  <div class="hero-badge">Solution Engineer Tool</div>
+  <h1>Checkmarx One Multi-Tool</h1>
+  <p class="tagline">
+    Natural language automation for building and maintaining realistic
+    Checkmarx One demo and POV tenants — no commands, no clicking, no API calls.
+  </p>
+  <div class="hero-pill-row">
+    <div class="hero-pill"><span class="dot"></span>Identity &amp; Access</div>
+    <div class="hero-pill"><span class="dot"></span>Projects &amp; Onboarding</div>
+    <div class="hero-pill"><span class="dot"></span>Scans &amp; Results</div>
+    <div class="hero-pill"><span class="dot"></span>Three Triage Modes</div>
+    <div class="hero-pill"><span class="dot"></span>Reports &amp; SBOM</div>
+    <div class="hero-pill"><span class="dot"></span>Blueprint Provisioning</div>
+    <div class="hero-pill"><span class="dot"></span>Autonomous Activity</div>
+    <div class="hero-pill"><span class="dot"></span>Multi-User Realism</div>
+  </div>
+</div>
+
+<!-- ════════════ CAPABILITIES ════════════ -->
+<div class="section">
+  <div class="section-label">What it can do</div>
+  <div class="cap-grid">
+    <div class="cap-card">
+      <span class="cap-icon">👤</span>
+      <div class="cap-title">Identity &amp; Access</div>
+      <div class="cap-desc">Create users and groups, manage membership and project authorization — and assign real CxOne roles (ast-viewer, ast-scanner, ast-admin…) so demo personas actually work.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">📦</span>
+      <div class="cap-title">Applications</div>
+      <div class="cap-desc">Create applications with tag-based project association rules that auto-populate as projects are added.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">🗂️</span>
+      <div class="cap-title">Projects &amp; Onboarding</div>
+      <div class="cap-desc">One-shot project create (repo + preset + groups + app tag in a single step) and batch onboarding of many repos in one command. GitHub bulk import; extensible to GitLab, ADO, Bitbucket.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">⚙️</span>
+      <div class="cap-title">Scan Configuration</div>
+      <div class="cap-desc">Set per-project SAST presets and incremental scan settings before triggering scans.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">🔍</span>
+      <div class="cap-title">Scans &amp; Results</div>
+      <div class="cap-desc">Run scans across every engine — SAST, SCA, IaC, Containers, Secrets, API Security — then check status, compare scans, and see findings by engine and severity, per project or per application.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">🎯</span>
+      <div class="cap-title">Triage — three ways</div>
+      <div class="cap-desc">Make a tenant <em>look</em> worked-on with simulated triage, get a <em>genuine</em> review from the assistant, or run Checkmarx&nbsp;Assist&apos;s AI agent.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">🛠️</span>
+      <div class="cap-title">AI Remediation</div>
+      <div class="cap-desc">Checkmarx Remediation Assist generates the actual fix — analysis, code diff, and tests — and can open a pull request. Spends AI credits; the tool always shows the balance and cost before you confirm.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">📄</span>
+      <div class="cap-title">Reports &amp; SBOM</div>
+      <div class="cap-desc">Generate PDF, JSON, and CSV scan reports plus CycloneDX/SPDX SBOMs — the CISO takeaway and the compliance artifact, straight from a prompt.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">📋</span>
+      <div class="cap-title">Blueprint Provisioning</div>
+      <div class="cap-desc">Build an entire tenant from one YAML file, or provision, scan and triage in a single step. Works both ways: export a tenant you built by hand so you can rebuild it any time.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">🤖</span>
+      <div class="cap-title">Autonomous Activity</div>
+      <div class="cap-desc">Keep a tenant alive for days or weeks — real scans and triage arriving during business hours at a believable pace, attributed to different team members. Preview the schedule before it starts; stop it any time.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">👥</span>
+      <div class="cap-title">Multi-User Realism</div>
+      <div class="cap-desc">Add multiple users' API keys and the tenant stops looking like one admin did everything — scans and triage are attributed across the team, with each project keeping a consistent owner. A prospect checking the audit trail sees a team at work.</div>
+    </div>
+  </div>
+
+  <!-- Feature highlights -->
+  <div style="margin-top: 28px;">
+    <div class="section-label">Key properties</div>
+    <div class="feature-row">
+      <div class="feature-card">
+        <div class="feature-title">Self-updating</div>
+        <div class="feature-desc">When the agent adds a capability or fixes a bug during your session, it repackages and exports an updated <code>.skill</code> file. Reinstall once to make the change permanent — improvements carry forward automatically.</div>
+      </div>
+      <div class="feature-card green">
+        <div class="feature-title">Extensible by design</div>
+        <div class="feature-desc">Ships with a comprehensive Checkmarx One OpenAPI spec and a module pattern guide. If you ask for something not yet built — a new report, a new SCM integration, a policy workflow — the agent looks it up and implements it on the spot.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-title">Safe by default</div>
+        <div class="feature-desc">Every bulk or destructive operation previews its planned actions before executing. Fuzzy quantities like "a bunch" or "most" are mapped to concrete values, stated out loud, and confirmed before proceeding.</div>
+      </div>
+      <div class="feature-card green">
+        <div class="feature-title">One tenant at a time</div>
+        <div class="feature-desc">Credentials live in a file in your own project folder, never the tool's shared temp location — so each project stays pointed at its own tenant. Work one tenant at a time; every command states which one it's acting on so a mismatch is easy to catch.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-title">Runs as a container or a process</div>
+        <div class="feature-desc">Long-running activity can run in a container so it keeps going when your laptop sleeps, or as a normal process if you have no container runtime.</div>
+      </div>
+      <div class="feature-card green">
+        <div class="feature-title">Outage-safe cadence</div>
+        <div class="feature-desc">If the host is down, missed events are dropped, never replayed — an outage becomes a realistic quiet gap instead of a late burst. A private ledger keeps per-project spacing consistent across restarts.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tips -->
+  <div style="margin-top: 36px;">
+    <div class="section-label">Tips for getting the most out of it</div>
+    <div class="tips-grid">
+      <div class="tip-item">
+        <div class="tip-num">1</div>
+        <div class="tip-text"><strong>Just describe what you want.</strong> No commands or syntax needed — treat it like a conversation with a colleague who has full API access.</div>
+      </div>
+      <div class="tip-item">
+        <div class="tip-num">2</div>
+        <div class="tip-text"><strong>Vague quantities are fine.</strong> "A few", "some", "a bunch", "most" all translate to reasonable values. The agent states the value it chose before acting.</div>
+      </div>
+      <div class="tip-item">
+        <div class="tip-num">3</div>
+        <div class="tip-text"><strong>Dry-runs happen automatically</strong> before bulk or destructive actions. You'll see exactly what will change before anything is committed.</div>
+      </div>
+      <div class="tip-item">
+        <div class="tip-num">4</div>
+        <div class="tip-text"><strong>Ask for status anytime.</strong> "What's already configured?" or "Are the scans done?" — the agent queries live state rather than relying on memory.</div>
+      </div>
+      <div class="tip-item">
+        <div class="tip-num">5</div>
+        <div class="tip-text"><strong>Chain requests naturally.</strong> "Create a project, onboard this repo, set the preset to ASA Premium, and kick off a scan" works as a single message.</div>
+      </div>
+      <div class="tip-item">
+        <div class="tip-num">6</div>
+        <div class="tip-text"><strong>The API key is a refresh token</strong> — the agent reads your tenant and region from it automatically. No need to look up base URLs or tenant names.</div>
+      </div>
+    </div>
+    <div class="warn-banner">
+      <span class="warn-icon">⚠</span>
+      <div><strong>Heads up on approval prompts.</strong> Every action the agent takes requires a click-to-approve in the Claude interface — a Claude permission model constraint. The tool batches common flows (one-shot project create, multi-repo onboard, quickstart) to minimize necessary approvals. Click "Allow for this session" on the first prompt to reduce friction further — but see "Working safely" below before bypassing approvals more broadly.</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════ TRIAGE OPTIONS ════════════ -->
+<div class="section" style="padding-top: 0;">
+  <div class="section-label">Three kinds of triage — pick deliberately</div>
+  <div class="safe-intro" style="margin-bottom: 16px;">
+    &quot;Triage&quot; can mean three very different things here. One <strong>invents</strong>
+    results to make a demo look lived-in, one is a <strong>genuine security review</strong>,
+    and one calls <strong>Checkmarx&apos;s own AI</strong>. Each has a different cost. Just say which
+    outcome you want in plain English — the assistant will confirm which one it is
+    before touching anything.
+  </div>
+  <div class="triage-grid">
+    <div class="triage-card sim">
+      <div class="triage-name">Simulated</div>
+      <div class="triage-who">Nobody reviews &middot; invented</div>
+      <div class="triage-body">
+        Weighted rolls pick a state and a canned comment, tuned to look like a real
+        team&apos;s backlog — some projects well-kept, some neglected, a realistic
+        untriaged tail. Perfect for filling a demo tenant. <strong>The verdicts are
+        not real.</strong>
+      </div>
+      <div class="triage-cost" style="color:#b45309;">Free</div>
+    </div>
+    <div class="triage-card real">
+      <div class="triage-name">Real review</div>
+      <div class="triage-who">The assistant reviews &middot; genuine</div>
+      <div class="triage-body">
+        Downloads the <em>exact source the scan ran against</em>, reads the vulnerable
+        code and data flow, and writes a real verdict with a real comment citing the
+        specific lines. If the code can&apos;t be read, it says so and triages nothing.
+      </div>
+      <div class="triage-cost" style="color:#047857;">Uses coding assistant tokens</div>
+    </div>
+    <div class="triage-card ai">
+      <div class="triage-name">Checkmarx Assist</div>
+      <div class="triage-who">Checkmarx&apos;s AI agent &middot; genuine</div>
+      <div class="triage-body">
+        The platform&apos;s own agentic triage for SAST and SCA findings: reachability,
+        exploitability and attackability with a confidence score and reasoning trace.
+        Remediation Assist goes further and writes the fix.
+      </div>
+      <div class="triage-cost" style="color:#6d28d9;">Uses Checkmarx AI credits</div>
+    </div>
+  </div>
+  <div class="note" style="margin-top: 14px;">
+    <strong>Say it however you like.</strong> &quot;Make this look lived-in&quot; → simulated.
+    &quot;Actually review these four and triage them properly&quot; → real review.
+    &quot;Run AI triage on the SQL injection&quot; → Checkmarx Assist. If it&apos;s ambiguous,
+    you&apos;ll be asked rather than guessed at — and anything that spends credits shows
+    you the balance and the cost first.
+  </div>
+</div>
+
+<!-- ════════════ VERB REFERENCE ════════════ -->
+<div class="section" style="padding-top: 0;">
+  <div class="section-label">What this tool supports</div>
+  <div class="safe-intro" style="margin-bottom: 14px;">
+    Everything below is available by <strong>just asking in plain English</strong> — the
+    command names are shown only so you know what exists. This isn&apos;t an exhaustive
+    list of what&apos;s possible: the skill carries the full Checkmarx One API reference and
+    can build new capabilities on request, so ask for what you need even if it isn&apos;t here.
+  </div>
+  <table class="vtable">
+    <thead><tr><th style="width:20%">Command</th><th style="width:42%">What it does</th><th>Say something like</th></tr></thead>
+    <tbody>
+      <tr class="vgroup"><td colspan="3">Setup &amp; orientation</td></tr>
+      <tr><td><code>welcome</code></td><td>Shows the version, which tenant you&apos;re connected to, and how to start.</td><td class="vsay">&quot;Run the Checkmarx One Multi-tool&quot;</td></tr>
+      <tr><td><code>env</code></td><td>Stores credentials for one tenant. Your API key is a refresh token, so the region and tenant are read from it — nothing to look up.</td><td class="vsay">&quot;Here&apos;s my API key&quot; &middot; &quot;What tenant am I on?&quot;</td></tr>
+
+      <tr class="vgroup"><td colspan="3">Building a tenant</td></tr>
+      <tr><td><code>iam</code></td><td>Users, groups, roles and membership — demo personas that actually work.</td><td class="vsay">&quot;Create a Developers group and three demo users&quot;</td></tr>
+      <tr><td><code>app</code></td><td>Applications, with tag rules so projects join automatically.</td><td class="vsay">&quot;Make an application called Acme Banking&quot;</td></tr>
+      <tr><td><code>project</code> / <code>onboard</code></td><td>Create projects and onboard repositories, one or many at a time.</td><td class="vsay">&quot;Onboard WebGoat and juice-shop from our GitHub org&quot;</td></tr>
+      <tr><td><code>scanconfig</code></td><td>Per-project SAST preset and incremental settings.</td><td class="vsay">&quot;Set the preset to ASA Premium on that project&quot;</td></tr>
+      <tr><td><code>provision</code> / <code>export</code></td><td>Stand up a whole tenant from one YAML blueprint — or capture a hand-built tenant back into one so it&apos;s repeatable.</td><td class="vsay">&quot;Apply this blueprint&quot; &middot; &quot;Export this tenant so I can rebuild it&quot;</td></tr>
+      <tr><td><code>quickstart</code></td><td>Blueprint → scan → triage in a single step.</td><td class="vsay">&quot;Stand up a demo tenant for Acme and populate it&quot;</td></tr>
+
+      <tr class="vgroup"><td colspan="3">Scanning &amp; findings</td></tr>
+      <tr><td><code>scan</code></td><td>Trigger scans by name or a random share of projects; check status and history.</td><td class="vsay">&quot;Scan a bunch of the projects&quot; &middot; &quot;Are the scans done?&quot;</td></tr>
+      <tr><td><code>results</code></td><td>Counts by engine and severity, drill into individual findings, or tenant-wide KPIs.</td><td class="vsay">&quot;Show me the critical SAST and SCA results for X&quot;</td></tr>
+      <tr><td><code>report</code></td><td>PDF / JSON / CSV scan reports and CycloneDX &amp; SPDX SBOMs.</td><td class="vsay">&quot;Generate a PDF report for that scan&quot;</td></tr>
+
+      <tr class="vgroup"><td colspan="3">Triage</td></tr>
+      <tr><td><code>triage-simulate</code></td><td><strong>Invented</strong> states and comments, tuned to look like a real team&apos;s backlog. Fast and free; not real verdicts.</td><td class="vsay">&quot;Make the results look lived-in&quot; &middot; &quot;Triage some findings so it&apos;s not all To Verify&quot;</td></tr>
+      <tr><td><code>triage-real</code></td><td><strong>A genuine review by the assistant</strong>, reading the exact scanned source, with real comments citing specific lines. Free. Won&apos;t guess — findings it can&apos;t read are left alone.</td><td class="vsay">&quot;Actually review the injection findings and triage them for real&quot;</td></tr>
+      <tr><td><code>ai-assist</code></td><td><strong>Checkmarx Assist</strong>: AI Triage (reachability / exploitability / confidence) and AI Remediation (code fix, tests, optional pull request). <strong>Spends AI credits</strong> — balance and cost are always shown first.</td><td class="vsay">&quot;Run AI triage on the SQL injection&quot; &middot; &quot;How many AI credits do we have left?&quot; &middot; &quot;Remediate these four&quot;</td></tr>
+
+      <tr class="vgroup"><td colspan="3">Realism over time</td></tr>
+      <tr><td><code>agent</code></td><td>Real scans and triage spread across real days, weighted to business hours, with per-project cadence. No simulation, no time compression.</td><td class="vsay">&quot;Run realistic activity through next Friday&quot;</td></tr>
+      <tr><td><code>identities</code></td><td>Register colleagues&apos; API keys so scans and triage are attributed to different people, not one admin.</td><td class="vsay">&quot;Add these team API keys&quot; &middot; &quot;Scan as different users&quot;</td></tr>
+
+      <tr class="vgroup"><td colspan="3">Housekeeping</td></tr>
+      <tr><td><code>purge</code></td><td>Ordered teardown. Scoped to what this tool created unless you explicitly ask for everything — and always confirmed first.</td><td class="vsay">&quot;Reset the demo tenant&quot;</td></tr>
+      <tr><td><code>ui</code></td><td>A small local web panel if you&apos;d rather click than type.</td><td class="vsay">&quot;Open the local UI&quot;</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ════════════ WORKING SAFELY ════════════ -->
+<div class="section" style="padding-top: 0;">
+  <div class="section-label">Working safely — the one-tenant model</div>
+
+  <div class="safe-intro">
+    This tool acts directly on a <strong>live Checkmarx One tenant</strong> — creating,
+    changing, and deleting real objects with an admin-scoped key. That power is the point,
+    but it means the single most important habit is knowing <strong>which tenant you're
+    pointed at</strong> before anything runs. The tool ships with a deliberate rule:
+    <strong>work with exactly one tenant at a time.</strong> Follow the steps below and
+    cross-tenant mistakes become very hard to make.
+  </div>
+
+  <div class="safe-steps">
+    <div class="safe-step">
+      <div class="safe-step-num"></div>
+      <div>
+        <div class="safe-step-title">Confirm the active tenant before you act</div>
+        <div class="safe-step-desc">
+          Every command the agent runs opens with a standard line naming the tenant it's
+          about to touch:
+          <br><span class="tenant-line">Active tenant: se_demo</span><br>
+          Read it every time. If it isn't the tenant you mean to work on, stop — don't run
+          the action. The agent can <em>tell</em> you which tenant is configured, but it
+          can't know which one you <em>intended</em>; that check is yours.
+        </div>
+      </div>
+    </div>
+
+    <div class="safe-step">
+      <div class="safe-step-num"></div>
+      <div>
+        <div class="safe-step-title">One tenant per session — finish before you switch</div>
+        <div class="safe-step-desc">
+          Configure the one tenant you intend to work on and stay on it for the whole
+          session. Don't run two chats against two different tenants at the same time, and
+          don't switch tenants mid-task. To move to a different tenant, wrap up the current
+          work first, then reconfigure (or start a fresh session). This is a working
+          practice, not a lock the software enforces — so it depends on you keeping to it.
+        </div>
+      </div>
+    </div>
+
+    <div class="safe-step">
+      <div class="safe-step-num"></div>
+      <div>
+        <div class="safe-step-title">Let the dry-run and confirmation do their job</div>
+        <div class="safe-step-desc">
+          For anything that creates, changes, or deletes tenant state, the agent previews
+          first: it dry-runs the action, lists the <em>specific</em> objects that will be
+          affected — by name and count, e.g. "delete 3 projects: WebGoat, juice-shop,
+          DVWA" — and waits for your explicit "yes." Read that list against the active
+          tenant before you approve. It's your last, clearest chance to catch a wrong-tenant
+          or wrong-scope action.
+        </div>
+      </div>
+    </div>
+
+    <div class="safe-step">
+      <div class="safe-step-num"></div>
+      <div>
+        <div class="safe-step-title">Keep credentials where they belong</div>
+        <div class="safe-step-desc">
+          Credentials are written to a file in your own working directory (e.g.
+          <code>cxone.env</code>), never into the skill's temporary folder — which can be
+          shared across sessions and wiped between them. Point each session at its own
+          project file. Treat the API key as a secret even for demo tenants: don't paste it
+          into chat repeatedly, and rotate it if it's ever exposed.
+        </div>
+      </div>
+    </div>
+
+    <div class="safe-step">
+      <div class="safe-step-num"></div>
+      <div>
+        <div class="safe-step-title">Be cautious with session-wide approval bypass</div>
+        <div class="safe-step-desc">
+          The Claude interface lets you approve an action once for the rest of the session
+          (e.g. "Allow for this session"), and some setups let you bypass per-action
+          approval entirely. That's a real convenience — it's <em>possible</em> — but it
+          removes your last checkpoint before a live tenant change: the dry-run still runs,
+          but nothing stops afterward to wait for your "yes." On a tool that can create,
+          modify, and delete real tenant objects with an admin-scoped key, that's a
+          meaningful risk to accept knowingly, not a default to reach for. Prefer approving
+          per action, especially for anything destructive or bulk.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="warn-banner">
+    <span class="warn-icon">⚠</span>
+    <div><strong>The tenant rule is a practice, not a guardrail.</strong> The tool detects and announces the active tenant and always previews destructive work — but it cannot technically prevent you from acting on the wrong tenant if you approve it anyway. Safety comes from reading the <code>Active tenant:</code> line and the previewed action list every time. When in doubt, ask "which tenant am I on?" before proceeding.</div>
+  </div>
+</div>
+
+<!-- ════════════ CHAT LOG ════════════ -->
+<div class="section" style="padding-top: 0;">
+  <div class="section-label">Session log — se_demo tenant</div>
+
+  <div class="chat-shell">
+    <div class="chat-header">
+      <div class="chat-avatar">CX</div>
+      <div>
+        <div class="chat-tenant">Checkmarx One Multi-Tool</div>
+        <div class="chat-tenant-sub">se_demo · deu.ast.checkmarx.net</div>
+      </div>
+      <div class="chat-dot"></div>
+    </div>
+
+    <div class="messages">
+
+      <!-- ── Exchange 0: Start the skill ── -->
+      <div class="divider"><span>Starting the skill</span></div>
+
+      <div class="msg user">
+        <div class="msg-avatar">R</div>
+        <div class="msg-body">
+          <div class="msg-sender">You</div>
+          <div class="bubble">Run the Checkmarx One Multi-Tool</div>
+        </div>
+      </div>
+
+      <div class="msg agent">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-body">
+          <div class="msg-sender">Agent</div>
+          <div class="bubble">
+            <p><strong>Checkmarx One Multi-Tool</strong> — stand up and maintain realistic
+            demo/POV tenants: identity, projects, scans, realistic triage, blueprints, and a
+            real-time activity agent, all in plain language.</p>
+            <p>⚠ No tenant configured yet. This skill works with <strong>one tenant at a
+            time</strong> — share your Checkmarx One API key to get started (it's a refresh
+            token, so I'll read your tenant and region from it automatically).</p>
+            <p><em>New here or want a refresher? Ask me to "open the overview" for a guided
+            tour, including how to use it safely.</em></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Exchange 1: Connect ── -->
+      <div class="divider"><span>Getting connected</span></div>
+
+      <div class="msg user">
+        <div class="msg-avatar">R</div>
+        <div class="msg-body">
+          <div class="msg-sender">You</div>
+          <div class="bubble">
+            <p><em>[API key provided — redacted]</em></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg agent">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-body">
+          <div class="msg-sender">Agent</div>
+          <div class="bubble">
+            <p>Derived tenant info from your key:</p>
+            <ul>
+              <li><strong>Tenant:</strong> <code>se_demo</code></li>
+              <li><strong>Region:</strong> DEU (Europe)</li>
+              <li><strong>Base URL:</strong> <code>https://deu.ast.checkmarx.net</code></li>
+            </ul>
+            <p>Does that look right?</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg user">
+        <div class="msg-avatar">R</div>
+        <div class="msg-body">
+          <div class="msg-sender">You</div>
+          <div class="bubble">Yes</div>
+        </div>
+      </div>
+
+      <div class="msg agent">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-body">
+          <div class="msg-sender">Agent</div>
+          <div class="bubble">
+            <p>Credentials saved and written to <code>cxone.env</code> in your working directory for durability across session refreshes. Connected to <strong>se_demo</strong>.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Exchange 2: Projects + App + Scans ── -->
+      <div class="divider"><span>Projects, application &amp; scans</span></div>
+
+      <div class="msg user">
+        <div class="msg-avatar">R</div>
+        <div class="msg-body">
+          <div class="msg-sender">You</div>
+          <div class="bubble">
+            <p>Create projects for WebGoat (<code>WebGoat/WebGoat</code>), WebGoat.NET (<code>jerryhoff/WebGoat.NET</code>), and TotallySecure (<code>cxworkshops/totallysecureapp</code>). Add both WebGoat projects to a new Goats application. Start scans (all engines) — ASA Premium for WebGoats and High and Medium for TotallySecure.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg agent">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-body">
+          <div class="msg-sender">Agent</div>
+          <div class="bubble">
+            <p>Confirmed real default branches, then:</p>
+            <ul>
+              <li>Created <strong>WebGoat</strong> (branch: <code>main</code>), <strong>WebGoat.NET</strong> (<code>master</code>), <strong>TotallySecure</strong> (<code>master</code>) with repo URLs attached</li>
+              <li>Created <strong>Goats</strong> application with a tag rule matching <code>app:goats</code>; tagged both WebGoat projects — they now appear under the app automatically</li>
+              <li>Set SAST presets: <strong>ASA Premium</strong> for WebGoat &amp; WebGoat.NET, <strong>High and Medium</strong> for TotallySecure</li>
+              <li>Triggered scans on all three projects — all engines (SAST, SCA, IaC/KICS, Containers, Secrets, API Security)</li>
+            </ul>
+            <p>Scans are running. Results typically available in 10–30 minutes.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Exchange 3: User, group, authorization ── -->
+      <div class="divider"><span>Users, groups &amp; access</span></div>
+
+      <div class="msg user">
+        <div class="msg-avatar">R</div>
+        <div class="msg-body">
+          <div class="msg-sender">You</div>
+          <div class="bubble">
+            <p>Create a new user Mary and add her to a new group GoatDevs. Authorize the group to have access to both of the WebGoat projects.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg agent">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-body">
+          <div class="msg-sender">Agent</div>
+          <div class="bubble">
+            <ul>
+              <li>Created group <strong>GoatDevs</strong></li>
+              <li>Created user <strong>mary</strong>, added to GoatDevs</li>
+              <li>Authorized GoatDevs on <strong>WebGoat</strong> and <strong>WebGoat.NET</strong></li>
+            </ul>
+          </div>
+          <div class="note">⚠ Password could not be set via API — the API key lacks password-management scope. Set it manually in Settings → IAM → Users → mary → Reset Password.</div>
+        </div>
+      </div>
+
+      <!-- ── Exchange 4: Results summary ── -->
+      <div class="divider"><span>Results query</span></div>
+
+      <div class="msg user">
+        <div class="msg-avatar">R</div>
+        <div class="msg-body">
+          <div class="msg-sender">You</div>
+          <div class="bubble">Give me a high level summary of results for all projects.</div>
+        </div>
+      </div>
+
+      <div class="msg agent">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-body">
+          <div class="msg-sender">Agent</div>
+          <div class="bubble">
+            <p>All three scans completed. Here's the breakdown:</p>
+            <table class="rtable">
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Total</th>
+                  <th>SAST</th>
+                  <th>SCA</th>
+                  <th>IaC</th>
+                  <th>Containers</th>
+                  <th>Secrets</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>WebGoat</strong></td>
+                  <td>737</td>
+                  <td>114 <span class="badge badge-red">31C</span> <span class="badge badge-orange">30H</span></td>
+                  <td>53 <span class="badge badge-red">8C</span></td>
+                  <td>18</td>
+                  <td>528 <span class="badge badge-red">35C</span></td>
+                  <td>24H</td>
+                </tr>
+                <tr>
+                  <td><strong>WebGoat.NET</strong></td>
+                  <td>176</td>
+                  <td>154 <span class="badge badge-red">68C</span> <span class="badge badge-orange">16H</span></td>
+                  <td>22</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td><strong>TotallySecure</strong></td>
+                  <td>536</td>
+                  <td>102 <span class="badge badge-red">8C</span> <span class="badge badge-orange">55H</span></td>
+                  <td>72 <span class="badge badge-red">17C</span></td>
+                  <td>289</td>
+                  <td>72 <span class="badge badge-red">6C</span></td>
+                  <td>1H</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Exchange 5: Triage ── -->
+      <div class="divider"><span>Triage — simulated</span></div>
+
+      <div class="msg user">
+        <div class="msg-avatar">R</div>
+        <div class="msg-body">
+          <div class="msg-sender">You</div>
+          <div class="bubble">Triage a bunch of the critical and high results in all projects.</div>
+        </div>
+      </div>
+
+      <div class="msg agent">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-body">
+          <div class="msg-sender">Agent</div>
+          <div class="bubble">
+            <p>Mapped "a bunch" → <strong>some</strong> intensity (~30% coverage, severity-weighted so criticals and highs are processed first). Dry-ran to preview scope, then applied live:</p>
+            <table class="rtable">
+              <thead>
+                <tr><th>Project</th><th>SAST</th><th>SCA</th><th>IaC</th><th>Secrets</th><th>Applied</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>WebGoat</strong></td><td>36</td><td>40</td><td>1</td><td>4</td><td><strong>81</strong></td></tr>
+                <tr><td><strong>WebGoat.NET</strong></td><td>50</td><td>5</td><td>—</td><td>—</td><td><strong>55</strong></td></tr>
+                <tr><td><strong>TotallySecure</strong></td><td>29</td><td>26</td><td>28</td><td>—</td><td><strong>83</strong></td></tr>
+              </tbody>
+              <tfoot>
+                <tr style="font-weight:600; border-top: 1px solid #e2e8f0;">
+                  <td>Total</td><td>115</td><td>71</td><td>29</td><td>4</td><td>319</td>
+                </tr>
+              </tfoot>
+            </table>
+            <p style="margin-top:10px; font-size:12.5px; color:#64748b;">Outcomes are severity-conditioned: criticals &amp; highs skew Confirmed/Urgent; a realistic tail of low/info findings was intentionally left untouched. 0 errors.</p>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ── Exchange: real review ── -->
+      <div class="divider"><span>Triage — real review</span></div>
+
+      <div class="msg user">
+        <div class="msg-avatar">R</div>
+        <div class="msg-body">
+          <div class="msg-sender">You</div>
+          <div class="bubble">The injection findings in WebGoat need to stand up to scrutiny — actually review those and triage them for real.</div>
+        </div>
+      </div>
+
+      <div class="msg agent">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-body">
+          <div class="msg-sender">Agent</div>
+          <div class="bubble">
+            <p>That's a <strong>real review</strong>, not simulated — I'll read the actual scanned code and write genuine verdicts. Pulled the source for scan <code>a41f…</code> and reviewed 4 injection findings:</p>
+            <table class="rtable">
+              <thead><tr><th>Finding</th><th>Location</th><th>Verdict</th></tr></thead>
+              <tbody>
+                <tr><td>SQL_Injection</td><td>SqlInjectionLesson5.java:72</td><td><span class="badge badge-red">Confirmed</span></td></tr>
+                <tr><td>Command_Injection</td><td>ShellExec.java:41</td><td><span class="badge badge-red">Confirmed</span></td></tr>
+                <tr><td>Reflected_XSS</td><td>CrossSiteScripting.java:88</td><td><span class="badge badge-red">Confirmed</span></td></tr>
+                <tr><td>SQL_Injection</td><td>LessonProgress.java:29</td><td><span class="badge badge-orange">Proposed Not Exploitable</span></td></tr>
+              </tbody>
+            </table>
+            <p style="margin-top:10px;">The last one binds a parameterised query — the concatenation the scanner flagged is a static column name, so I've proposed dismissal rather than dismissing it outright. Each comment cites the specific line.</p>
+            <p style="font-size:12.5px; color:#64748b;">One finding is in a file that wasn't in the scan archive — I left it untriaged rather than guess. Apply these 4?</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Exchange: Checkmarx Assist ── -->
+      <div class="divider"><span>Checkmarx Assist — AI triage &amp; remediation</span></div>
+
+      <div class="msg user">
+        <div class="msg-avatar">R</div>
+        <div class="msg-body">
+          <div class="msg-sender">You</div>
+          <div class="bubble">Run Checkmarx AI triage on the command injection, and if it confirms, have it write the fix.</div>
+        </div>
+      </div>
+
+      <div class="msg agent">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-body">
+          <div class="msg-sender">Agent</div>
+          <div class="bubble">
+            <p><strong>AI Triage Assist</strong> — 1 finding, up to 1 credit. You have <strong>412</strong> available. Confirm?</p>
+            <p style="margin-top:8px;"><em>…confirmed, analysis complete:</em></p>
+            <ul>
+              <li><strong>Verdict:</strong> Confirmed · reachable · exploitable · confidence 0.95</li>
+              <li>Endpoint is unauthenticated and the parameter reaches <code>Runtime.exec()</code> unsanitised</li>
+            </ul>
+            <p style="margin-top:8px;"><strong>Remediation Assist</strong> costs 3 credits and can open a pull request on the repo. Go ahead?</p>
+            <p style="margin-top:8px;"><em>…done — 3 credits used, 409 left.</em> Fix replaces <code>exec(String)</code> with an argument array plus an allowlist, adds a test, and opened <strong>PR #7</strong>.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Exchange: activity over time ── -->
+      <div class="divider"><span>Activity over time</span></div>
+
+      <div class="msg user">
+        <div class="msg-avatar">R</div>
+        <div class="msg-body">
+          <div class="msg-sender">You</div>
+          <div class="bubble">Keep the tenant looking active until the 14th.</div>
+        </div>
+      </div>
+
+      <div class="msg agent">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-body">
+          <div class="msg-sender">Agent</div>
+          <div class="bubble">
+            <p>I'll run real scans and triage through <strong>14 Jul</strong>, spread across business hours. Next 24 hours:</p>
+            <table class="rtable">
+              <thead><tr><th>When</th><th>What</th><th>As</th></tr></thead>
+              <tbody>
+                <tr><td>Tue 09:12</td><td>Scan — WebGoat</td><td>maya.chen</td></tr>
+                <tr><td>Tue 11:40</td><td>Triage — TotallySecure</td><td>sam.okafor</td></tr>
+                <tr><td>Tue 15:05</td><td>Scan — WebGoat.NET</td><td>you (admin)</td></tr>
+                <tr><td>Wed 10:20</td><td>Triage — WebGoat</td><td>maya.chen</td></tr>
+              </tbody>
+            </table>
+            <p style="margin-top:10px;">It keeps this rhythm through the 14th, quieter at weekends. Running in a container so it survives your laptop sleeping — stop it any time with <code>docker stop cxone-agent</code>.</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /messages -->
+  </div><!-- /chat-shell -->
+</div>
+
+<!-- ════════════ FOOTER ════════════ -->
+<div style="text-align:center; padding: 28px 24px 40px; font-size: 12px; color: #94a3b8;">
+  Checkmarx One Multi-Tool · Powered by Claude · Session log: se_demo · Doc updated 2026-08-01
+</div>
+
+</body>
+</html>
