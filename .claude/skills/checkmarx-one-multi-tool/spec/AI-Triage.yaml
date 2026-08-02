@@ -1,0 +1,685 @@
+openapi: 3.1.0
+x-stoplight:
+  id: 4efb56323bf3b
+info:
+  title: AI Triage REST API
+  description: "<details>\r\n  <summary><b>{Base_URL}/api/ai-triage</b></summary>\r\n\r\n* US: https://ast.checkmarx.net/api/ai-triage<br>\r\n* US2: https://us.ast.checkmarx.net/api/ai-triage<br>\r\n* EU: https://eu.ast.checkmarx.net/api/ai-triage<br>\r\n* EU2: https://eu-2.ast.checkmarx.net/api/ai-triage<br>\r\n* DEU: https://deu.ast.checkmarx.net/api/ai-triage<br>\r\n* Australia & NZ: https://anz.ast.checkmarx.net/api/ai-triage<br>\r\n* India: https://ind.ast.checkmarx.net/api/ai-triage<br>\r\n* Singapore: https://sng.ast.checkmarx.net/api/ai-triage<br>\r\n* UAE: https://mea.ast.checkmarx.net/api/ai-triage<br>\r\n* Israel: https://gov-il.ast.checkmarx.net/api/ai-triage\r\n\r\n</details>\r\n\r\n## Overview\r\n\r\nThe **AI Triage REST API** enables you to submit vulnerabilities for AI-powered triage and retrieve the resulting analysis.\r\n\r\nYou can triage specific vulnerabilities by scanner type and result ID.\r\n\r\nTriage requests are processed asynchronously. After submitting a request, use the corresponding GET endpoint to retrieve the triage result. If processing is still in progress, the API returns the current job status until the result is available.\r\n\r\n### Limitations\r\n- Currently supported for `SCA` and `SAST` vulnerabilities only.\r\n\r\n## Example Workflow\r\n\r\n1. Use [**`GET /api/results`**](https://checkmarx.stoplight.io/docs/checkmarx-one-api-reference-guide/whqbw17zn6rg1-retrieve-scan-results-all-scanners) to retrieve the `alternateId` values for the vulnerabilities you want to triage.\r\n2. Use **`POST /triage`** to submit one or more vulnerabilities for AI-powered triage.\r\n3. Use [**`GET /api/risks`**](https://checkmarx.stoplight.io/docs/checkmarx-one-api-reference-guide/kiqtq6jdroowm-retrieve-risks-legacy) to retrieve the `groupId` for the corresponding vulnerability group within the project.\r\n4. Use **`GET /triage/{project_id}/{group_id}`** to retrieve the AI triage result.\r\n5. If the response indicates that processing is still in progress, repeat the GET request until the completed analysis is returned.\r\n## Authentication \r\nAuthentication for all Checkmarx One endpoints is done using JWT (JSON Web Token) access token. Access tokens are generated using the [Authentication API](Authentication.yaml)."
+  version: 1.0.0
+paths:
+  /triage:
+    post:
+      summary: Initiate AI Triage
+      description: "Submits a request to triage vulnerabilities within a scan.\r\n\r\nTo triage vulnerabilities, provide one or more scanner buckets containing the scanner type and associated result IDs. The required result IDs are obtained from the `alternateId` field returned by the [**`GET /api/results`**](https://checkmarx.stoplight.io/docs/checkmarx-one-api-reference-guide/whqbw17zn6rg1-retrieve-scan-results-all-scanners) endpoint.  \r\n\r\nThe request is processed asynchronously. A successful request returns `202 Accepted`. After submitting the request, use the GET endpoint to retrieve the triage results or check the current job status."
+      operationId: create_triage_triage_post
+      parameters:
+        - $ref: '#/components/parameters/Uploads_AuthHeader'
+        - $ref: '#/components/parameters/Uploads.versionHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageAcceptedResponse'
+        '400':
+          description: AI Triage could not run. The source code is no longer available.
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageErrorResponse'
+        '402':
+          description: Insufficient AI consumption credits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageErrorResponse'
+        '403':
+          description: Feature not enabled or insufficient roles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageErrorResponse'
+        '422':
+          description: Validation error
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageErrorResponse'
+        '503':
+          description: External service unavailable
+      x-stoplight:
+        id: qexyrah8hnbwv
+    servers:
+      - url: 'https://ast.checkmarx.net/api/ai-triage'
+        description: US
+      - url: 'https://us.ast.checkmarx.net/api/ai-triage'
+        description: US2
+      - url: 'https://us.ast.checkmarx.net/api/ai-triage'
+        description: EU
+      - url: 'https://eu-2.ast.checkmarx.net/api/ai-triage'
+        description: EU2
+      - url: 'https://deu.ast.checkmarx.net/api/ai-triage'
+        description: DEU
+      - url: 'https://anz.ast.checkmarx.net/api/ai-triage'
+        description: Australia & NZ
+      - url: 'https://ind.ast.checkmarx.net/api/ai-triage'
+        description: India
+      - url: 'https://sng.ast.checkmarx.net/api/ai-triage'
+        description: Singapore
+      - url: 'https://mea.ast.checkmarx.net/api/ai-triage'
+        description: UAE
+      - url: 'https://gov-il.ast.checkmarx.net/api/ai-triage'
+        description: Israel
+  '/triage/{project_id}/{group_id}':
+    get:
+      summary: Retrieve AI Triage Results
+      description: "Retrieves the AI triage result for a vulnerability group within a project.\r\n\r\nTo retrieve a triage result, you must specify the project's identifier (`project_id`) and the identifier of the vulnerability group (`group_id`).\r\n\r\nIf triage has completed, the endpoint returns the full analysis, including the triage verdict, summary, confidence score, and supporting details. If processing has not yet completed, the endpoint returns the current job status. If the triage operation failed, the endpoint returns a failed job status.\r\n\r\n> The recommended way to obtain the `group_id` is to call [**`GET /api/risks`**](RiskOrchestration.yaml/paths/~1/get) for the specified project and use the `groupId` field of the corresponding risk object.\r\n>\r\n> If necessary, you can construct the `group_id` manually:\r\n>\r\n> - **SCA:** Construct the value using the following format:\r\n>   <br>\r\n>   `<similarityId>#-#<packageIdentifier>#-#<projectId>`\r\n>   <br>\r\n>   Where:\r\n>   - `similarityId` is the vulnerability's `similarityId` returned by `GET /api/results`.\r\n>   - `packageIdentifier` is the package identifier (`data.packageIdentifier`) returned by `GET /api/results`.\r\n>   - `projectId` is the project identifier used in this request.\r\n>\r\n> - **SAST:** Use the `similarityId` returned by `GET /api/sast-results`. If your SAST scanner is configured to group similar results by **Attack Vector ID**, use the `attackVectorID` instead.\r\n> **Important:** If the `group_id` contains reserved URL characters (such as `#`), URL-encode the value before using it as a path parameter. For example, replace each `#` with `%23`."
+      operationId: get_triage_triage__project_id___group_id__get
+      parameters:
+        - name: project_id
+          in: path
+          description: The unique identifier of the project containing the vulnerability group.
+          required: true
+          schema:
+            type: string
+            title: Project Id
+        - name: group_id
+          in: path
+          description: "The identifier of the vulnerability group to retrieve. \r\n > Retrieve this value by calling the [**`GET /api/risks`**](RiskOrchestration.yaml/paths/~1/get) endpoint for the specified `{project_id}`. Use the `groupId` field (**not** the `id` field) of the corresponding `risk` object as the `{group_id}` path parameter."
+          required: true
+          schema:
+            type: string
+            title: Group Id
+        - $ref: '#/components/parameters/Uploads_AuthHeader'
+        - $ref: '#/components/parameters/Uploads.versionHeader'
+      responses:
+        '200':
+          description: 'Returns the completed triage result for the requested vulnerability group, or the current job status if processing has not yet completed.'
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TriageResultDetailSchema'
+                  - $ref: '#/components/schemas/TriageResultInProgressSchema'
+          headers: {}
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageErrorResponse'
+        '403':
+          description: Feature not enabled or insufficient roles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageErrorResponse'
+        '404':
+          description: Triage result not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageErrorResponse'
+      x-stoplight:
+        id: 4i2y6v8nsy6is
+    servers:
+      - url: 'https://ast.checkmarx.net/api/ai-triage'
+        description: US
+      - url: 'https://us.ast.checkmarx.net/api/ai-triage'
+        description: US2
+      - url: 'https://eu.ast.checkmarx.net/api/ai-triage'
+        description: EU
+      - url: 'https://eu-2.ast.checkmarx.net/api/ai-triage'
+        description: EU2
+      - url: 'https://deu.ast.checkmarx.net/api/ai-triage'
+        description: DEU
+      - url: 'https://anz.ast.checkmarx.net/api/ai-triage'
+        description: Australia & NZ
+      - url: 'https://ind.ast.checkmarx.net/api/ai-triage'
+        description: India
+      - url: 'https://sng.ast.checkmarx.net/api/ai-triage'
+        description: Singapore
+      - url: 'https://mea.ast.checkmarx.net/api/ai-triage'
+        description: UAE
+      - url: 'https://gov-il.ast.checkmarx.net/api/ai-triage'
+        description: Israel
+components:
+  schemas:
+    AttackabilityStatus:
+      type: string
+      enum:
+        - UNSPECIFIED
+        - ATTACKABLE
+        - NOT_ATTACKABLE
+      title: AttackabilityStatus
+      description: 'Derived attackability (reachable ∧ exploitable), aligned with SSE wire tokens.'
+      x-stoplight:
+        id: cixcv6lovicsu
+    ConfidenceScoreSchema:
+      properties:
+        score:
+          type: number
+          title: Score
+        explanation:
+          type: string
+          title: Explanation
+          default: ''
+      type: object
+      required:
+        - score
+      title: ConfidenceScoreSchema
+      description: Confidence score and explanation.
+      x-stoplight:
+        id: o79rep44vsm5r
+    ExploitabilityAnalysisSchema:
+      properties:
+        status:
+          $ref: '#/components/schemas/ExploitabilityStatus'
+        reasoning:
+          type: string
+          title: Reasoning
+          default: ''
+      type: object
+      required:
+        - status
+      title: ExploitabilityAnalysisSchema
+      description: Exploitability analysis details.
+      x-stoplight:
+        id: 5y829096b7qs4
+    ExploitabilityStatus:
+      type: string
+      enum:
+        - UNSPECIFIED
+        - EXPLOITABLE
+        - NOT_EXPLOITABLE
+        - UNCERTAIN
+      title: ExploitabilityStatus
+      description: |-
+        Exploitability analysis result.
+
+        Aligned with publisher-triage.proto ExploitabilityStatus enum.
+      x-stoplight:
+        id: 5u3gi4fgm0w46
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+      x-stoplight:
+        id: up7jwgp3fi895
+    ReachabilityAnalysisSchema:
+      properties:
+        status:
+          $ref: '#/components/schemas/ReachabilityStatus'
+        reasoning:
+          type: string
+          title: Reasoning
+          default: ''
+      type: object
+      required:
+        - status
+      title: ReachabilityAnalysisSchema
+      description: Reachability analysis details.
+      x-stoplight:
+        id: nma4u95zu5hx4
+    ReachabilityStatus:
+      type: string
+      enum:
+        - UNSPECIFIED
+        - REACHABLE
+        - NOT_REACHABLE
+        - UNCERTAIN
+      title: ReachabilityStatus
+      description: |-
+        Reachability analysis result.
+
+        Aligned with publisher-triage.proto ReachabilityStatus enum.
+      x-stoplight:
+        id: lt1v7m95it60d
+    ReasoningTraceSchema:
+      properties:
+        verification_steps:
+          items:
+            $ref: '#/components/schemas/VerificationStepSchema'
+          type: array
+          title: Verification Steps
+        repository_info:
+          anyOf:
+            - $ref: '#/components/schemas/RepositoryInfoSchema'
+            - type: 'null'
+      type: object
+      title: ReasoningTraceSchema
+      description: Optional detailed reasoning trace from the triage agent.
+      x-stoplight:
+        id: y0f8mjnqlc1ma
+    RepositoryInfoSchema:
+      properties:
+        path:
+          type: string
+          title: Path
+          default: ''
+        excluded_subdirectories:
+          items:
+            type: string
+          type: array
+          title: Excluded Subdirectories
+        description:
+          type: string
+          title: Description
+          default: ''
+        programming_languages:
+          items:
+            type: string
+          type: array
+          title: Programming Languages
+        frameworks:
+          items:
+            type: string
+          type: array
+          title: Frameworks
+        dependency_management_systems:
+          items:
+            type: string
+          type: array
+          title: Dependency Management Systems
+        dependency_files:
+          items:
+            type: string
+          type: array
+          title: Dependency Files
+        build_process_info:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Build Process Info
+        build_system:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Build System
+        documentation:
+          items:
+            type: string
+          type: array
+          title: Documentation
+        key_directories:
+          items:
+            type: string
+          type: array
+          title: Key Directories
+      type: object
+      title: RepositoryInfoSchema
+      description: Repository technology stack snapshot included in a reasoning trace.
+      x-stoplight:
+        id: uffllgu6wexuk
+    TriageAcceptedResponse:
+      type: object
+      title: TriageAcceptedResponse
+      x-stoplight:
+        id: fip0jw347vgbz
+      properties:
+        scanID:
+          type: string
+          minLength: 1
+          title: Scanid
+        status:
+          type: string
+          const: accepted
+          title: Status
+          description: The status of the request. Always returns `accepted` when the request is successfully accepted for processing.
+        triageID:
+          type: string
+          title: Triageid
+          description: A unique identifier assigned to the triage operation.
+        published:
+          type: boolean
+          title: Published
+          default: true
+          description: Indicates whether a new triage job was created. `true` means a new job was submitted for processing. `false` means an identical request already exists and no duplicate job was created.
+        existingTriageState:
+          title: Existingtriagestate
+          type:
+            - string
+            - 'null'
+          description: 'When `published` is `false`, indicates the current state of the existing triage job. Otherwise, this field is `null`.'
+    TriageAnalysisSchema:
+      properties:
+        confidence:
+          $ref: '#/components/schemas/ConfidenceScoreSchema'
+        reachability:
+          $ref: '#/components/schemas/ReachabilityAnalysisSchema'
+        exploitability:
+          $ref: '#/components/schemas/ExploitabilityAnalysisSchema'
+        usage_locations:
+          items:
+            type: string
+          type: array
+          title: Usage Locations
+      type: object
+      required:
+        - confidence
+        - reachability
+        - exploitability
+      title: TriageAnalysisSchema
+      description: Structured analysis for a single triage result.
+      x-stoplight:
+        id: 94n039554njjg
+    TriageBucket:
+      type: object
+      title: TriageBucket
+      x-stoplight:
+        id: a916p8xqn9n36
+      required:
+        - scannerType
+        - resultIDs
+      properties:
+        scannerType:
+          type: string
+          title: Scannertype
+          description: "The scanner that produced the specified vulnerabilities.\r\n<br>`sast` or `sca` (case-insensitive)."
+        resultIDs:
+          type: array
+          title: Resultids
+          description: "The result IDs to triage for the specified scanner.\r\n> Use the `alternateId` returned by [**`GET /api/results`**](https://checkmarx.stoplight.io/docs/checkmarx-one-api-reference-guide/whqbw17zn6rg1-retrieve-scan-results-all-scanners) as the value for each `resultID`. It is highly recommended to URL-encode the ID."
+          items:
+            type: string
+    TriageErrorResponse:
+      properties:
+        error:
+          type: string
+          minLength: 1
+          title: Error
+        message:
+          type: string
+          minLength: 1
+          title: Message
+      type: object
+      required:
+        - error
+        - message
+      title: TriageErrorResponse
+      description: Standard error body for documented 4xx/5xx responses.
+      x-stoplight:
+        id: cr0n66couharf
+    TriageRequest:
+      type: object
+      title: TriageRequest
+      x-stoplight:
+        id: p2lz6l7ke9xqb
+      required:
+        - scanID
+        - buckets
+      properties:
+        scanID:
+          type: string
+          title: Scanid
+          description: Scan identifier
+        buckets:
+          title: Buckets
+          description: An array of scanner-specific result groups to triage.
+          type: array
+          items:
+            $ref: '#/components/schemas/TriageBucket'
+            x-stoplight:
+              id: uxu5gjab14kw3
+    TriageResultInProgressSchema:
+      type: object
+      title: TriageResultInProgressSchema
+      description: ''
+      required:
+        - projectID
+        - groupID
+        - jobStatus
+      properties:
+        projectID:
+          type: string
+          title: Projectid
+        groupID:
+          type: string
+          title: Groupid
+        jobStatus:
+          type: string
+          enum:
+            - IN_PROGRESS
+            - FAILED
+          title: Jobstatus
+      x-stoplight:
+        id: v70y6jdhuhk0f
+    TriageResultDetailSchema:
+      type: object
+      title: TriageResultDetailSchema
+      description: ''
+      x-stoplight:
+        id: ycp7fo7wydya4
+      required:
+        - resultID
+        - scanner
+        - triageStatus
+        - reachabilityStatus
+        - exploitabilityStatus
+        - triagedAt
+        - analysis
+        - metadata
+      properties:
+        resultID:
+          type: string
+          title: Resultid
+          description: The unique identifier of the vulnerability result.
+        scanner:
+          type: string
+          title: Scanner
+          description: The scanner that identified the vulnerability.
+        triageStatus:
+          $ref: '#/components/schemas/TriageStatus'
+          description: The overall triage verdict for the vulnerability.
+        reachabilityStatus:
+          $ref: '#/components/schemas/ReachabilityStatus'
+          description: Indicates whether the vulnerable code is reachable.
+        exploitabilityStatus:
+          $ref: '#/components/schemas/ExploitabilityStatus'
+          description: Indicates whether the vulnerability is considered exploitable.
+        attackabilityStatus:
+          $ref: '#/components/schemas/AttackabilityStatus'
+          description: Indicates the overall attackability assessment.
+        summary:
+          type: string
+          title: Summary
+          description: A summary of the triage analysis.
+        triagedAt:
+          type: string
+          format: date-time
+          title: Triagedat
+          description: The date and time when the triage analysis was completed.
+        analysis:
+          $ref: '#/components/schemas/TriageAnalysisSchema'
+          description: Detailed findings and supporting analysis.
+        metadata:
+          $ref: '#/components/schemas/VulnerabilityMetadataSchema'
+          description: Metadata associated with the vulnerability.
+        reasoningTrace:
+          anyOf:
+            - $ref: '#/components/schemas/ReasoningTraceSchema'
+            - type: 'null'
+          description: 'The detailed reasoning process used to reach the triage result, when available.'
+        mockOrigin:
+          type: boolean
+          title: Mockorigin
+          default: false
+          description: Indicates whether the result was generated from mock data.
+        groupId:
+          title: Groupid
+          description: The unique identifier of the vulnerability group.
+          type:
+            - string
+            - 'null'
+        projectId:
+          title: Projectid
+          description: The unique identifier of the project containing the vulnerability.
+          type:
+            - string
+            - 'null'
+        sourceProjectId:
+          title: Sourceprojectid
+          description: The unique identifier of the project where the triage request originated.
+          type:
+            - string
+            - 'null'
+    TriageStatus:
+      type: string
+      enum:
+        - NOT_TRIAGED
+        - IN_PROGRESS
+        - FAILED
+        - VULNERABLE
+        - PROPOSED_NOT_EXPLOITABLE
+        - UNCERTAIN
+        - RISK_ACCEPTED
+      title: TriageStatus
+      description: High-level triage verdict and job lifecycle (HTTP ``jobStatus`` / ``triageStatus``).
+      x-stoplight:
+        id: 2k7wrqlrlm1zq
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
+      x-stoplight:
+        id: lykrpocuzxk96
+    VerificationCategory:
+      type: string
+      enum:
+        - REACHABILITY
+        - EXPLOITABILITY
+      title: VerificationCategory
+      description: Category of a verification step.
+      x-stoplight:
+        id: obi8f3y3v98ig
+    VerificationStatus:
+      type: string
+      enum:
+        - VERIFIED
+        - NOT_VERIFIED
+        - INCONCLUSIVE
+      title: VerificationStatus
+      description: Status of a verification step in reasoning trace.
+      x-stoplight:
+        id: 4t30sy55nbs3k
+    VerificationStepSchema:
+      properties:
+        task:
+          type: string
+          title: Task
+        category:
+          $ref: '#/components/schemas/VerificationCategory'
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+        thoughts:
+          items:
+            type: string
+          type: array
+          title: Thoughts
+        conclusion:
+          type: string
+          title: Conclusion
+          default: ''
+        usage_locations:
+          items:
+            type: string
+          type: array
+          title: Usage Locations
+      type: object
+      required:
+        - task
+        - category
+        - status
+      title: VerificationStepSchema
+      description: One verification step from the agent reasoning trace.
+      x-stoplight:
+        id: ivgslhr74zpj8
+    VulnerabilityMetadataSchema:
+      properties:
+        component:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Component
+        version:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Version
+        dependency_type:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Dependency Type
+      type: object
+      title: VulnerabilityMetadataSchema
+      description: Metadata about the vulnerable component.
+      x-stoplight:
+        id: skhq6oae8m5c3
+  parameters:
+    Uploads_AuthHeader:
+      in: header
+      name: Authorization
+      description: JWT access token
+      schema:
+        type: string
+        format: JWT
+      required: true
+    Uploads.versionHeader:
+      in: header
+      name: Accept
+      required: true
+      description: 'Specify the accepted media types. API version should be appended to this header. Currently, only v1.0 is supported.'
+      schema:
+        type: string
+        example: '*/*; version=1.0'
+        pattern: '.*version\s*=\s*([\d|.]+)'

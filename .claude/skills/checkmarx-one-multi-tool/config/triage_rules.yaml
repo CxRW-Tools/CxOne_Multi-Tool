@@ -1,0 +1,267 @@
+# Checkmarx One Multi-Tool — Triage Rules
+#
+# Two ways to decide triage outcomes:
+#
+# 1) REALISM MODEL (default, under `realism:` below). Two stages plus noise:
+#    - coverage: whether a real team would have triaged a finding at all, as a
+#      function of severity, engine (SAST/SCA before IaC), the project's
+#      diligence, and the requested intensity (light/some/moderate/thorough/heavy).
+#      Findings are processed top-down (high severity first).
+#    - outcome: given a finding IS triaged, which state, drawn from a
+#      severity-conditioned distribution (high-sev -> Confirmed/Urgent;
+#      low-sev -> Not Exploitable). A small exception_rate breaks the rules
+#      both ways so results look lived-in, not rule-bound.
+#    Set realism.enabled: false to fall back to the legacy bands below.
+#
+# 2) LEGACY weighted single-roll bands per severity (the `sast:`/`iac:`/`sca_*`
+#    sections). Used only when realism is disabled. Kept for fine control.
+
+triage_rules:
+  # ------------------------------------------------------------------------
+  # SAST grouping mode. CxOne tenants triage SAST either by Similarity ID
+  # (classic) or by Attack Vector (SAST_ADVANCED_GROUPING_ENABLED) — and each
+  # mode's endpoint HARD-REJECTS the other (400/4002). In attack-vector mode
+  # one decision covers every similarity group sharing the attack pattern, so
+  # the realism model rolls once per VECTOR and the heavy budget counts one
+  # unit per vector.
+  sast_grouping:
+    # auto (default): read the mode from GET sast-configuration
+    # (scan.config.sast.advancedTriageMode) before acting; if that read fails,
+    # assume simid and let the first 4002 rejection name the real mode — the
+    # handler then flips and RETRIES the same pass in-process, so one-shot CLI
+    # runs recover immediately. simid / attack-vector force a mode with no
+    # detection. Env override: CXONE_SAST_GROUPING (mode).
+    mode: auto
+    # X-Source header for the sast-configuration read. That endpoint requires an
+    # allowlisted caller identity (403/4003 otherwise); the handler already sends
+    # the value the CxOne UI uses ("sast-results-viewer", verified accepted), so
+    # the authoritative mode read works out of the box. Only set this (or env
+    # CXONE_SAST_CONFIG_XSOURCE) to override if a future platform build changes
+    # the accepted value — capture it from the UI's own request in devtools.
+    config_xsource: ""
+    # LAST-RESORT override: vector ids are normally resolved via
+    # POST sast-results/similar-results (hash -> group id), falling back to
+    # the compare endpoint; this field is only consulted if both fail and a
+    # direct field exists on the results. Either casing accepted.
+    attack_vector_field: attackVectorID
+    # When a vector's similarity groups have mixed states (409):
+    #   filtered (default) - Mode 2 updates for the still-To-Verify groups
+    #                        ("resolve one at a time" — the human behavior)
+    #   skip               - leave the vector alone, count as skipped
+    #   override           - resend with allowInconsistentStates: true
+    mixed_state_policy: filtered
+
+
+  # --------------------------------------------------------------------------
+  # REALISM MODEL (primary). All keys optional; shown values are the defaults.
+  # --------------------------------------------------------------------------
+  realism:
+    enabled: true
+    base_coverage: 0.35          # fraction a typical team triages, before modifiers
+    max_coverage: 0.97
+    severity_coverage:           # top-down attention by severity
+      Critical: 1.7
+      High: 1.25
+      Medium: 0.6
+      Low: 0.25
+      Info: 0.1
+    engine_coverage:             # SAST/SCA take precedence
+      sast: 1.2
+      sca: 1.1
+      iac: 0.6
+      api: 0.5
+      containers: 0.5
+      secrets: 0.4
+    project_diligence_range: [0.4, 1.3]   # some projects look better-triaged than others
+    intensity:                   # maps fuzzy asks to a coverage scale
+      light: 0.5
+      some: 0.8
+      moderate: 1.0
+      thorough: 1.6
+      # "heavy" = working through the backlog: near-certain Critical/High
+      # coverage, roughly half the Mediums. ALWAYS paired with the per-pass
+      # budget below so volume stays humanly plausible.
+      heavy: 2.5
+    # Hard ceiling on APPLIED decisions per (project, pass), spent top-down —
+    # highest severities first, so a capped pass reads as "worked the top of
+    # the backlog, ran out of day". ~1-3 min per real decision makes ~150 a
+    # focused analyst-day. Other levels are uncapped by default; add keys
+    # (or "default: N") to cap them too. Decisions past the cap are DEFERRED:
+    # left To Verify and reported separately in the summary.
+    max_applied_per_pass:
+      heavy: 150
+    exception_rate: 0.05         # chance to break the rules in either direction
+    outcome_by_severity:         # given triaged, the state mix per severity
+      Critical: { Confirmed: 0.45, Urgent: 0.25, "Proposed Not Exploitable": 0.10, "Not Exploitable": 0.20 }
+      High:     { Confirmed: 0.40, Urgent: 0.10, "Proposed Not Exploitable": 0.15, "Not Exploitable": 0.35 }
+      Medium:   { Confirmed: 0.25, "Not Exploitable": 0.55, "Proposed Not Exploitable": 0.20 }
+      Low:      { "Not Exploitable": 0.75, Confirmed: 0.10, "Proposed Not Exploitable": 0.15 }
+      Info:     { "Not Exploitable": 0.85, "Proposed Not Exploitable": 0.15 }
+
+    # Reviewer note attached to each triage decision (one drawn at random per
+    # result). A real analyst explains *why* they set a state; an empty comment
+    # looks untouched/automated.
+    #
+    # Wording is PER ENGINE, because the reasoning is: SAST is about data flow to a
+    # sink, SCA about upgrade paths and reachable methods, IaC about resources and
+    # baselines, secrets about rotation and test fixtures, containers about base
+    # images and distro backports. The full per-engine sets live in
+    # ops/realism.py DEFAULTS ("comments_by_engine") and are used automatically —
+    # override any engine/state slice here to match a customer's voice. Each
+    # override replaces only that engine's entry, so the others keep their defaults.
+    #
+    # Engine keys: sast, sca, iac, secrets, containers.
+    #
+    # comments_by_engine:
+    #   containers:
+    #     Confirmed:
+    #       - "Present in the runtime layer with a fix available — base image rebuild scheduled."
+    #     "Not Exploitable":
+    #       - "Build-stage only; not in the final image."
+
+    # Engine-NEUTRAL fallback, used only for a state an engine has no pool for
+    # (e.g. a newly wired engine). Keep it free of engine-specific vocabulary —
+    # no "sink", no "base image", no "dependency" — since it can be attached to a
+    # finding from any engine.
+    comments_by_state:
+      Confirmed:
+        - "Reviewed and confirmed as a real issue in this context. Tracking for remediation."
+        - "Verified with the owning team; accepted as a true positive and queued for a fix."
+        - "Confirmed during review. Added to the remediation backlog."
+      Urgent:
+        - "High impact and exposed in production — escalating for an immediate fix."
+        - "Critical exposure; prioritized for this sprint and flagged to the security lead."
+      "Not Exploitable":
+        - "Reviewed: not exploitable as configured in this environment."
+        - "Existing controls mitigate this. Closing as not exploitable."
+        - "False positive on review — closing."
+      "Proposed Not Exploitable":
+        - "Believed mitigated — proposing Not Exploitable pending reviewer sign-off."
+        - "Compensating control in place; proposing NE for a second reviewer to confirm."
+
+  # --------------------------------------------------------------------------
+  # LEGACY weighted bands (used only when realism.enabled is false).
+  # --------------------------------------------------------------------------
+  # SAST (Static Application Security Testing)
+  # POST /api/sast-results-predicates/
+  # --------------------------------------------------------------------------
+  sast:
+    - severity: Critical
+      outcomes:
+        - state: Urgent
+          percentage: 40
+        - state: Confirmed
+          percentage: 20
+        - state: Proposed Not Exploitable
+          percentage: 3
+        - state: Not Exploitable
+          percentage: 2
+        # 65% total → 35% no change
+
+    - severity: High
+      outcomes:
+        - state: Urgent
+          percentage: 5
+        - state: Confirmed
+          percentage: 25
+        - state: Proposed Not Exploitable
+          percentage: 10
+        - state: Not Exploitable
+          percentage: 5
+        # 45% total → 55% no change
+
+    - severity: [Medium, Low, Info]
+      outcomes:
+        - state: Urgent
+          percentage: 0
+        - state: Confirmed
+          percentage: 15
+        - state: Proposed Not Exploitable
+          percentage: 15
+        - state: Not Exploitable
+          percentage: 10
+        # 40% total → 60% no change
+
+  # --------------------------------------------------------------------------
+  # IaC Security (Infrastructure as Code / KICS)
+  # POST /api/kics-results-predicates/
+  # --------------------------------------------------------------------------
+  iac:
+    - severity: Critical
+      outcomes:
+        - state: Urgent
+          percentage: 30
+        - state: Confirmed
+          percentage: 30
+        - state: Proposed Not Exploitable
+          percentage: 3
+        - state: Not Exploitable
+          percentage: 2
+        # 65% total → 35% no change
+
+    - severity: High
+      outcomes:
+        - state: Urgent
+          percentage: 5
+        - state: Confirmed
+          percentage: 25
+        - state: Proposed Not Exploitable
+          percentage: 10
+        - state: Not Exploitable
+          percentage: 5
+        # 45% total → 55% no change
+
+    - severity: [Medium, Low, Info]
+      outcomes:
+        - state: Urgent
+          percentage: 0
+        - state: Confirmed
+          percentage: 25
+        - state: Proposed Not Exploitable
+          percentage: 10
+        - state: Not Exploitable
+          percentage: 5
+        # 40% total → 60% no change
+
+  # --------------------------------------------------------------------------
+  # SCA — Management of Risks (vulnerability-level triage)
+  # POST /api/sca/management-of-risk/package-vulnerabilities
+  # States use PascalCase as required by the SCA API.
+  # --------------------------------------------------------------------------
+  sca_risks:
+    - severity: Critical
+      outcomes:
+        - state: Urgent
+          percentage: 15
+        - state: Confirmed
+          percentage: 5
+      # 20% total → 80% no change
+
+    - severity: High
+      outcomes:
+        - state: Confirmed
+          percentage: 10
+        - state: Not Exploitable
+          percentage: 5
+      # 15% total → 85% no change
+
+    - severity: [Medium, Low, Info]
+      outcomes:
+        - state: Not Exploitable
+          percentage: 10
+      # 10% total → 90% no change
+
+  # --------------------------------------------------------------------------
+  # SCA — Management of Packages (package-level triage)
+  # POST /api/sca/management-of-risk/packages
+  # One roll per package; outcomes are cumulative. state: Muted | Snooze | Monitored.
+  # Snooze requires snooze_days (or snoozeDays).
+  # --------------------------------------------------------------------------
+  sca_packages:
+    outcomes:
+      - state: Muted
+        percentage: 1
+      - state: Snooze
+        percentage: 2
+        snooze_days: 30
+    # 3% total → 97% no change

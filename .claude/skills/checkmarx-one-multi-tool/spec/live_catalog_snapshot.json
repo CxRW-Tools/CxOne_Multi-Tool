@@ -1,0 +1,5818 @@
+{
+  "generated_at": "2026-07-21",
+  "source": "https://deu.ast.checkmarx.net/spec/v1 (region-specific; tenant-served live Swagger catalog)",
+  "method": "GET {base}/spec/v1/swagger-starter.js -> parse urls[] -> GET each {name,url} YAML -> yaml.safe_load -> paths",
+  "note": "Paths here are BARE (service-relative, no gateway prefix) as served by each microservice OpenAPI file -- there is no servers: block to mechanically derive the public /api/... path. Cross-reference against spec/cxone_openapi.json (which HAS full /api/ prefixes, sourced from Stoplight + live corrections) or empirically confirm the prefix before calling. This snapshot is best used to (a) discover that a capability/field exists at all before assuming it does not, and (b) spot-check enum/schema drift for an endpoint you already know the prefix for -- as done for the Analytics API in spec/cxone_openapi.json.",
+  "service_count": 92,
+  "total_path_entries": 463,
+  "services": [
+    {
+      "name": "Analytics Api",
+      "url": "/spec/v1/frankfurt-metrics-data-analytics-api-ANALYTICS_API.yaml",
+      "service_title": "Analytics",
+      "service_version": "v1.0.0",
+      "paths": {
+        "/analyticsAPI/v1": {
+          "POST": {
+            "operationId": "query",
+            "summary": "Query kpi",
+            "tags": [
+              "analytics-api-controller"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Applications",
+      "url": "/spec/v1/frankfurt-scans-applications-projects-APPLICATIONS.yaml",
+      "service_title": "Applications Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create an application",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of applications",
+            "tags": [
+              "Applications"
+            ]
+          }
+        },
+        "/tags": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all tags",
+            "tags": [
+              "Applications"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get an application",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update an application",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Update an application fields",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete an application",
+            "tags": [
+              "Applications"
+            ]
+          }
+        },
+        "/{id}/project-rules": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of rules for a specific applications",
+            "tags": [
+              "Application Rules"
+            ]
+          }
+        },
+        "/{id}/project-rules/{rule-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Ai Assets",
+      "url": "/spec/v1/frankfurt-ai-supply-chain-assets-manager-AI_ASSETS.yaml",
+      "service_title": "AI Supply Results Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/findings": {
+          "GET": {
+            "operationId": "GetFindings",
+            "summary": "Get a list of all findings for a specific tenant",
+            "tags": [
+              "Findings"
+            ]
+          }
+        },
+        "/findings/aggregate": {
+          "GET": {
+            "operationId": "AggregateFindingGroups",
+            "summary": "Aggregate findings groups by specified fields",
+            "tags": [
+              "Findings"
+            ]
+          }
+        },
+        "/finding/{id}": {
+          "GET": {
+            "operationId": "GetFindingByID",
+            "summary": "Get a specific finding by id",
+            "tags": [
+              "Findings"
+            ]
+          }
+        },
+        "/asset-types": {
+          "GET": {
+            "operationId": "GetAssetTypes",
+            "summary": "Get a list of all asset types",
+            "tags": [
+              "Asset Types"
+            ]
+          }
+        },
+        "/assets": {
+          "GET": {
+            "operationId": "GetAssets",
+            "summary": "Get a list of all assets for a specific tenant",
+            "tags": [
+              "Assets"
+            ]
+          }
+        },
+        "/applications": {
+          "GET": {
+            "operationId": "GetApplications",
+            "summary": "Get a list of all applications for a specific tenant",
+            "tags": [
+              "Applications"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Applications Overview",
+      "url": "/spec/v1/frankfurt-core-results-overview-APPLICATIONS_OVERVIEW.yaml",
+      "service_title": "Applications Overview API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get an overview of all applications",
+            "tags": null
+          }
+        },
+        "/applications-overview-count": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get the count of application overviews",
+            "tags": null
+          }
+        },
+        "/aggregate": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get application overview counters",
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Applications Overview",
+      "url": "/spec/v1/frankfurt-results-overview-res-ovw-APPLICATIONS_OVERVIEW.yaml",
+      "service_title": "Applications Overview API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get an overview of all applications",
+            "tags": null
+          }
+        },
+        "/applications-overview-count": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get the count of application overviews",
+            "tags": null
+          }
+        },
+        "/aggregate": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get application overview counters",
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Access Management",
+      "url": "/spec/v1/frankfurt-access-management-access-mgmt-ACCESS_MANAGEMENT.yaml",
+      "service_title": "Access Management Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": "createAssignment",
+            "summary": "Create an assignment",
+            "tags": [
+              "Access Management"
+            ]
+          },
+          "DELETE": {
+            "operationId": "deleteAssignment",
+            "summary": "Delete an assignment",
+            "tags": [
+              "Access Management"
+            ]
+          },
+          "GET": {
+            "operationId": "getAssignment",
+            "summary": "Retrieve an assignment",
+            "tags": [
+              "Access Management"
+            ]
+          },
+          "PUT": {
+            "operationId": "UpdateEntityRoles",
+            "summary": "Update assignment roles - Phase 2 only",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/resource-assignments": {
+          "GET": {
+            "operationId": "GetAssignmentsForResources",
+            "summary": "Retrieve resource assignments",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/assignments": {
+          "POST": {
+            "operationId": "createMultipleAssignments",
+            "summary": "Create multiple assignments",
+            "tags": [
+              "Phase 2 - Bulk Operations"
+            ]
+          }
+        },
+        "/assignments/roles": {
+          "POST": {
+            "operationId": "AddEntityRoles",
+            "summary": "Add roles to assignment",
+            "tags": [
+              "Phase 2 - Bulk Operations"
+            ]
+          }
+        },
+        "/available-groups": {
+          "GET": {
+            "operationId": "GetEntityAvailableGroups",
+            "summary": "Retrieve user's or client available groups",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/groups": {
+          "GET": {
+            "operationId": "getGroups",
+            "summary": "Retrieve groups",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/users": {
+          "GET": {
+            "operationId": "getUsers",
+            "summary": "Retrieve users",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/clients": {
+          "GET": {
+            "operationId": "getClients",
+            "summary": "Retrieve clients",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/entities-for": {
+          "GET": {
+            "operationId": "getEntitiesFor",
+            "summary": "Retrieve entities",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/entities-for/extended": {
+          "GET": {
+            "operationId": "getEntitiesForExtended",
+            "summary": "Retrieve extended entities for resource",
+            "tags": [
+              "Phase 2 - Advanced Entity Management"
+            ]
+          }
+        },
+        "/resources-for": {
+          "GET": {
+            "operationId": "getResourcesFor",
+            "summary": "Retrieve resources",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/has-access": {
+          "GET": {
+            "operationId": "hasAccess",
+            "summary": "Check access",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/has-access-to-groups": {
+          "GET": {
+            "operationId": "hasAccessToGroups",
+            "summary": "Check access to requested groups",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/has-batch-access": {
+          "GET": {
+            "operationId": "hasBatchAccess",
+            "summary": "Check access to resource for batch of actions",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/get-resources": {
+          "GET": {
+            "operationId": "getResources",
+            "summary": "Retrieve accessible resources",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/my-groups": {
+          "GET": {
+            "operationId": "getEntityGroups",
+            "summary": "Retrieve user's or client groups",
+            "tags": [
+              "Phase 2 - Advanced User Management"
+            ]
+          }
+        },
+        "/internal/users": {
+          "GET": {
+            "operationId": "getInternalUsers",
+            "summary": "Retrieve users from internal AM storage",
+            "tags": [
+              "Phase 2 - Internal Entities Management"
+            ]
+          }
+        },
+        "/internal/groups": {
+          "GET": {
+            "operationId": "getInternalGroups",
+            "summary": "Retrieve groups from internal AM storage",
+            "tags": [
+              "Phase 2 - Internal Entities Management"
+            ]
+          }
+        },
+        "/internal/clients": {
+          "GET": {
+            "operationId": "getInternalClients",
+            "summary": "Retrieve clients from internal AM storage",
+            "tags": [
+              "Phase 2 - Internal Entities Management"
+            ]
+          }
+        },
+        "/base-roles/{entityID}": {
+          "GET": {
+            "operationId": "GetBaseRolesForEntity",
+            "summary": "Retrieve entity's base roles",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          },
+          "PUT": {
+            "operationId": "UpdateBaseRoles",
+            "summary": "Update base roles for an entity",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          },
+          "POST": {
+            "operationId": "AssignBaseRoles",
+            "summary": "Assign base roles to an entity",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          },
+          "DELETE": {
+            "operationId": "DeleteBaseRoles",
+            "summary": "Delete base roles for an entity",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          }
+        },
+        "/base-roles/{entityID}/by-name": {
+          "POST": {
+            "operationId": "AssignBaseRolesByName",
+            "summary": "Assign base roles by role name",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          }
+        },
+        "/base-roles/{entityID}/by-name/unassign": {
+          "POST": {
+            "operationId": "UnassignBaseRolesByName",
+            "summary": "Unassign base roles by role name",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          }
+        },
+        "/roles": {
+          "GET": {
+            "operationId": "getRoles",
+            "summary": "Retrieve roles",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          },
+          "POST": {
+            "operationId": "createRole",
+            "summary": "Create a role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          }
+        },
+        "/roles/{roleId}": {
+          "GET": {
+            "operationId": "getRole",
+            "summary": "Retrieve role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          },
+          "PUT": {
+            "operationId": "updateRole",
+            "summary": "Update a role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          },
+          "DELETE": {
+            "operationId": "deleteRole",
+            "summary": "Delete a role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          }
+        },
+        "/permissions": {
+          "GET": {
+            "operationId": "getPermissions",
+            "summary": "Retrieve permissions",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          }
+        },
+        "/users-resources": {
+          "GET": {
+            "operationId": "getUsersWithResources",
+            "summary": "Retrieve users with resources",
+            "tags": [
+              "Phase 2 - Entity Resources"
+            ]
+          }
+        },
+        "/clients-resources": {
+          "GET": {
+            "operationId": "getClientsWithResources",
+            "summary": "Retrieve clients with resources",
+            "tags": [
+              "Phase 2 - Entity Resources"
+            ]
+          }
+        },
+        "/groups-resources": {
+          "GET": {
+            "operationId": "getGroupsWithResources",
+            "summary": "Retrieve groups with resources",
+            "tags": [
+              "Phase 2 - Entity Resources"
+            ]
+          }
+        },
+        "/effective-permissions/{entityId}": {
+          "GET": {
+            "operationId": "getEffectivePermissionsToResource",
+            "summary": "Get a list of permissions of entity for resource",
+            "tags": [
+              "Phase 2 - Advanced User Management"
+            ]
+          }
+        },
+        "/applications": {
+          "GET": {
+            "operationId": "getApplications",
+            "summary": "Get a list of applications by action for user/client",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/projects": {
+          "GET": {
+            "operationId": "getProjects",
+            "summary": "Get a list of projects by action for user/client",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Applications",
+      "url": "/spec/v1/frankfurt-core-scans-APPLICATIONS.yaml",
+      "service_title": "Applications Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create an application",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of applications",
+            "tags": [
+              "Applications"
+            ]
+          }
+        },
+        "/tags": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all tags",
+            "tags": [
+              "Applications"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get an application",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update an application",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete an application",
+            "tags": [
+              "Applications"
+            ]
+          }
+        },
+        "/{id}/project-rules": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of rules for a specific applications",
+            "tags": [
+              "Application Rules"
+            ]
+          }
+        },
+        "/{id}/project-rules/{rule-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Audit Event Processor",
+      "url": "/spec/v1/frankfurt-audit-event-processor-AUDIT_EVENT_PROCESSOR.yaml",
+      "service_title": "Audit Event Processor",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of audit events",
+            "tags": [
+              "Audit Event Processor"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Applications",
+      "url": "/spec/v1/frankfurt-scans-scans-APPLICATIONS.yaml",
+      "service_title": "Applications Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create an application",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of applications",
+            "tags": [
+              "Applications"
+            ]
+          }
+        },
+        "/tags": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all tags",
+            "tags": [
+              "Applications"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get an application",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update an application",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Update an application fields",
+            "tags": [
+              "Applications"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete an application",
+            "tags": [
+              "Applications"
+            ]
+          }
+        },
+        "/{id}/project-rules": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of rules for a specific applications",
+            "tags": [
+              "Application Rules"
+            ]
+          }
+        },
+        "/{id}/project-rules/{rule-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete an application rule",
+            "tags": [
+              "Application Rules"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Ai Supply Chain Global Inventory",
+      "url": "/spec/v1/frankfurt-ai-supply-chain-global-inventory-AI_SUPPLY_CHAIN_GLOBAL_INVENTORY.yaml",
+      "service_title": "AI Supply Results Service - Global Inventory",
+      "service_version": "1.0.0",
+      "paths": {
+        "/results": {
+          "GET": {
+            "operationId": "GetResults",
+            "summary": "Get a list of all results for a specific tenant",
+            "tags": [
+              "Results"
+            ]
+          }
+        },
+        "/results/aggregate": {
+          "GET": {
+            "operationId": "AggregateResultsGroups",
+            "summary": "Aggregate results groups by specified fields",
+            "tags": [
+              "Results"
+            ]
+          }
+        },
+        "/result/{id}": {
+          "GET": {
+            "operationId": "GetResultByID",
+            "summary": "Get a specific result by id",
+            "tags": [
+              "Results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Ai Supply Chain Scan Results",
+      "url": "/spec/v1/frankfurt-ai-supply-chain-results-reader-AI_SUPPLY_CHAIN_SCAN_RESULTS.yaml",
+      "service_title": "AI Supply Results Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/scans/{scanId}/results": {
+          "GET": {
+            "operationId": "GetScanResult",
+            "summary": "Get AI Supply result for a specific scan",
+            "tags": [
+              "Scan Results"
+            ]
+          }
+        },
+        "/scans/{scanId}/results/aggregate": {
+          "GET": {
+            "operationId": "GetAggregateScanResultsGroups",
+            "summary": "Aggregate scan results groups by specified fields",
+            "tags": [
+              "Scan Results"
+            ]
+          }
+        },
+        "/scans/{scanId}/assets/{assetId}/risks": {
+          "GET": {
+            "operationId": "GetAssetRisks",
+            "summary": "Get LLM-assessed risks for a specific asset in a scan",
+            "tags": [
+              "Scan Results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Access Management",
+      "url": "/spec/v1/frankfurt-core-access-management-ACCESS_MANAGEMENT.yaml",
+      "service_title": "Access Management Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": "createAssignment",
+            "summary": "Create an assignment",
+            "tags": [
+              "Access Management"
+            ]
+          },
+          "DELETE": {
+            "operationId": "deleteAssignment",
+            "summary": "Delete an assignment",
+            "tags": [
+              "Access Management"
+            ]
+          },
+          "GET": {
+            "operationId": "getAssignment",
+            "summary": "Retrieve an assignment",
+            "tags": [
+              "Access Management"
+            ]
+          },
+          "PUT": {
+            "operationId": "UpdateEntityRoles",
+            "summary": "Update assignment roles - Phase 2 only",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/resource-assignments": {
+          "GET": {
+            "operationId": "GetAssignmentsForResources",
+            "summary": "Retrieve resource assignments",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/assignments": {
+          "POST": {
+            "operationId": "createMultipleAssignments",
+            "summary": "Create multiple assignments",
+            "tags": [
+              "Phase 2 - Bulk Operations"
+            ]
+          }
+        },
+        "/assignments/roles": {
+          "POST": {
+            "operationId": "AddEntityRoles",
+            "summary": "Add roles to assignment",
+            "tags": [
+              "Phase 2 - Bulk Operations"
+            ]
+          }
+        },
+        "/available-groups": {
+          "GET": {
+            "operationId": "GetEntityAvailableGroups",
+            "summary": "Retrieve user's or client available groups",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/groups": {
+          "GET": {
+            "operationId": "getGroups",
+            "summary": "Retrieve groups",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/users": {
+          "GET": {
+            "operationId": "getUsers",
+            "summary": "Retrieve users",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/clients": {
+          "GET": {
+            "operationId": "getClients",
+            "summary": "Retrieve clients",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/entities-for": {
+          "GET": {
+            "operationId": "getEntitiesFor",
+            "summary": "Retrieve entities",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/entities-for/extended": {
+          "GET": {
+            "operationId": "getEntitiesForExtended",
+            "summary": "Retrieve extended entities for resource",
+            "tags": [
+              "Phase 2 - Advanced Entity Management"
+            ]
+          }
+        },
+        "/resources-for": {
+          "GET": {
+            "operationId": "getResourcesFor",
+            "summary": "Retrieve resources",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/has-access": {
+          "GET": {
+            "operationId": "hasAccess",
+            "summary": "Check access",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/has-access-to-groups": {
+          "GET": {
+            "operationId": "hasAccessToGroups",
+            "summary": "Check access to requested groups",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/get-resources": {
+          "GET": {
+            "operationId": "getResources",
+            "summary": "Retrieve accessible resources",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/my-groups": {
+          "GET": {
+            "operationId": "getEntityGroups",
+            "summary": "Retrieve user's or client groups",
+            "tags": [
+              "Phase 2 - Advanced User Management"
+            ]
+          }
+        },
+        "/internal/users": {
+          "GET": {
+            "operationId": "getInternalUsers",
+            "summary": "Retrieve users from internal AM storage",
+            "tags": [
+              "Phase 2 - Internal Entities Management"
+            ]
+          }
+        },
+        "/internal/groups": {
+          "GET": {
+            "operationId": "getInternalGroups",
+            "summary": "Retrieve groups from internal AM storage",
+            "tags": [
+              "Phase 2 - Internal Entities Management"
+            ]
+          }
+        },
+        "/internal/clients": {
+          "GET": {
+            "operationId": "getInternalClients",
+            "summary": "Retrieve clients from internal AM storage",
+            "tags": [
+              "Phase 2 - Internal Entities Management"
+            ]
+          }
+        },
+        "/base-roles/{entityID}": {
+          "GET": {
+            "operationId": "GetBaseRolesForEntity",
+            "summary": "Retrieve entity's base roles",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          },
+          "PUT": {
+            "operationId": "UpdateBaseRoles",
+            "summary": "Update base roles for an entity",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          },
+          "POST": {
+            "operationId": "AssignBaseRoles",
+            "summary": "Assign base roles to an entity",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          },
+          "DELETE": {
+            "operationId": "DeleteBaseRoles",
+            "summary": "Delete base roles for an entity",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          }
+        },
+        "/base-roles/{entityID}/by-name": {
+          "POST": {
+            "operationId": "AssignBaseRolesByName",
+            "summary": "Assign base roles by role name",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          }
+        },
+        "/base-roles/{entityID}/by-name/unassign": {
+          "POST": {
+            "operationId": "UnassignBaseRolesByName",
+            "summary": "Unassign base roles by role name",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          }
+        },
+        "/roles": {
+          "GET": {
+            "operationId": "getRoles",
+            "summary": "Retrieve roles",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          },
+          "POST": {
+            "operationId": "createRole",
+            "summary": "Create a role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          }
+        },
+        "/roles/{roleId}": {
+          "GET": {
+            "operationId": "getRole",
+            "summary": "Retrieve role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          },
+          "PUT": {
+            "operationId": "updateRole",
+            "summary": "Update a role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          },
+          "DELETE": {
+            "operationId": "deleteRole",
+            "summary": "Delete a role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          }
+        },
+        "/permissions": {
+          "GET": {
+            "operationId": "getPermissions",
+            "summary": "Retrieve permissions",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          }
+        },
+        "/users-resources": {
+          "GET": {
+            "operationId": "getUsersWithResources",
+            "summary": "Retrieve users with resources",
+            "tags": [
+              "Phase 2 - Entity Resources"
+            ]
+          }
+        },
+        "/clients-resources": {
+          "GET": {
+            "operationId": "getClientsWithResources",
+            "summary": "Retrieve clients with resources",
+            "tags": [
+              "Phase 2 - Entity Resources"
+            ]
+          }
+        },
+        "/groups-resources": {
+          "GET": {
+            "operationId": "getGroupsWithResources",
+            "summary": "Retrieve groups with resources",
+            "tags": [
+              "Phase 2 - Entity Resources"
+            ]
+          }
+        },
+        "/effective-permissions/{entityId}": {
+          "GET": {
+            "operationId": "getEffectivePermissionsToResource",
+            "summary": "Get a list of permissions of entity for resource",
+            "tags": [
+              "Phase 2 - Advanced User Management"
+            ]
+          }
+        },
+        "/applications": {
+          "GET": {
+            "operationId": "getApplications",
+            "summary": "Get a list of applications by action for user/client",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/projects": {
+          "GET": {
+            "operationId": "getProjects",
+            "summary": "Get a list of projects by action for user/client",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Audit Trail",
+      "url": "/spec/v1/frankfurt-audit-trail-api-AUDIT_TRAIL.yaml",
+      "service_title": "AST Audit Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Retrieve audit events for a tenant",
+            "tags": [
+              "Audit Events"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Access Management",
+      "url": "/spec/v1/frankfurt-access-mgmt-ACCESS_MANAGEMENT.yaml",
+      "service_title": "Access Management Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": "createAssignment",
+            "summary": "Create an assignment",
+            "tags": [
+              "Access Management"
+            ]
+          },
+          "DELETE": {
+            "operationId": "deleteAssignment",
+            "summary": "Delete an assignment",
+            "tags": [
+              "Access Management"
+            ]
+          },
+          "GET": {
+            "operationId": "getAssignment",
+            "summary": "Retrieve an assignment",
+            "tags": [
+              "Access Management"
+            ]
+          },
+          "PUT": {
+            "operationId": "UpdateEntityRoles",
+            "summary": "Update assignment roles - Phase 2 only",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/resource-assignments": {
+          "GET": {
+            "operationId": "GetAssignmentsForResources",
+            "summary": "Retrieve resource assignments",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/assignments": {
+          "POST": {
+            "operationId": "createMultipleAssignments",
+            "summary": "Create multiple assignments",
+            "tags": [
+              "Phase 2 - Bulk Operations"
+            ]
+          }
+        },
+        "/assignments/roles": {
+          "POST": {
+            "operationId": "AddEntityRoles",
+            "summary": "Add roles to assignment",
+            "tags": [
+              "Phase 2 - Bulk Operations"
+            ]
+          }
+        },
+        "/available-groups": {
+          "GET": {
+            "operationId": "GetEntityAvailableGroups",
+            "summary": "Retrieve user's or client available groups",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/groups": {
+          "GET": {
+            "operationId": "getGroups",
+            "summary": "Retrieve groups",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/users": {
+          "GET": {
+            "operationId": "getUsers",
+            "summary": "Retrieve users",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/clients": {
+          "GET": {
+            "operationId": "getClients",
+            "summary": "Retrieve clients",
+            "tags": [
+              "Entity Management"
+            ]
+          }
+        },
+        "/entities-for": {
+          "GET": {
+            "operationId": "getEntitiesFor",
+            "summary": "Retrieve entities",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/entities-for/extended": {
+          "GET": {
+            "operationId": "getEntitiesForExtended",
+            "summary": "Retrieve extended entities for resource",
+            "tags": [
+              "Phase 2 - Advanced Entity Management"
+            ]
+          }
+        },
+        "/resources-for": {
+          "GET": {
+            "operationId": "getResourcesFor",
+            "summary": "Retrieve resources",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/has-access": {
+          "GET": {
+            "operationId": "hasAccess",
+            "summary": "Check access",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/has-access-to-groups": {
+          "GET": {
+            "operationId": "hasAccessToGroups",
+            "summary": "Check access to requested groups",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/has-batch-access": {
+          "GET": {
+            "operationId": "hasBatchAccess",
+            "summary": "Check access to resource for batch of actions",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/get-resources": {
+          "GET": {
+            "operationId": "getResources",
+            "summary": "Retrieve accessible resources",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/my-groups": {
+          "GET": {
+            "operationId": "getEntityGroups",
+            "summary": "Retrieve user's or client groups",
+            "tags": [
+              "Phase 2 - Advanced User Management"
+            ]
+          }
+        },
+        "/internal/users": {
+          "GET": {
+            "operationId": "getInternalUsers",
+            "summary": "Retrieve users from internal AM storage",
+            "tags": [
+              "Phase 2 - Internal Entities Management"
+            ]
+          }
+        },
+        "/internal/groups": {
+          "GET": {
+            "operationId": "getInternalGroups",
+            "summary": "Retrieve groups from internal AM storage",
+            "tags": [
+              "Phase 2 - Internal Entities Management"
+            ]
+          }
+        },
+        "/internal/clients": {
+          "GET": {
+            "operationId": "getInternalClients",
+            "summary": "Retrieve clients from internal AM storage",
+            "tags": [
+              "Phase 2 - Internal Entities Management"
+            ]
+          }
+        },
+        "/base-roles/{entityID}": {
+          "GET": {
+            "operationId": "GetBaseRolesForEntity",
+            "summary": "Retrieve entity's base roles",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          },
+          "PUT": {
+            "operationId": "UpdateBaseRoles",
+            "summary": "Update base roles for an entity",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          },
+          "POST": {
+            "operationId": "AssignBaseRoles",
+            "summary": "Assign base roles to an entity",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          },
+          "DELETE": {
+            "operationId": "DeleteBaseRoles",
+            "summary": "Delete base roles for an entity",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          }
+        },
+        "/base-roles/{entityID}/by-name": {
+          "POST": {
+            "operationId": "AssignBaseRolesByName",
+            "summary": "Assign base roles by role name",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          }
+        },
+        "/base-roles/{entityID}/by-name/unassign": {
+          "POST": {
+            "operationId": "UnassignBaseRolesByName",
+            "summary": "Unassign base roles by role name",
+            "tags": [
+              "Phase 2 - Base Role Management"
+            ]
+          }
+        },
+        "/roles": {
+          "GET": {
+            "operationId": "getRoles",
+            "summary": "Retrieve roles",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          },
+          "POST": {
+            "operationId": "createRole",
+            "summary": "Create a role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          }
+        },
+        "/roles/{roleId}": {
+          "GET": {
+            "operationId": "getRole",
+            "summary": "Retrieve role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          },
+          "PUT": {
+            "operationId": "updateRole",
+            "summary": "Update a role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          },
+          "DELETE": {
+            "operationId": "deleteRole",
+            "summary": "Delete a role",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          }
+        },
+        "/permissions": {
+          "GET": {
+            "operationId": "getPermissions",
+            "summary": "Retrieve permissions",
+            "tags": [
+              "Phase 2 - Role Management"
+            ]
+          }
+        },
+        "/users-resources": {
+          "GET": {
+            "operationId": "getUsersWithResources",
+            "summary": "Retrieve users with resources",
+            "tags": [
+              "Phase 2 - Entity Resources"
+            ]
+          }
+        },
+        "/clients-resources": {
+          "GET": {
+            "operationId": "getClientsWithResources",
+            "summary": "Retrieve clients with resources",
+            "tags": [
+              "Phase 2 - Entity Resources"
+            ]
+          }
+        },
+        "/groups-resources": {
+          "GET": {
+            "operationId": "getGroupsWithResources",
+            "summary": "Retrieve groups with resources",
+            "tags": [
+              "Phase 2 - Entity Resources"
+            ]
+          }
+        },
+        "/effective-permissions/{entityId}": {
+          "GET": {
+            "operationId": "getEffectivePermissionsToResource",
+            "summary": "Get a list of permissions of entity for resource",
+            "tags": [
+              "Phase 2 - Advanced User Management"
+            ]
+          }
+        },
+        "/applications": {
+          "GET": {
+            "operationId": "getApplications",
+            "summary": "Get a list of applications by action for user/client",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        },
+        "/projects": {
+          "GET": {
+            "operationId": "getProjects",
+            "summary": "Get a list of projects by action for user/client",
+            "tags": [
+              "Access Management"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Best Fix Location",
+      "url": "/spec/v1/frankfurt-sast-results-writer-BEST_FIX_LOCATION.yaml",
+      "service_title": "SAST BFL",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "getBFLbyScanID",
+            "summary": "get BFL graph by scan",
+            "tags": [
+              "BFL"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Byor Results Handler V2",
+      "url": "/spec/v1/frankfurt-byor-results-handler-BYOR_RESULTS_HANDLER_V2.yaml",
+      "service_title": "BYOR Results Handler",
+      "service_version": "2.0.0",
+      "paths": {
+        "/imports": {
+          "POST": {
+            "operationId": null,
+            "summary": null,
+            "tags": [
+              "Imports"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get list of imports",
+            "tags": [
+              "Imports"
+            ]
+          }
+        },
+        "/imports/{import_id}": {
+          "DELETE": {
+            "operationId": null,
+            "summary": null,
+            "tags": [
+              "Imports"
+            ]
+          }
+        },
+        "/imports/{import_id}/results": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get results for a specific import",
+            "tags": [
+              "Results"
+            ]
+          }
+        },
+        "/imports/summaries": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get summaries for imports",
+            "tags": [
+              "Summaries"
+            ]
+          }
+        },
+        "/imports/latest": {
+          "GET": {
+            "operationId": null,
+            "summary": "Last import by project IDs",
+            "tags": [
+              "Imports"
+            ]
+          }
+        },
+        "/results/changelog": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get triage changelog",
+            "tags": [
+              "Triages"
+            ]
+          }
+        },
+        "/imports/{import_id}/results/triages": {
+          "PUT": {
+            "operationId": null,
+            "summary": "Bulk triage results",
+            "tags": [
+              "Triages"
+            ]
+          }
+        },
+        "/aggregate": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get aggregated results",
+            "tags": [
+              "Results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Byor Results Handler",
+      "url": "/spec/v1/frankfurt-byor-results-handler-BYOR_RESULTS_HANDLER.yaml",
+      "service_title": "BYOR Results Handler",
+      "service_version": "1.0.0",
+      "paths": {
+        "/imports": {
+          "POST": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/triage": {
+          "POST": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          },
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Ceresults",
+      "url": "/spec/v1/frankfurt-correlation-engine-results-CERESULTS.yaml",
+      "service_title": "Fusion Results Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/applications": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of scanned applications",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/summary": {
+          "GET": {
+            "operationId": null,
+            "summary": "Summary of MicroServices and Cloud Resources type and count",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/resources": {
+          "GET": {
+            "operationId": null,
+            "summary": "Cloud resources for an application with a list of project ids that use that resource",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/microservices": {
+          "GET": {
+            "operationId": null,
+            "summary": "Microservices for an application with a list of resources that are in use by the service",
+            "tags": [
+              "results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Contributors",
+      "url": "/spec/v1/frankfurt-core-contributors-CONTRIBUTORS.yaml",
+      "service_title": "Contributors API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "getResultsByScan",
+            "summary": "get allowed and current contributors for the current tenant",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        },
+        "/csv": {
+          "GET": {
+            "operationId": null,
+            "summary": "get contributors details for current tenant exported in csv",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        },
+        "/insights": {
+          "GET": {
+            "operationId": null,
+            "summary": "get contributor insights for current tenant",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        },
+        "/unfamiliar_projects": {
+          "GET": {
+            "operationId": null,
+            "summary": "get number of projects scanned in the last 90 days where contributors couldn't be counted",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        },
+        "/unfamiliar_projects/csv": {
+          "GET": {
+            "operationId": null,
+            "summary": "get details about projects where contributors couldn't be counted for current tenant exported in csv",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Contributors",
+      "url": "/spec/v1/frankfurt-repo-insights-contributors-CONTRIBUTORS.yaml",
+      "service_title": "Contributors API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "getResultsByScan",
+            "summary": "get allowed and current contributors for the current tenant",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        },
+        "/csv": {
+          "GET": {
+            "operationId": null,
+            "summary": "get contributors details for current tenant exported in csv",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        },
+        "/insights": {
+          "GET": {
+            "operationId": null,
+            "summary": "get contributor insights for current tenant",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        },
+        "/unfamiliar_projects": {
+          "GET": {
+            "operationId": null,
+            "summary": "get number of projects scanned in the last 90 days where contributors couldn't be counted",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        },
+        "/unfamiliar_projects/csv": {
+          "GET": {
+            "operationId": null,
+            "summary": "get details about projects where contributors couldn't be counted for current tenant exported in csv",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        },
+        "/insights_details": {
+          "GET": {
+            "operationId": null,
+            "summary": "get contributor insights details for current tenant",
+            "tags": [
+              "Contributors"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Configuration",
+      "url": "/spec/v1/frankfurt-core-configuration-CONFIGURATION.yaml",
+      "service_title": "ScanConfiguration Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/tenant": {
+          "GET": {
+            "operationId": null,
+            "summary": "Gets the list of all the parameters defined for the current tenant",
+            "tags": [
+              "Configuration"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Defines parameters in the input list for a the current tenant",
+            "tags": [
+              "Configuration"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Deletes parameters for a tenant",
+            "tags": [
+              "Configuration"
+            ]
+          }
+        },
+        "/project": {
+          "GET": {
+            "operationId": null,
+            "summary": "Gets the list of all the parameters defined for a project",
+            "tags": [
+              "Configuration"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Defines parameters in the input list for a specific project",
+            "tags": [
+              "Configuration"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Deletes parameters for a specific project",
+            "tags": [
+              "Configuration"
+            ]
+          }
+        },
+        "/scan": {
+          "GET": {
+            "operationId": null,
+            "summary": "Gets the list of all parameters that will be used in the scan run",
+            "tags": [
+              "Configuration"
+            ]
+          }
+        },
+        "/sast/default-config": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all default configs for the tenant",
+            "tags": [
+              "Sast default config"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Creates a default config for the sast engine",
+            "tags": [
+              "Sast default config"
+            ]
+          }
+        },
+        "/sast/default-config/{config-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get sast default config by id",
+            "tags": [
+              "Sast default config"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update default config for the sast engine",
+            "tags": [
+              "Sast default config"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Deletes a sast default config",
+            "tags": [
+              "Sast default config"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Configuration",
+      "url": "/spec/v1/frankfurt-configuration-configuration-CONFIGURATION.yaml",
+      "service_title": "ScanConfiguration Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/tenant": {
+          "GET": {
+            "operationId": null,
+            "summary": "Gets the list of all the parameters defined for the current tenant",
+            "tags": [
+              "Configuration"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Defines parameters in the input list for a the current tenant",
+            "tags": [
+              "Configuration"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Deletes parameters for a tenant",
+            "tags": [
+              "Configuration"
+            ]
+          }
+        },
+        "/project": {
+          "GET": {
+            "operationId": null,
+            "summary": "Gets the list of all the parameters defined for a project",
+            "tags": [
+              "Configuration"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Defines parameters in the input list for a specific project",
+            "tags": [
+              "Configuration"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Deletes parameters for a specific project",
+            "tags": [
+              "Configuration"
+            ]
+          }
+        },
+        "/scan": {
+          "GET": {
+            "operationId": null,
+            "summary": "Gets the list of all parameters that will be used in the scan run",
+            "tags": [
+              "Configuration"
+            ]
+          }
+        },
+        "/sast/default-config": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all default configs for the tenant",
+            "tags": [
+              "Sast default config"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Creates a default config for the sast engine",
+            "tags": [
+              "Sast default config"
+            ]
+          }
+        },
+        "/sast/default-config/{config-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get sast default config by id",
+            "tags": [
+              "Sast default config"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update default config for the sast engine",
+            "tags": [
+              "Sast default config"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Deletes a sast default config",
+            "tags": [
+              "Sast default config"
+            ]
+          }
+        },
+        "/view-settings/{view-key}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get view settings by view key",
+            "tags": [
+              "View settings"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete view settings by view key",
+            "tags": [
+              "View settings"
+            ]
+          }
+        },
+        "/view-settings": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create view settings",
+            "tags": [
+              "View settings"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update view settings",
+            "tags": [
+              "View settings"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Custom States",
+      "url": "/spec/v1/frankfurt-core-results-CUSTOM_STATES.yaml",
+      "service_title": "Custom States API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get custom states list",
+            "tags": [
+              "custom_states"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Create new custom state",
+            "tags": [
+              "custom_states"
+            ]
+          }
+        },
+        "/{id}": {
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete custom state",
+            "tags": [
+              "custom_states"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Cloud Insights",
+      "url": "/spec/v1/frankfurt-cnas-cnas-manager-CLOUD_INSIGHTS.yaml",
+      "service_title": "Cloud Insights service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/accounts/enrich": {
+          "POST": {
+            "operationId": "createEnrichAccount",
+            "summary": "Create a new enrich account",
+            "tags": [
+              "Accounts"
+            ]
+          },
+          "GET": {
+            "operationId": "getAllAccounts",
+            "summary": "Get a list of Cloud Insights accounts for a specific externalID",
+            "tags": [
+              "Accounts"
+            ]
+          }
+        },
+        "/accounts/{id}/enrich": {
+          "POST": {
+            "operationId": "startEnrich",
+            "summary": "Start enrichment",
+            "tags": [
+              "Accounts"
+            ]
+          }
+        },
+        "/v2/accounts/{id}/enrich": {
+          "POST": {
+            "operationId": "startEnrichV2",
+            "summary": "Start an async enrichment",
+            "tags": [
+              "Accounts"
+            ]
+          }
+        },
+        "/accounts/{id}": {
+          "GET": {
+            "operationId": "getAccount",
+            "summary": "Get a Cloud Insights account",
+            "tags": [
+              "Accounts"
+            ]
+          },
+          "DELETE": {
+            "operationId": "deleteAccount",
+            "summary": "Delete a Cloud Insights account",
+            "tags": [
+              "Accounts"
+            ]
+          }
+        },
+        "/accounts/{id}/logs": {
+          "GET": {
+            "operationId": "getAccountLogs",
+            "summary": "Get account logs",
+            "tags": [
+              "Accounts"
+            ]
+          }
+        },
+        "/accounts/{id}/logs/{logId}": {
+          "GET": {
+            "operationId": "getAccountLogsById",
+            "summary": "Get account logs by Id",
+            "tags": [
+              "Accounts"
+            ]
+          }
+        },
+        "/accounts/{id}/containers": {
+          "GET": {
+            "operationId": "getContainersByAccountId",
+            "summary": "Get a list of all containers for an account id",
+            "tags": [
+              "Containers"
+            ]
+          }
+        },
+        "/accounts/{id}/resources": {
+          "GET": {
+            "operationId": "listResourcesByGroup",
+            "summary": "Get list of resources filtered by group",
+            "tags": [
+              "Resources"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Cxlink",
+      "url": "/spec/v1/frankfurt-link-provider-CXLINK.yaml",
+      "service_title": "CxLink",
+      "service_version": "1.0.0",
+      "paths": {
+        "/links": {
+          "GET": {
+            "operationId": null,
+            "summary": "List all links",
+            "tags": [
+              "Links"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Create a new link",
+            "tags": [
+              "Links"
+            ]
+          }
+        },
+        "/links/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Retrieve requested link details",
+            "tags": [
+              "Links"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update a link",
+            "tags": [
+              "Links"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete a link",
+            "tags": [
+              "Links"
+            ]
+          }
+        },
+        "/links/{id}/recreate": {
+          "PATCH": {
+            "operationId": null,
+            "summary": "Recreate a link with new credentials",
+            "tags": [
+              "Links"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Custom States",
+      "url": "/spec/v1/frankfurt-results-CUSTOM_STATES.yaml",
+      "service_title": "Custom States API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get custom states list",
+            "tags": [
+              "custom_states"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Create new custom state",
+            "tags": [
+              "custom_states"
+            ]
+          }
+        },
+        "/{id}": {
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete custom state",
+            "tags": [
+              "custom_states"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Data Retention",
+      "url": "/spec/v1/frankfurt-core-data-retention-DATA_RETENTION.yaml",
+      "service_title": "Data Retention API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a data retention processes list",
+            "tags": [
+              "Data Retention"
+            ]
+          }
+        },
+        "/tenant": {
+          "POST": {
+            "operationId": null,
+            "summary": "Start a data retention process for tenant",
+            "tags": [
+              "Data Retention"
+            ]
+          }
+        },
+        "/{id}/abort": {
+          "POST": {
+            "operationId": null,
+            "summary": "Abort a data retention process",
+            "tags": [
+              "Data Retention"
+            ]
+          }
+        },
+        "/{id}/status": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get the status of a data retention process",
+            "tags": [
+              "Data Retention"
+            ]
+          }
+        },
+        "/scans/lock": {
+          "POST": {
+            "operationId": null,
+            "summary": "Lock Scans",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/scans/unlock": {
+          "POST": {
+            "operationId": null,
+            "summary": "Unlock Scans",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/scans/locked": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get the list of locked scans",
+            "tags": [
+              "Scans"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Data Retention",
+      "url": "/spec/v1/frankfurt-data-retention-data-retention-DATA_RETENTION.yaml",
+      "service_title": "Data Retention API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a data retention processes list",
+            "tags": [
+              "Data Retention"
+            ]
+          }
+        },
+        "/tenant": {
+          "POST": {
+            "operationId": null,
+            "summary": "Start a data retention process for tenant",
+            "tags": [
+              "Data Retention"
+            ]
+          }
+        },
+        "/{id}/abort": {
+          "POST": {
+            "operationId": null,
+            "summary": "Abort a data retention process",
+            "tags": [
+              "Data Retention"
+            ]
+          }
+        },
+        "/{id}/status": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get the status of a data retention process",
+            "tags": [
+              "Data Retention"
+            ]
+          }
+        },
+        "/scans/lock": {
+          "POST": {
+            "operationId": null,
+            "summary": "Lock Scans",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/scans/unlock": {
+          "POST": {
+            "operationId": null,
+            "summary": "Unlock Scans",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/scans/locked": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get the list of locked scans",
+            "tags": [
+              "Scans"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Feature Flag",
+      "url": "/spec/v1/frankfurt-core-feature-flag-FEATURE_FLAG.yaml",
+      "service_title": "Feature Flag service",
+      "service_version": "1.4.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "getFlags",
+            "summary": "List all existing flags",
+            "tags": [
+              "Flags"
+            ]
+          }
+        },
+        "/{name}": {
+          "GET": {
+            "operationId": "getFlag",
+            "summary": "Get the specified flag",
+            "tags": [
+              "Flags"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Feature Flag",
+      "url": "/spec/v1/frankfurt-feature-flag-feature-flag-FEATURE_FLAG.yaml",
+      "service_title": "Feature Flag service",
+      "service_version": "1.4.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "getFlags",
+            "summary": "List all existing flags",
+            "tags": [
+              "Flags"
+            ]
+          }
+        },
+        "/{name}": {
+          "GET": {
+            "operationId": "getFlag",
+            "summary": "Get the specified flag",
+            "tags": [
+              "Flags"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Fusion Dispatcher",
+      "url": "/spec/v1/frankfurt-correlation-engine-dispatcher-FUSION_DISPATCHER.yaml",
+      "service_title": "Fusion Dispatcher Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/{id}/correlate": {
+          "POST": {
+            "operationId": null,
+            "summary": "Request starting a new fusion scan for an application by its ID",
+            "tags": [
+              "Dispatcher"
+            ]
+          }
+        },
+        "/{id}/scan-status": {
+          "GET": {
+            "operationId": null,
+            "summary": "Status of the latest fusion scan of an application",
+            "tags": [
+              "Dispatcher"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Kics Metadata",
+      "url": "/spec/v1/frankfurt-kics-metadata-KICS_METADATA.yaml",
+      "service_title": "Kics Scan Metadata Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/{scan-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Kics Results",
+      "url": "/spec/v1/frankfurt-kics-results-KICS_RESULTS.yaml",
+      "service_title": "Kics Results API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "getKICSResultsByScan",
+            "summary": "get KICS results for a specific scan",
+            "tags": [
+              "KICS Scans Results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Fusion Dispatcher",
+      "url": "/spec/v1/frankfurt-fusion-dispatcher-FUSION_DISPATCHER.yaml",
+      "service_title": "Fusion Dispatcher Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/{id}/correlate": {
+          "POST": {
+            "operationId": null,
+            "summary": "Request starting a new fusion scan for an application by its ID",
+            "tags": [
+              "Dispatcher"
+            ]
+          }
+        },
+        "/{id}/scan-status": {
+          "GET": {
+            "operationId": null,
+            "summary": "Status of the latest fusion scan of an application",
+            "tags": [
+              "Dispatcher"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Fusion Results",
+      "url": "/spec/v1/frankfurt-correlation-engine-results-FUSION_RESULTS.yaml",
+      "service_title": "Fusion Results Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/applications": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of scanned applications",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/summary": {
+          "GET": {
+            "operationId": null,
+            "summary": "Summary of MicroServices and Cloud Resources type and count",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/resources": {
+          "GET": {
+            "operationId": null,
+            "summary": "Cloud resources for an application with a list of project ids that use that resource",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/microservices": {
+          "GET": {
+            "operationId": null,
+            "summary": "Microservices for an application with a list of resources that are in use by the service",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/risk-scores": {
+          "GET": {
+            "operationId": null,
+            "summary": "Updated risk score results for an application with a list of requested cx one scans",
+            "tags": [
+              "results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Fusion Results",
+      "url": "/spec/v1/frankfurt-fusion-results-FUSION_RESULTS.yaml",
+      "service_title": "Fusion Results Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/applications": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of scanned applications",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/summary": {
+          "GET": {
+            "operationId": null,
+            "summary": "Summary of MicroServices and Cloud Resources type and count",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/resources": {
+          "GET": {
+            "operationId": null,
+            "summary": "Cloud resources for an application with a list of project ids that use that resource",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/microservices": {
+          "GET": {
+            "operationId": null,
+            "summary": "Microservices for an application with a list of resources that are in use by the service",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/applications/{id}/risk-scores": {
+          "GET": {
+            "operationId": null,
+            "summary": "Updated risk score results for an application with a list of requested cx one scans",
+            "tags": [
+              "results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Kics Results Predicates",
+      "url": "/spec/v1/frankfurt-kics-results-KICS_RESULTS_PREDICATES.yaml",
+      "service_title": "KICS Results Predicates API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/{similarityID}": {
+          "GET": {
+            "operationId": "getPredicatesBySimilarityID",
+            "summary": "get all predicates for similarity id.",
+            "tags": [
+              "predicates"
+            ]
+          }
+        },
+        "/{similarityID}/projects/{projectID}": {
+          "GET": {
+            "operationId": "getPredicatesChangesBySimilarityIDAndProjectID",
+            "summary": "get predicates changes for similarity id and project id.",
+            "tags": [
+              "predicates"
+            ]
+          }
+        },
+        "/": {
+          "POST": {
+            "operationId": "PredicateBySimiliartyIdAndProjectId",
+            "summary": "predicate Severity and State by Similiarty ID and Project ID.",
+            "tags": [
+              "predicates"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Lists",
+      "url": "/spec/v1/frankfurt-core-results-LISTS.yaml",
+      "service_title": "Enum Values",
+      "service_version": "1.0.0",
+      "paths": {
+        "/states": {
+          "GET": {
+            "operationId": "getStatesList",
+            "summary": "get states list",
+            "tags": [
+              "Enum Values"
+            ]
+          }
+        },
+        "/statuses": {
+          "GET": {
+            "operationId": "getStatusesList",
+            "summary": "get statuses list",
+            "tags": [
+              "Enum Values"
+            ]
+          }
+        },
+        "/severities": {
+          "GET": {
+            "operationId": "getSeveritiesList",
+            "summary": "get severities list",
+            "tags": [
+              "Enum Values"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Global Inventory Reader",
+      "url": "/spec/v1/frankfurt-apisec-global-inventory-reader-GLOBAL_INVENTORY_READER.yaml",
+      "service_title": "global inventory reader",
+      "service_version": "0.1.0",
+      "paths": {
+        "/api/api-changes/": {
+          "GET": {
+            "operationId": "get_api_changes_resource",
+            "summary": "Get changes for an API",
+            "tags": [
+              "API Changes"
+            ]
+          }
+        },
+        "/api/inventory/": {
+          "GET": {
+            "operationId": "Get api inventory",
+            "summary": "Get all api Inventory",
+            "tags": [
+              "Inventory"
+            ]
+          }
+        },
+        "/api/inventory/data_origins": {
+          "GET": {
+            "operationId": "get_data_origin",
+            "summary": "Get Data Origin for a given API",
+            "tags": [
+              "Inventory"
+            ]
+          }
+        },
+        "/api/inventory/group/{group_column}": {
+          "GET": {
+            "operationId": "get_api_group_resource",
+            "summary": "Get api groups for global tables",
+            "tags": [
+              "Inventory"
+            ]
+          }
+        },
+        "/api/inventory/metadata": {
+          "GET": {
+            "operationId": "get_inventory_metadata",
+            "summary": "Get all api Inventory Metadata",
+            "tags": [
+              "Inventory"
+            ]
+          }
+        },
+        "/api/parameter/": {
+          "GET": {
+            "operationId": "get_parameter_resource",
+            "summary": "Get all parameters for the API",
+            "tags": [
+              "Parameter"
+            ]
+          }
+        },
+        "/api/risk/": {
+          "GET": {
+            "operationId": "get_risk_resource",
+            "summary": "Get all api Risk",
+            "tags": [
+              "Risk"
+            ]
+          }
+        },
+        "/api/risk/group/{group_column}": {
+          "GET": {
+            "operationId": "get_risk_group_resource",
+            "summary": "Get risk groups for global tables",
+            "tags": [
+              "Risk"
+            ]
+          }
+        },
+        "/api/risk/widget": {
+          "GET": {
+            "operationId": "get_risk_widget",
+            "summary": "Get all api Risk",
+            "tags": [
+              "Risk"
+            ]
+          }
+        },
+        "/api/risk/{risk_id}": {
+          "GET": {
+            "operationId": "get_risk_details",
+            "summary": "Return Risk details and the total of PII found for the related API",
+            "tags": [
+              "Risk"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Lists",
+      "url": "/spec/v1/frankfurt-results-LISTS.yaml",
+      "service_title": "Enum Values",
+      "service_version": "1.0.0",
+      "paths": {
+        "/states": {
+          "GET": {
+            "operationId": "getStatesList",
+            "summary": "get states list",
+            "tags": [
+              "Enum Values"
+            ]
+          }
+        },
+        "/statuses": {
+          "GET": {
+            "operationId": "getStatusesList",
+            "summary": "get statuses list",
+            "tags": [
+              "Enum Values"
+            ]
+          }
+        },
+        "/severities": {
+          "GET": {
+            "operationId": "getSeveritiesList",
+            "summary": "get severities list",
+            "tags": [
+              "Enum Values"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Logs",
+      "url": "/spec/v1/frankfurt-logs-logs-LOGS.yaml",
+      "service_title": "AST Logs Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/{scan-id}/{engine}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Create a pre-signed URL to be used to download engine log file",
+            "tags": [
+              "Engine Logs"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Logs",
+      "url": "/spec/v1/frankfurt-core-logs-LOGS.yaml",
+      "service_title": "AST Logs Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/{scan-id}/{engine}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Create a pre-signed URL to be used to download engine log file",
+            "tags": [
+              "Engine Logs"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Organizational Domains",
+      "url": "/spec/v1/frankfurt-repo-insights-contributors-ORGANIZATIONAL_DOMAINS.yaml",
+      "service_title": "Organizational Domains  API",
+      "service_version": "1.0.0",
+      "paths": {
+        "": {
+          "GET": {
+            "operationId": "listOrganizationalDomains",
+            "summary": "List organizational domains for a tenant",
+            "tags": [
+              "OrganizationalDomains"
+            ]
+          },
+          "POST": {
+            "operationId": "addOrganizationalDomains",
+            "summary": "Add organizational domains to a tenant",
+            "tags": [
+              "OrganizationalDomains"
+            ]
+          }
+        },
+        "/{id}": {
+          "DELETE": {
+            "operationId": "deleteOrganizationalDomain",
+            "summary": "Remove an organizational domain from a tenant",
+            "tags": [
+              "OrganizationalDomains"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Preset Manager",
+      "url": "/spec/v1/frankfurt-query-editor-router-PRESET_MANAGER.yaml",
+      "service_title": "Preset Management Generic API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/{scanner}/presets": {
+          "GET": {
+            "operationId": null,
+            "summary": "List presets",
+            "tags": [
+              "Presets"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Create a new preset",
+            "tags": [
+              "Presets"
+            ]
+          }
+        },
+        "/{scanner}/presets/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get preset by ID",
+            "tags": [
+              "Presets"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Updates a preset",
+            "tags": [
+              "Presets"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete a preset by ID",
+            "tags": [
+              "Presets"
+            ]
+          }
+        },
+        "/{scanner}/presets/{id}/clone": {
+          "POST": {
+            "operationId": null,
+            "summary": "Clone preset",
+            "tags": [
+              "Presets"
+            ]
+          }
+        },
+        "/{scanner}/query-families": {
+          "GET": {
+            "operationId": null,
+            "summary": "List the available query families",
+            "tags": [
+              "Queries"
+            ]
+          }
+        },
+        "/{scanner}/query-families/{query-family}/queries": {
+          "GET": {
+            "operationId": null,
+            "summary": "List the queries of a given family",
+            "tags": [
+              "Queries"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Projects",
+      "url": "/spec/v1/frankfurt-core-scans-PROJECTS.yaml",
+      "service_title": "Projects Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of projects",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/tags": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all tags",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/last-scan": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a map of project-id to scan (smaller set of scan)",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/branches": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of branches associated to this project sorted by date descented",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete a project",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/app/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get projects for a specific application",
+            "tags": [
+              "Projects"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Repository Insights",
+      "url": "/spec/v1/frankfurt-repo-insights-repository-insights-REPOSITORY_INSIGHTS.yaml",
+      "service_title": "Repository Insights API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/project/{project-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of repositories by project",
+            "tags": [
+              "Insights"
+            ]
+          }
+        },
+        "/repository": {
+          "POST": {
+            "operationId": "getInsightsByRepository",
+            "summary": "Get insights by repository",
+            "tags": [
+              "Insights"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Projects Overview",
+      "url": "/spec/v1/frankfurt-results-overview-res-ovw-PROJECTS_OVERVIEW.yaml",
+      "service_title": "Projects Overview API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get tenant projects overview",
+            "tags": null
+          }
+        },
+        "/aggregate": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Projects Overview",
+      "url": "/spec/v1/frankfurt-results-overview-PROJECTS_OVERVIEW.yaml",
+      "service_title": "Projects Overview API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get tenant projects overview",
+            "tags": null
+          }
+        },
+        "/aggregate": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Projects Overview",
+      "url": "/spec/v1/frankfurt-core-results-overview-PROJECTS_OVERVIEW.yaml",
+      "service_title": "Projects Overview API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get tenant projects overview",
+            "tags": null
+          }
+        },
+        "/aggregate": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Reports Api",
+      "url": "/spec/v1/frankfurt-reports-api-REPORTS_API.yaml",
+      "service_title": "Reports",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create a Report",
+            "tags": [
+              "Reports"
+            ]
+          }
+        },
+        "/{reportId}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get Report status",
+            "tags": [
+              "Reports"
+            ]
+          }
+        },
+        "/{reportId}/download": {
+          "GET": {
+            "operationId": null,
+            "summary": "Download a Report",
+            "tags": [
+              "Reports"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Repostore",
+      "url": "/spec/v1/frankfurt-core-repostore-REPOSTORE.yaml",
+      "service_title": "Repostore service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/code/{scan-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Download source code from specific scan",
+            "tags": [
+              "Code"
+            ]
+          }
+        },
+        "/files/{scan-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "View scanned source content",
+            "tags": [
+              "Code"
+            ]
+          }
+        },
+        "/files/{scan-id}/{folder}": {
+          "GET": {
+            "operationId": null,
+            "summary": "View scanned content inside specified folder",
+            "tags": [
+              "Code"
+            ]
+          }
+        },
+        "/files/{scan-id}/{file-name}": {
+          "GET": {
+            "operationId": null,
+            "summary": "View source code of specified file",
+            "tags": [
+              "Code"
+            ]
+          }
+        },
+        "/project-tree/{scan-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "View project tree structure",
+            "tags": [
+              "Code"
+            ]
+          }
+        },
+        "/git/fetch-branches": {
+          "POST": {
+            "operationId": null,
+            "summary": "Get the list of branches inside a git repository",
+            "tags": [
+              "Git"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Projects",
+      "url": "/spec/v1/frankfurt-scans-scans-PROJECTS.yaml",
+      "service_title": "Projects Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of projects",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/tags": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all tags",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/tagsByFilters": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get tags with filtering and pagination",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/last-scan": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a map of project-id to scan (smaller set of scan)",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/branches": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of branches associated to this project sorted by date descented",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Update a project fields",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/app/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get projects for a specific application",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/schedules": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get scheduled scans with filtering and pagination",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/schedules/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get scheduling by project ID (resource ID)",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete a scheduled scan for project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Create scheduled scan for this project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Update scheduled scan for this project",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/reassign/{id}": {
+          "PUT": {
+            "operationId": "reassignProject",
+            "summary": "Reassign project to different applications",
+            "tags": [
+              "Projects"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Projects",
+      "url": "/spec/v1/frankfurt-scans-applications-projects-PROJECTS.yaml",
+      "service_title": "Projects Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of projects",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/tags": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all tags",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/tagsByFilters": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get tags with filtering and pagination",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/last-scan": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a map of project-id to scan (smaller set of scan)",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/branches": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of branches associated to this project sorted by date descented",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Update a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete a project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Update a project fields",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/app/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get projects for a specific application",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/schedules": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get scheduled scans with filtering and pagination",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/schedules/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get scheduling by project ID (resource ID)",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete a scheduled scan for project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Create scheduled scan for this project",
+            "tags": [
+              "Projects"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Update scheduled scan for this project",
+            "tags": [
+              "Projects"
+            ]
+          }
+        },
+        "/reassign/{id}": {
+          "PUT": {
+            "operationId": "reassignProject",
+            "summary": "Reassign project to different applications",
+            "tags": [
+              "Projects"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Query Editor",
+      "url": "/spec/v1/frankfurt-query-editor-router-QUERY_EDITOR.yaml",
+      "service_title": "QueryEditor",
+      "service_version": "2.0.0",
+      "paths": {
+        "/sessions": {
+          "POST": {
+            "operationId": "CreateSession",
+            "summary": "Create new Audit session",
+            "tags": [
+              "sessions"
+            ]
+          }
+        },
+        "/sessions/{sessionId}": {
+          "PATCH": {
+            "operationId": "PingSession",
+            "summary": "Heath check to ensure Audit session is kept alive",
+            "tags": [
+              "sessions"
+            ]
+          },
+          "DELETE": {
+            "operationId": "DeleteSession",
+            "summary": "Delete Audit session with specific id",
+            "tags": [
+              "sessions"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/logs": {
+          "GET": {
+            "operationId": "GetLogs",
+            "summary": "Get the logs associated to the Audit session",
+            "tags": [
+              "sessions"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/sources/scan": {
+          "POST": {
+            "operationId": "ScanProject",
+            "summary": "Scan the Audit Session sources",
+            "tags": [
+              "sources"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/queries": {
+          "POST": {
+            "operationId": "CreateQuery",
+            "summary": "Create/Override query",
+            "tags": [
+              "queries"
+            ]
+          },
+          "GET": {
+            "operationId": "GetQueries",
+            "summary": "Get all queries",
+            "tags": [
+              "queries"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/queries/{editorQueryId}": {
+          "GET": {
+            "operationId": "GetQuery",
+            "summary": "Get data of a specified query",
+            "tags": [
+              "queries"
+            ]
+          },
+          "DELETE": {
+            "operationId": "DeleteQuery",
+            "summary": "Delete a specified custom/overridden query",
+            "tags": [
+              "queries"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/queries/{editorQueryId}/metadata": {
+          "PUT": {
+            "operationId": "PutQueryMetadata",
+            "summary": "Update specified query metadata",
+            "tags": [
+              "queries"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/queries/source": {
+          "PUT": {
+            "operationId": "PutQuerySource",
+            "summary": "Update multiple query sources",
+            "tags": [
+              "queries"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/queries/validate": {
+          "POST": {
+            "operationId": "ValidateQueries",
+            "summary": "Validate the queries provided",
+            "tags": [
+              "queries"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/queries/run": {
+          "POST": {
+            "operationId": "RunQueries",
+            "summary": "Execute the queries on the Audit session scanned project",
+            "tags": [
+              "queries"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/requests/{requestId}": {
+          "GET": {
+            "operationId": "CheckRequestStatus",
+            "summary": "Check the status of a specified request",
+            "tags": [
+              "requests"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/requests/{requestId}/cancel": {
+          "PUT": {
+            "operationId": "CancelRequest",
+            "summary": "Cancel the specified request execution",
+            "tags": [
+              "requests"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/results": {
+          "GET": {
+            "operationId": "GetResults",
+            "summary": "Get all results data summary tree for all the session runs",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/results/{resultId}/vulnerabilities": {
+          "GET": {
+            "operationId": "GetResult",
+            "summary": "Get all vulnerabilities related to a given result",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/results/{resultId}/vulnerabilities/{vulnerabilityId}": {
+          "GET": {
+            "operationId": "GetVulnerabilityResult",
+            "summary": "Get specified vulnerability data such as attack vector",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/results/{resultId}/debug-messages": {
+          "GET": {
+            "operationId": "GetDebugMessages",
+            "summary": "Get specified result debug messages",
+            "tags": [
+              "results"
+            ]
+          }
+        },
+        "/sessions/{sessionId}/gpt": {
+          "GET": {
+            "operationId": "getGPTHistory",
+            "summary": "Get Query Builder history",
+            "tags": [
+              "assistant"
+            ]
+          },
+          "DELETE": {
+            "operationId": "deleteGPTHistory",
+            "summary": "Delete Query Builder (GPT) history",
+            "tags": [
+              "assistant"
+            ]
+          },
+          "POST": {
+            "operationId": "processGPTRequest",
+            "summary": "Process Query Builder (GPT) request.",
+            "tags": [
+              "assistant"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Repostore",
+      "url": "/spec/v1/frankfurt-sources-repostore-REPOSTORE.yaml",
+      "service_title": "Repostore service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/code/{scan-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Download source code from specific scan",
+            "tags": [
+              "Code"
+            ]
+          }
+        },
+        "/files/{scan-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "View scanned source content",
+            "tags": [
+              "Code"
+            ]
+          }
+        },
+        "/files/{scan-id}/{folder}": {
+          "GET": {
+            "operationId": null,
+            "summary": "View scanned content inside specified folder",
+            "tags": [
+              "Code"
+            ]
+          }
+        },
+        "/files/{scan-id}/{file-name}": {
+          "GET": {
+            "operationId": null,
+            "summary": "View source code of specified file",
+            "tags": [
+              "Code"
+            ]
+          }
+        },
+        "/project-tree/{scan-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "View project tree structure",
+            "tags": [
+              "Code"
+            ]
+          }
+        },
+        "/git/fetch-branches": {
+          "POST": {
+            "operationId": null,
+            "summary": "Get the list of branches inside a git repository",
+            "tags": [
+              "Git"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Results Overview",
+      "url": "/spec/v1/frankfurt-core-results-overview-RESULTS_OVERVIEW.yaml",
+      "service_title": "service results overview api",
+      "service_version": "1.0.0",
+      "paths": {
+        "/projects": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get overview for the tenant projects",
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Resource Management",
+      "url": "/spec/v1/frankfurt-sast-rm-RESOURCE_MANAGEMENT.yaml",
+      "service_title": "Sast Resource Management Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/scans/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a scan allocation info.",
+            "tags": [
+              "Scans"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Forces scan execution to fail.",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/scans": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of scans",
+            "tags": [
+              "Scans"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Results Overview",
+      "url": "/spec/v1/frankfurt-results-overview-res-ovw-RESULTS_OVERVIEW.yaml",
+      "service_title": "service results overview api",
+      "service_version": "1.0.0",
+      "paths": {
+        "/projects": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get overview for the tenant projects",
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Results Overview",
+      "url": "/spec/v1/frankfurt-results-overview-RESULTS_OVERVIEW.yaml",
+      "service_title": "service results overview api",
+      "service_version": "1.0.0",
+      "paths": {
+        "/projects": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get overview for the tenant projects",
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Results Summary",
+      "url": "/spec/v1/frankfurt-core-results-RESULTS_SUMMARY.yaml",
+      "service_title": "Results Summary API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "summaryByScansIds",
+            "summary": "Get a summary of scan results",
+            "tags": [
+              "Summary"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Risks",
+      "url": "/spec/v1/frankfurt-results-manager-RISKS.yaml",
+      "service_title": "Core Results API",
+      "service_version": "1.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "getRisks",
+            "summary": "Get risks",
+            "tags": [
+              "Risks"
+            ]
+          }
+        },
+        "/ai-insights": {
+          "GET": {
+            "operationId": "getRisksWithAI",
+            "summary": "Get risks with AI insights",
+            "tags": [
+              "AI Insights"
+            ]
+          }
+        },
+        "/aggregate": {
+          "GET": {
+            "operationId": "getAggregatedRisks",
+            "summary": "Get aggregated risks",
+            "tags": [
+              "Risks"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Runtime Images",
+      "url": "/spec/v1/frankfurt-sast-results-writer-RUNTIME_IMAGES.yaml",
+      "service_title": null,
+      "service_version": null,
+      "paths": {},
+      "error": null
+    },
+    {
+      "name": "Risk Management",
+      "url": "/spec/v1/frankfurt-core-risk-management-RISK_MANAGEMENT.yaml",
+      "service_title": "Risk management API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/summary": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": [
+              "Summary"
+            ]
+          }
+        },
+        "/{applicationId}/results": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": [
+              "Results"
+            ]
+          }
+        },
+        "/{applicationId}/results/{id}": {
+          "PUT": {
+            "operationId": null,
+            "summary": null,
+            "tags": [
+              "Results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Risk Management",
+      "url": "/spec/v1/frankfurt-risk-management-rm-RISK_MANAGEMENT.yaml",
+      "service_title": "Risk management API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/summary": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": [
+              "Summary"
+            ]
+          }
+        },
+        "/{applicationId}/results": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": [
+              "Results"
+            ]
+          }
+        },
+        "/result/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": [
+              "Results"
+            ]
+          }
+        },
+        "/{applicationId}/results/{id}": {
+          "PUT": {
+            "operationId": null,
+            "summary": null,
+            "tags": [
+              "Results"
+            ]
+          }
+        },
+        "/updateAssignees": {
+          "PUT": {
+            "operationId": null,
+            "summary": null,
+            "tags": [
+              "Results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sast Metadata",
+      "url": "/spec/v1/frankfurt-sast-metadata-SAST_METADATA.yaml",
+      "service_title": "Sast Scan Metadata Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/previous-scans": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get previous completed scans for a list of scan IDs",
+            "tags": null
+          }
+        },
+        "/{scan-id}": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/{scan-id}/metrics": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/engine-version": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/default-file-exclusion-config": {
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/file-exclusion-config": {
+          "PATCH": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          },
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/{project-id}/file-exclusion-config": {
+          "PATCH": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          },
+          "GET": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/delete-persisted-dom": {
+          "DELETE": {
+            "operationId": null,
+            "summary": null,
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Results Summary",
+      "url": "/spec/v1/frankfurt-results-RESULTS_SUMMARY.yaml",
+      "service_title": "Results Summary API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "summaryByScansIds",
+            "summary": "Get a summary of scan results",
+            "tags": [
+              "Summary"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sast Queries",
+      "url": "/spec/v1/frankfurt-sast-engine-queries-SAST_QUERIES.yaml",
+      "service_title": "SAST Queries API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/mappings": {
+          "GET": {
+            "operationId": null,
+            "summary": "Lists mapping between AST and SAST queries ids",
+            "tags": [
+              "Sast queries"
+            ]
+          }
+        },
+        "/presets": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get sast queries presets",
+            "tags": [
+              "Sast queries"
+            ]
+          }
+        },
+        "/preset/{scanID}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get sast queries preset for a specific scan",
+            "tags": [
+              "Sast queries"
+            ]
+          }
+        },
+        "/categories-types": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get sast queries categories",
+            "tags": [
+              "Sast queries"
+            ]
+          }
+        },
+        "/descriptions": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get sast query description",
+            "tags": [
+              "Sast query descriptions"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sast Migration",
+      "url": "/spec/v1/frankfurt-sast-migration-http-SAST_MIGRATION.yaml",
+      "service_title": "AST Salesforce Integration",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Launches import from SAST file",
+            "tags": [
+              "import"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "gets list of imports",
+            "tags": [
+              "import"
+            ]
+          }
+        },
+        "/{migrationId}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get info about import by id",
+            "tags": [
+              "import",
+              "status"
+            ]
+          }
+        },
+        "/{migrationId}/logs/download": {
+          "GET": {
+            "operationId": null,
+            "summary": "Download migration logs",
+            "tags": [
+              "import",
+              "logs"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sast Queries",
+      "url": "/spec/v1/frankfurt-sast-queries-SAST_QUERIES.yaml",
+      "service_title": "SAST Queries API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/mappings": {
+          "GET": {
+            "operationId": null,
+            "summary": "Lists mapping between AST and SAST queries ids",
+            "tags": [
+              "Sast queries"
+            ]
+          }
+        },
+        "/presets": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get sast queries presets",
+            "tags": [
+              "Sast queries"
+            ]
+          }
+        },
+        "/preset/{scanID}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get sast queries preset for a specific scan",
+            "tags": [
+              "Sast queries"
+            ]
+          }
+        },
+        "/categories-types": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get sast queries categories",
+            "tags": [
+              "Sast queries"
+            ]
+          }
+        },
+        "/descriptions": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get sast query description",
+            "tags": [
+              "Sast query descriptions"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sast Queries Audit Presets",
+      "url": "/spec/v1/frankfurt-sast-audit-queries-SAST_QUERIES_AUDIT_PRESETS.yaml",
+      "service_title": "Preset Management API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "List presets",
+            "tags": [
+              "Presets"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Create a new preset",
+            "tags": [
+              "Presets"
+            ]
+          }
+        },
+        "/queries": {
+          "GET": {
+            "operationId": null,
+            "summary": "List queries executables",
+            "tags": [
+              "Presets"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get preset by ID",
+            "tags": [
+              "Presets"
+            ]
+          },
+          "PUT": {
+            "operationId": null,
+            "summary": "Updates a preset",
+            "tags": [
+              "Presets"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete a preset by ID",
+            "tags": [
+              "Presets"
+            ]
+          }
+        },
+        "/{id}/summary": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get preset summary by ID",
+            "tags": [
+              "Presets"
+            ]
+          }
+        },
+        "/{id}/clone": {
+          "POST": {
+            "operationId": null,
+            "summary": "Clone preset",
+            "tags": [
+              "Presets"
+            ]
+          }
+        },
+        "/{id}/add-query": {
+          "PUT": {
+            "operationId": null,
+            "summary": "Add Query to Preset",
+            "tags": [
+              "Presets"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sast Queries Audit",
+      "url": "/spec/v1/frankfurt-sast-audit-queries-SAST_QUERIES_AUDIT.yaml",
+      "service_title": "CxAudit API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/queries": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all queries",
+            "tags": [
+              "Sast audit"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Create new query",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/queries/{session-id}/search": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all queries",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/queries/metadata": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get queries metadata",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/query/{level}/{path}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get query source",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/queries/{level}/{path}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get query source",
+            "tags": [
+              "Sast audit"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete overridden query",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/queries/{level}": {
+          "PUT": {
+            "operationId": null,
+            "summary": "Update query source",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/queries/{session-id}/{level}": {
+          "PUT": {
+            "operationId": null,
+            "summary": "Update query source",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/sessions": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create new session",
+            "tags": [
+              "Sast audit"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get all active sessions related to WebAudit",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/sessions/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get session details",
+            "tags": [
+              "Sast audit"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete session with specific id",
+            "tags": [
+              "Sast audit"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Heath check to ensure session is kept alive",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/sessions/{id}/sast-status": {
+          "GET": {
+            "operationId": null,
+            "summary": "Check if SAST Engine is ready to use",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/sessions/{id}/request-status": {
+          "GET": {
+            "operationId": null,
+            "summary": "Check the status of some scan related requests",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/sessions/{id}/project/languages": {
+          "GET": {
+            "operationId": null,
+            "summary": "Detect the languages of the project to scan",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/sessions/{id}/project/scan": {
+          "GET": {
+            "operationId": null,
+            "summary": "Scan the project using SAST engine",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/sessions/{id}/queries/compile": {
+          "POST": {
+            "operationId": null,
+            "summary": "Compile the queries of the scanned project",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/sessions/{id}/queries/run": {
+          "POST": {
+            "operationId": null,
+            "summary": "Execute the queries of the scanned project",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/sessions/{id}/queries/cancel": {
+          "GET": {
+            "operationId": null,
+            "summary": "Cancel the queries execution",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/sessions/{id}/logs": {
+          "GET": {
+            "operationId": "GetLogs",
+            "summary": "Get the logs associated to the Audit session",
+            "tags": [
+              "Sast audit"
+            ]
+          }
+        },
+        "/gpt/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Retrieve GPT history",
+            "tags": [
+              "GPT"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete GPT history",
+            "tags": [
+              "GPT"
+            ]
+          },
+          "POST": {
+            "operationId": null,
+            "summary": "Process GPT prompt request",
+            "tags": [
+              "GPT"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sast Results",
+      "url": "/spec/v1/frankfurt-sast-results-writer-SAST_RESULTS.yaml",
+      "service_title": "Sast Results API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "getSASTResultsByScan",
+            "summary": "Get SAST results for a specific scan",
+            "tags": [
+              "SAST Scan Results"
+            ]
+          }
+        },
+        "/compare": {
+          "GET": {
+            "operationId": "getSASTResultsCompareByScans",
+            "summary": "Get SAST results comparison for two given scans",
+            "tags": [
+              "SAST Scan Results comparison"
+            ]
+          }
+        },
+        "/similar-results": {
+          "POST": {
+            "operationId": "getSimilarResults",
+            "summary": "Get similar results for result hashes",
+            "tags": [
+              "SAST Scan Results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sast Results Predicates",
+      "url": "/spec/v1/frankfurt-sast-results-writer-SAST_RESULTS_PREDICATES.yaml",
+      "service_title": "SAST Results Predicates API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/{similarityID}": {
+          "GET": {
+            "operationId": "getPredicatesBySimilarityID",
+            "summary": "get all predicates for similarity id",
+            "tags": [
+              "predicates"
+            ]
+          }
+        },
+        "/changelog": {
+          "GET": {
+            "operationId": "getBulkPredicates",
+            "summary": "Retrieve bulk predicates by entity type",
+            "tags": [
+              "predicates"
+            ]
+          }
+        },
+        "/{similarityID}/latest": {
+          "GET": {
+            "operationId": "getLatestPredicatesBySimilarityID",
+            "summary": "get latest predicates for similarity id",
+            "tags": [
+              "predicates"
+            ]
+          }
+        },
+        "/": {
+          "GET": {
+            "operationId": "getPredicatesByAttackVectorID",
+            "summary": "get all predicates by attack vector ID",
+            "tags": [
+              "predicates"
+            ]
+          },
+          "POST": {
+            "operationId": "PredicateBySimiliartyIdAndProjectId",
+            "summary": "predicate Severity and State by Similiarty ID and Project ID",
+            "tags": [
+              "predicates"
+            ]
+          },
+          "PATCH": {
+            "operationId": "UpdatePredicateBypredicateId",
+            "summary": "Update predicate Comment by predicate ID",
+            "tags": [
+              "predicates"
+            ]
+          }
+        },
+        "/predicates-status": {
+          "POST": {
+            "operationId": "getPredicatesStatus",
+            "summary": "Get predicates update status",
+            "tags": [
+              "predicates"
+            ]
+          }
+        },
+        "/recalculateSummaryCounters": {
+          "POST": {
+            "operationId": "RecalculateSummaryCounters",
+            "summary": "Recalculate summary counters",
+            "tags": [
+              "predicates"
+            ]
+          }
+        },
+        "/attack-vector": {
+          "POST": {
+            "operationId": "createPredicatesByAttackVector",
+            "summary": "Create predicates by attack vector ID with bulk updates",
+            "tags": [
+              "predicates"
+            ]
+          }
+        },
+        "/{similarityID}/{projectID}/{predicateID}": {
+          "DELETE": {
+            "operationId": "deletePredicateHistory",
+            "summary": "Delete a predicate history",
+            "tags": [
+              "predicates"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sast Results Compare",
+      "url": "/spec/v1/frankfurt-sast-results-writer-SAST_RESULTS_COMPARE.yaml",
+      "service_title": "SAST Scan Results Compare API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/status": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get total counts of results per severity and status",
+            "tags": [
+              "Comparison"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sast Results Summary",
+      "url": "/spec/v1/frankfurt-sast-results-writer-SAST_RESULTS_SUMMARY.yaml",
+      "service_title": "Sast Results Summary API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/aggregate": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get aggregated summary of SAST results",
+            "tags": [
+              "Aggregation"
+            ]
+          }
+        },
+        "/compare/aggregate": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get aggregated summary of SAST results comparison",
+            "tags": [
+              "Aggregation"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Scanners Results",
+      "url": "/spec/v1/frankfurt-core-results-SCANNERS_RESULTS.yaml",
+      "service_title": "All Scanners Results API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "getResultsByScan",
+            "summary": "Get results for all scanners",
+            "tags": [
+              "All Scanners Results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Scanners Results",
+      "url": "/spec/v1/frankfurt-results-SCANNERS_RESULTS.yaml",
+      "service_title": "All Scanners Results API",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": "getResultsByScan",
+            "summary": "Get results for all scanners",
+            "tags": [
+              "All Scanners Results"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Scans",
+      "url": "/spec/v1/frankfurt-scans-scans-SCANS.yaml",
+      "service_title": "Scans Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Run a scan from a zip archive or Git repo",
+            "tags": [
+              "Scans"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of scans, with detailed information about each scan. You can limit the results by using pagination and/or setting filters.",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/scansBrief": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of lean scans, with detailed information about each scan. You can limit the results by using pagination and/or setting filters.",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/byFilters": {
+          "POST": {
+            "operationId": null,
+            "summary": "Get a list of scans, with detailed information about each scan. You can limit the results by using pagination and/or setting filters.",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/need-recalculation": {
+          "PUT": {
+            "operationId": null,
+            "summary": "Set for last scan need recalculation flag",
+            "tags": [
+              "Set need recalculation"
+            ]
+          }
+        },
+        "/recalculate": {
+          "POST": {
+            "operationId": null,
+            "summary": "Run a last scan recalculation",
+            "tags": [
+              "Scan recalculation"
+            ]
+          }
+        },
+        "/tags": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all scan tags in your account",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/fieldValues": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get values for fields",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/summary": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a summary of the status of the scans in your account.",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/templates": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get the list of the available config-as-code template files that are under the dedicated directory.",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/templates/{file-name}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get the config as code template file. example: '/templates/config.yml'",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get details about a specific scan, including the current status of the scan.",
+            "tags": [
+              "Scans"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Cancel a scan",
+            "tags": [
+              "Scans"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete a scan",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/{id}/tags": {
+          "PUT": {
+            "operationId": null,
+            "summary": "Modify scan tags",
+            "tags": [
+              "Scan tags"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get scan tags",
+            "tags": [
+              "Scan tags"
+            ]
+          }
+        },
+        "/{id}/workflow": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a detailed workflow for a scan",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/rescan": {
+          "POST": {
+            "operationId": null,
+            "summary": "Run a last valid scan for the project",
+            "tags": [
+              "Rescan project"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sscs",
+      "url": "/spec/v1/frankfurt-reader-SSCS.yaml",
+      "service_title": "SSCS API",
+      "service_version": "1.0",
+      "paths": {
+        "/predicates/{similarity-id}": {
+          "GET": {
+            "operationId": "GetPredicatesHistory",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/projects": {
+          "GET": {
+            "operationId": "GetProjects",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/projects/{project}": {
+          "GET": {
+            "operationId": "GetProject",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/results/{project}/{scan}/{engine}": {
+          "GET": {
+            "operationId": "GetEngineResultsByProject",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/results/{project}/{scan}/{engine}/groups/{column}": {
+          "GET": {
+            "operationId": "GetGroupsByProjectScan",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/scans/{scan}/scan-overview": {
+          "GET": {
+            "operationId": "GetScanOverview",
+            "summary": null,
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sscs Correlator",
+      "url": "/spec/v1/frankfurt-microengines-correlator-SSCS_CORRELATOR.yaml",
+      "service_title": "SSCS API - Correlator",
+      "service_version": "1.0",
+      "paths": {
+        "/predicates": {
+          "POST": {
+            "operationId": "HandlePostPredicates",
+            "summary": null,
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sscs Correlator",
+      "url": "/spec/v1/frankfurt-correlator-SSCS_CORRELATOR.yaml",
+      "service_title": null,
+      "service_version": null,
+      "paths": {},
+      "error": null
+    },
+    {
+      "name": "Scans",
+      "url": "/spec/v1/frankfurt-core-scans-SCANS.yaml",
+      "service_title": "Scans Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Run a scan from a zip archive or Git repo",
+            "tags": [
+              "Scans"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of scans, with detailed information about each scan. You can limit the results by using pagination and/or setting filters.",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/need-recalculation": {
+          "PUT": {
+            "operationId": null,
+            "summary": "Set for last scan need recalculation flag",
+            "tags": [
+              "Set need recalculation"
+            ]
+          }
+        },
+        "/recalculate": {
+          "POST": {
+            "operationId": null,
+            "summary": "Run a last scan recalculation",
+            "tags": [
+              "Scan recalculation"
+            ]
+          }
+        },
+        "/tags": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get all scan tags in your account",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/fieldValues": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get values for fields",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/summary": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a summary of the status of the scans in your account.",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/templates": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get the list of the available config-as-code template files that are under the dedicated directory.",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/templates/{file-name}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get the config as code template file. example: '/templates/config.yml'",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get details about a specific scan, including the current status of the scan.",
+            "tags": [
+              "Scans"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Cancel a scan",
+            "tags": [
+              "Scans"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete a scan",
+            "tags": [
+              "Scans"
+            ]
+          }
+        },
+        "/{id}/tags": {
+          "PUT": {
+            "operationId": null,
+            "summary": "Modify scan tags",
+            "tags": [
+              "Scan tags"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get scan tags",
+            "tags": [
+              "Scan tags"
+            ]
+          }
+        },
+        "/{id}/workflow": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get a detailed workflow for a scan",
+            "tags": [
+              "Scans"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sscs Reader",
+      "url": "/spec/v1/frankfurt-microengines-reader-SSCS_READER.yaml",
+      "service_title": "SSCS API - Reader",
+      "service_version": "1.0",
+      "paths": {
+        "/read/predicates/{similarity-id}": {
+          "GET": {
+            "operationId": "GetPredicatesHistory",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/read/projects": {
+          "GET": {
+            "operationId": "GetProjects",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/read/projects/{project}": {
+          "GET": {
+            "operationId": "GetProject",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/read/results/{project}/{scan}/{engine}": {
+          "GET": {
+            "operationId": "GetEngineResultsByProject",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/read/results/{project}/{scan}/{engine}/groups/{column}": {
+          "GET": {
+            "operationId": "GetGroupsByProjectScan",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/read/scans/{scan}/scan-overview": {
+          "GET": {
+            "operationId": "GetScanOverview",
+            "summary": null,
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Sscs Reader",
+      "url": "/spec/v1/frankfurt-reader-SSCS_READER.yaml",
+      "service_title": "SSCS API - Reader",
+      "service_version": "1.0",
+      "paths": {
+        "/read/predicates/{similarity-id}": {
+          "GET": {
+            "operationId": "GetPredicatesHistory",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/read/projects": {
+          "GET": {
+            "operationId": "GetProjects",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/read/projects/{project}": {
+          "GET": {
+            "operationId": "GetProject",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/read/results/{project}/{scan}/{engine}": {
+          "GET": {
+            "operationId": "GetEngineResultsByProject",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/read/results/{project}/{scan}/{engine}/groups/{column}": {
+          "GET": {
+            "operationId": "GetGroupsByProjectScan",
+            "summary": null,
+            "tags": null
+          }
+        },
+        "/read/scans/{scan}/scan-overview": {
+          "GET": {
+            "operationId": "GetScanOverview",
+            "summary": null,
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Static Correlator",
+      "url": "/spec/v1/frankfurt-apisec-static-correlator-STATIC_CORRELATOR.yaml",
+      "service_title": "static-correlator API",
+      "service_version": "1.0",
+      "paths": {
+        "/api/risk/{scanId}": {
+          "PUT": {
+            "operationId": null,
+            "summary": "Update risk",
+            "tags": null
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Static Inventory Reader",
+      "url": "/spec/v1/frankfurt-apisec-static-inventory-reader-STATIC_INVENTORY_READER.yaml",
+      "service_title": "Static Scan Reader",
+      "service_version": "0.1.0",
+      "paths": {
+        "/api/parameter/": {
+          "GET": {
+            "operationId": "get_parameter_resource",
+            "summary": "Get all parameters for the API",
+            "tags": [
+              "Parameter"
+            ]
+          }
+        },
+        "/api/risks/risk/{risk_id}": {
+          "GET": {
+            "operationId": "get_risk_details",
+            "summary": "Return Risk details and the total of PII found for the related API",
+            "tags": [
+              "Risks"
+            ]
+          }
+        },
+        "/api/risks/{scan_id}": {
+          "GET": {
+            "operationId": "get risks per scan ID",
+            "summary": "Get all api Risks from static tables",
+            "tags": [
+              "Risks"
+            ]
+          }
+        },
+        "/api/risks/{scan_id}/group/{group_column}": {
+          "GET": {
+            "operationId": "get_group_resource",
+            "summary": "Get risk groups for static tables",
+            "tags": [
+              "Risks"
+            ]
+          }
+        },
+        "/api/scan/{scan_id}/risks-origin": {
+          "GET": {
+            "operationId": "get_scan_risks_origins",
+            "summary": "Return risks count grouped by origin",
+            "tags": [
+              "Scan"
+            ]
+          }
+        },
+        "/api/scan/{scan_id}/risks-overview": {
+          "GET": {
+            "operationId": "get_risks_overview_resource",
+            "summary": "Returns risks overview for particular scan",
+            "tags": [
+              "Scan"
+            ]
+          }
+        },
+        "/api/scan/{scan_id}/risks-types": {
+          "GET": {
+            "operationId": "get_risks_types_resource",
+            "summary": "Returns top 10 risks types for particular scan",
+            "tags": [
+              "Scan"
+            ]
+          }
+        },
+        "/api/scan/{scan_id}/sensitive-data": {
+          "GET": {
+            "operationId": "get_scan_sensitive_data_resource",
+            "summary": "Returns sensitive data count for particular scan",
+            "tags": [
+              "Scan"
+            ]
+          }
+        },
+        "/api/scan/{scan_id}/undocumented-apis": {
+          "GET": {
+            "operationId": "get_scan_undocumented_resource",
+            "summary": "Returns undocumented apis count for particular scan",
+            "tags": [
+              "Scan"
+            ]
+          }
+        },
+        "/api/scan/metadata": {
+          "GET": {
+            "operationId": "get_scan_metadata",
+            "summary": "Get all api scan Metadata",
+            "tags": [
+              "Scan"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Uploads",
+      "url": "/spec/v1/frankfurt-core-uploads-UPLOADS.yaml",
+      "service_title": "AST Uploads Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create a pre-signed URL to be used with PUT requests to upload files",
+            "tags": [
+              "Uploads"
+            ]
+          }
+        },
+        "/start-multipart-upload": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create upload id to be used with POST requests to upload files in multiple parts",
+            "tags": [
+              "Uploads"
+            ]
+          }
+        },
+        "/multipart-presigned": {
+          "POST": {
+            "operationId": null,
+            "summary": "Get pre-signed URL for uploading a file in multiple parts using an upload ID",
+            "tags": [
+              "Uploads"
+            ]
+          }
+        },
+        "/complete-multipart-upload": {
+          "POST": {
+            "operationId": null,
+            "summary": "Complete a multipart upload using an upload ID and a list of part ETags",
+            "tags": [
+              "Uploads"
+            ]
+          }
+        },
+        "/abort-multipart-upload": {
+          "POST": {
+            "operationId": null,
+            "summary": "Abort a multipart upload using an upload ID",
+            "tags": [
+              "Uploads"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Uploads",
+      "url": "/spec/v1/frankfurt-sources-uploads-UPLOADS.yaml",
+      "service_title": "AST Uploads Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create a pre-signed URL to be used with PUT requests to upload files",
+            "tags": [
+              "Uploads"
+            ]
+          }
+        },
+        "/start-multipart-upload": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create upload id to be used with POST requests to upload files in multiple parts",
+            "tags": [
+              "Uploads"
+            ]
+          }
+        },
+        "/multipart-presigned": {
+          "POST": {
+            "operationId": null,
+            "summary": "Get pre-signed URL for uploading a file in multiple parts using an upload ID",
+            "tags": [
+              "Uploads"
+            ]
+          }
+        },
+        "/complete-multipart-upload": {
+          "POST": {
+            "operationId": null,
+            "summary": "Complete a multipart upload using an upload ID and a list of part ETags",
+            "tags": [
+              "Uploads"
+            ]
+          }
+        },
+        "/abort-multipart-upload": {
+          "POST": {
+            "operationId": null,
+            "summary": "Abort a multipart upload using an upload ID",
+            "tags": [
+              "Uploads"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Versions",
+      "url": "/spec/v1/frankfurt-core-configuration-VERSIONS.yaml",
+      "service_title": "Versions Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get versions from engines",
+            "tags": [
+              "Get versions"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Versions",
+      "url": "/spec/v1/frankfurt-configuration-configuration-VERSIONS.yaml",
+      "service_title": "Versions Service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get versions from engines",
+            "tags": [
+              "Get versions"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Webhooks",
+      "url": "/spec/v1/frankfurt-configuration-events-WEBHOOKS.yaml",
+      "service_title": "Webhooks events service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/tenant": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create a webhook for a tenant",
+            "tags": [
+              "Webhook"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of webhooks related to tenant",
+            "tags": [
+              "Webhook"
+            ]
+          }
+        },
+        "/projects/{project-id}": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create webhook on project",
+            "tags": [
+              "Webhook"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of webhooks related to project",
+            "tags": [
+              "Webhook"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get webhook",
+            "tags": [
+              "Webhook"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Update webhook",
+            "tags": [
+              "Webhook"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete webhook",
+            "tags": [
+              "Webhook"
+            ]
+          }
+        }
+      },
+      "error": null
+    },
+    {
+      "name": "Webhooks",
+      "url": "/spec/v1/frankfurt-core-events-WEBHOOKS.yaml",
+      "service_title": "Webhooks events service",
+      "service_version": "1.0.0",
+      "paths": {
+        "/tenant": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create a webhook for a tenant",
+            "tags": [
+              "Webhook"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of webhooks related to tenant",
+            "tags": [
+              "Webhook"
+            ]
+          }
+        },
+        "/projects/{project-id}": {
+          "POST": {
+            "operationId": null,
+            "summary": "Create webhook on project",
+            "tags": [
+              "Webhook"
+            ]
+          },
+          "GET": {
+            "operationId": null,
+            "summary": "Get a list of webhooks related to project",
+            "tags": [
+              "Webhook"
+            ]
+          }
+        },
+        "/{id}": {
+          "GET": {
+            "operationId": null,
+            "summary": "Get webhook",
+            "tags": [
+              "Webhook"
+            ]
+          },
+          "PATCH": {
+            "operationId": null,
+            "summary": "Update webhook",
+            "tags": [
+              "Webhook"
+            ]
+          },
+          "DELETE": {
+            "operationId": null,
+            "summary": "Delete webhook",
+            "tags": [
+              "Webhook"
+            ]
+          }
+        }
+      },
+      "error": null
+    }
+  ]
+}

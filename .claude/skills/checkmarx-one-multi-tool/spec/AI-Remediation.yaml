@@ -1,0 +1,426 @@
+openapi: 3.1.0
+x-stoplight:
+  id: 6c1798589284b
+info:
+  title: AI Remediation REST API
+  description: "<details>\r\n  <summary><b>{Base_URL}/api/remediation</b></summary>\r\n\r\n* US: https://ast.checkmarx.net/api/remediation<br>\r\n* US2: https://us.ast.checkmarx.net/api/remediation<br>\r\n* EU: https://eu.ast.checkmarx.net/api/remediation<br>\r\n* EU2: https://eu-2.ast.checkmarx.net/api/remediation<br>\r\n* DEU: https://deu.ast.checkmarx.net/api/remediation<br>\r\n* Australia & NZ: https://anz.ast.checkmarx.net/api/remediation<br>\r\n* India: https://ind.ast.checkmarx.net/api/remediation<br>\r\n* Singapore: https://sng.ast.checkmarx.net/api/remediation<br>\r\n* UAE: https://mea.ast.checkmarx.net/api/remediation<br>\r\n* Israel: https://gov-il.ast.checkmarx.net/api/remediation\r\n\r\n</details>\r\n\r\n## Overview\r\n\r\nThe **AI Remediation REST API** enables you to submit vulnerabilities for AI-powered remediation and retrieve the resulting remediation details.\r\n\r\n\r\nRemediation requests are processed asynchronously. After submitting a request, retrieve the remediation results using the remediation details endpoint. If remediation is still in progress, the API returns the current job status until the completed remediation details are available.\r\n\r\n### Limitations\r\n- Currently supported for `SCA` and `SAST` vulnerabilities only.\r\n## Example Workflow\r\n\r\n1. Use [**`GET /api/results`**](https://checkmarx.stoplight.io/docs/checkmarx-one-api-reference-guide/whqbw17zn6rg1-retrieve-scan-results-all-scanners) to retrieve the `alternateId` for the vulnerability you want to remediate.\r\n2. Use **`POST /remediate`** to submit the vulnerability for AI-powered remediation.\r\n3. Use **`GET /remediation-details/{scan_id}/{result_id}`** to retrieve the remediation result.\r\n4. If the response indicates that processing is still in progress, repeat the GET request until the completed remediation details are returned.\r\n### Authentication \r\nAuthentication for all Checkmarx One endpoints is done using JWT (JSON Web Token) access token. Access tokens are generated using the [Authentication API](Authentication.yaml)."
+  version: 1.0.0
+paths:
+  /remediate:
+    post:
+      summary: Initiate AI Remediation
+      description: |-
+        Submits a request to generate AI-powered remediation for one or more vulnerabilities within a scan.
+
+        The request must include one or more scanner buckets containing the scanner type and associated result IDs. The required result IDs are obtained from the `alternateId` field returned by the [**`GET /api/results`**](https://checkmarx.stoplight.io/docs/checkmarx-one-api-reference-guide/whqbw17zn6rg1-retrieve-scan-results-all-scanners) endpoint.
+
+        Remediation is processed asynchronously. A successful request returns `202 Accepted`. After submitting the request, use the remediation details endpoint to retrieve the remediation results or check the current job status.
+      operationId: remediate_remediate_post
+      parameters:
+        - $ref: '#/components/parameters/Uploads_AuthHeader'
+        - $ref: '#/components/parameters/Uploads.versionHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemediateRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        '400':
+          description: Requested resultID not found in the scan for its engine
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '402':
+          description: Insufficient AI consumption credits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Feature not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: 'Authentication context unavailable, consumption gateway unavailable, SAST/SCA engine unavailable while validating result ids, or similar service issue'
+      x-stoplight:
+        id: 8hkpl38gpsr38
+    servers:
+      - url: 'https://ast.checkmarx.net/api/remediation'
+        description: US
+      - url: 'https://us.ast.checkmarx.net/api/remediation'
+        description: US2
+      - url: 'https://eu.ast.checkmarx.net/api/remediation'
+        description: EU
+      - url: 'https://eu-2.ast.checkmarx.net/api/remediation'
+        description: EU2
+      - url: 'https://deu.ast.checkmarx.net/api/remediation'
+        description: DEU
+      - url: 'https://anz.ast.checkmarx.net/api/remediation'
+        description: Australia & NZ
+      - url: 'https://ind.ast.checkmarx.net/api/remediation'
+        description: India
+      - url: 'https://sng.ast.checkmarx.net/api/remediation'
+        description: Singapore
+      - url: 'https://mea.ast.checkmarx.net/api/remediation'
+        description: UAE
+      - url: 'https://gov-il.ast.checkmarx.net/api/remediation'
+        description: Israel
+  '/remediation-details/{scan_id}/{result_id}':
+    get:
+      summary: Retrieve AI Remediation Details
+      description: |-
+        Retrieves the remediation details for a specific vulnerability within a scan.
+
+        If remediation is still in progress or has failed, the response contains the current job status. Otherwise, the completed remediation details are returned.
+      operationId: get_remediation_details_remediation_details__scan_id___result_id__get
+      parameters:
+        - name: result_id
+          in: path
+          description: '> Use the `alternateId` returned by [**`GET /api/results`**](https://checkmarx.stoplight.io/docs/checkmarx-one-api-reference-guide/whqbw17zn6rg1-retrieve-scan-results-all-scanners) as the value for `result_id`. It is highly recommended to URL-encode the ID.'
+          required: true
+          schema:
+            type: string
+            title: Result Id
+        - name: scan_id
+          in: path
+          description: Unique identifier of the scan that produced the specified result
+          required: true
+          schema:
+            type: string
+            title: Scan Id
+        - $ref: '#/components/parameters/Uploads_AuthHeader'
+        - $ref: '#/components/parameters/Uploads.versionHeader'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemediationDetailsResponse'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Remediation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-stoplight:
+        id: 0pdhjbxmmv1do
+    servers:
+      - url: 'https://ast.checkmarx.net/api/remediation'
+        description: US
+      - url: 'https://us.ast.checkmarx.net/api/remediation'
+        description: US2
+      - url: 'https://eu.ast.checkmarx.net/api/remediation'
+        description: EU
+      - url: 'https://eu-2.ast.checkmarx.net/api/remediation'
+        description: EU2
+      - url: 'https://deu.ast.checkmarx.net/api/remediation'
+        description: DEU
+      - url: 'https://anz.ast.checkmarx.net/api/remediation'
+        description: Australia & NZ
+      - url: 'https://ind.ast.checkmarx.net/api/remediation'
+        description: India
+      - url: 'https://sng.ast.checkmarx.net/api/remediation'
+        description: Singapore
+      - url: 'https://mea.ast.checkmarx.net/api/remediation'
+        description: UAE
+      - url: 'https://gov-il.ast.checkmarx.net/api/remediation'
+        description: Israel
+    parameters: []
+components:
+  schemas:
+    AcceptedResponse:
+      type: object
+      title: AcceptedResponse
+      x-stoplight:
+        id: 31y34qi6uhy4o
+      properties:
+        status:
+          type: string
+          title: Status
+          default: accepted
+          description: The status of the request. Always returns `accepted` when the request is successfully accepted for processing.
+        published:
+          type: boolean
+          title: Published
+          default: true
+          description: Indicates whether a new remediation job was created. `true` means a new job was submitted for processing. `false` means an identical request already exists and no duplicate job was created.
+        existingState:
+          title: Existingstate
+          type:
+            - string
+            - 'null'
+          description: 'When `published` is `false`, indicates the current state of the existing remediation job. Otherwise, this field is `null`.'
+        remediationJobId:
+          type: string
+          x-stoplight:
+            id: icxw270vzfyb6
+          description: A unique identifier assigned to the remediation operation.
+    ErrorResponse:
+      properties:
+        error:
+          type: string
+          title: Error
+      type: object
+      required:
+        - error
+      title: ErrorResponse
+      description: |-
+        Response model for error responses.
+
+        Attributes:
+            error: The error message.
+      x-stoplight:
+        id: ftga37lwu5ltl
+    RemediateRequest:
+      type: object
+      title: RemediateRequest
+      x-stoplight:
+        id: qq34vv06gg6hk
+      required:
+        - scanID
+        - buckets
+      properties:
+        scanID:
+          type: string
+          title: Scanid
+        buckets:
+          type: array
+          minItems: 1
+          title: Buckets
+          items:
+            $ref: '#/components/schemas/RemediationBucket'
+    RemediationBucket:
+      type: object
+      title: RemediationBucket
+      x-stoplight:
+        id: 2y0imylxx802b
+      required:
+        - scannerType
+        - resultIDs
+      properties:
+        scannerType:
+          type: string
+          title: Scannertype
+          description: "The scanner that produced the specified vulnerabilities.\r\n<br>`sast` or `sca` (case-insensitive)."
+        resultIDs:
+          type: array
+          title: Resultids
+          description: "List of result IDs for the specified scanner\r\n> Use the `alternateId` returned by [**`GET /api/results`**](https://checkmarx.stoplight.io/docs/checkmarx-one-api-reference-guide/whqbw17zn6rg1-retrieve-scan-results-all-scanners) as the value for each result ID. It is highly recommended to URL-encode the ID."
+          items:
+            type: string
+    RemediationDetailsResponse:
+      type: object
+      title: RemediationDetailsResponse
+      x-stoplight:
+        id: nx5zhibta74b8
+      required:
+        - scanID
+      properties:
+        scanID:
+          type: string
+          title: Scanid
+        results:
+          type: array
+          title: Results
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/RemediationResultDetailSchema'
+              - $ref: '#/components/schemas/RemediationResultJobPlaceholderSchema'
+    RemediationJobStatus:
+      type: string
+      enum:
+        - IN_PROGRESS
+        - FAILED
+      title: RemediationJobStatus
+      description: ''
+      x-stoplight:
+        id: w9t9fyvi2o181
+    RemediationResultDetailSchema:
+      type: object
+      title: Remediation Details
+      description: Remediation details for one or more vulnerability results in a scan.
+      properties:
+        resultID:
+          type: string
+          description: The unique identifier of the vulnerability result.
+        createdAt:
+          type: string
+          description: The date and time when remediation processing started.
+        finishedAt:
+          type: string
+          description: The date and time when remediation processing completed.
+        autoPr:
+          type: object
+          description: Information about the automatic pull request operation.
+          properties:
+            status:
+              type: string
+              description: The status of the automatic pull request operation.
+            url:
+              type:
+                - string
+                - 'null'
+              description: 'The URL of the created pull request, when available.'
+            error_msg:
+              type: string
+              description: The error message returned when automatic pull request creation fails.
+            file_url:
+              type: string
+              description: A URL for downloading the generated remediation files.
+        data:
+          type: object
+          description: 'The generated remediation analysis, code changes, and test information.'
+          properties:
+            error:
+              type:
+                - string
+                - 'null'
+              description: 'Error information for the remediation operation, when applicable.'
+            summary:
+              type: string
+              description: A summary of the generated remediation.
+            analysis:
+              type: object
+              description: An explanation of the vulnerability and the recommended remediation.
+              properties:
+                what:
+                  type: string
+                  description: Describes the vulnerability that was identified.
+                why:
+                  type: string
+                  description: Explains why the vulnerability presents a security risk.
+                how:
+                  type: string
+                  description: Explains how the remediation addresses the vulnerability.
+            pr_title:
+              type: string
+              description: The suggested title for the remediation pull request.
+            file_changes:
+              type: array
+              description: The source code changes generated by the remediation.
+              items:
+                type: object
+                properties:
+                  file_path:
+                    type: string
+                    description: The path of the modified file.
+                  analysis:
+                    type: string
+                    description: A summary of the change made to the file.
+                  diff:
+                    type: string
+                    description: The generated code diff for the file.
+            test_creation:
+              type: object
+              description: Information about tests generated for the remediation.
+              properties:
+                error:
+                  type:
+                    - string
+                    - 'null'
+                  description: 'Error information for test generation, when applicable.'
+                summary:
+                  type: string
+                  description: A summary of the generated tests.
+                analysis:
+                  type: string
+                  description: An explanation of the test coverage generated for the remediation.
+                test_files:
+                  type: array
+                  description: The test files generated for the remediation.
+                  items:
+                    type: object
+                    properties:
+                      file_path:
+                        type: string
+                        description: The path of the generated test file.
+                      file_content:
+                        type: string
+                        description: The full contents of the generated test file.
+                      test_type:
+                        type: string
+                        description: The type of test that was generated.
+                      coverage_description:
+                        type: string
+                        description: A description of the behavior or security condition covered by the test.
+                      framework_used:
+                        type: string
+                        description: The testing framework used to generate the test.
+                total_tests_created:
+                  type: integer
+                  description: The total number of tests generated.
+                coverage_areas:
+                  type: array
+                  description: The areas covered by the generated tests.
+                  items:
+                    type: string
+    RemediationResultJobPlaceholderSchema:
+      type: object
+      title: Job Status
+      x-stoplight:
+        id: xmefh5x6p3uod
+      required:
+        - resultID
+      properties:
+        resultID:
+          type: string
+          title: Resultid
+        jobStatus:
+          $ref: '#/components/schemas/RemediationJobStatus'
+  parameters:
+    Uploads_AuthHeader:
+      in: header
+      name: Authorization
+      description: JWT access token
+      schema:
+        type: string
+        format: JWT
+      required: true
+    Uploads.versionHeader:
+      in: header
+      name: Accept
+      required: true
+      description: 'Specify the accepted media types. API version should be appended to this header. Currently, only v1.0 is supported.'
+      schema:
+        type: string
+        example: '*/*; version=1.0'
+        pattern: '.*version\s*=\s*([\d|.]+)'
