@@ -56,17 +56,20 @@ def main() -> None:
     skill_relpath = SKILL_DIR.relative_to(repo_root)
     version = (SKILL_DIR / "VERSION").read_text().strip()
 
+    commit_msg = f"checkmarx-one-multi-tool v{version}: {summary}"
+
     run(["git", "-C", str(repo_root), "add", "--", str(skill_relpath)])
     staged = run(["git", "-C", str(repo_root), "diff", "--cached", "--quiet"], check=False)
     if staged.returncode == 0:
-        skip("no staged changes under the skill directory — nothing to publish.")
-        return
-
-    commit_msg = f"checkmarx-one-multi-tool v{version}: {summary}"
-    commit = run(["git", "-C", str(repo_root), "commit", "-m", commit_msg], check=False)
-    if commit.returncode != 0:
-        sys.exit(f"commit failed, resolve manually:\n{commit.stderr}")
-    print(f"committed: {commit_msg}")
+        # Nothing new to commit — but a prior run may have committed already and
+        # only failed to push/tag. Don't bail here; fall through and let the
+        # push/tag steps below no-op cleanly if there's truly nothing left to do.
+        print("nothing new staged under the skill directory — checking push/tag state.")
+    else:
+        commit = run(["git", "-C", str(repo_root), "commit", "-m", commit_msg], check=False)
+        if commit.returncode != 0:
+            sys.exit(f"commit failed, resolve manually:\n{commit.stderr}")
+        print(f"committed: {commit_msg}")
 
     push = run(["git", "-C", str(repo_root), "push", "origin", branch_name], check=False)
     if push.returncode != 0:
