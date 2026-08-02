@@ -18,3 +18,14 @@ agent.log*
 # OS cruft (Mac + Windows dev machines)
 .DS_Store
 Thumbs.db
+
+# Ad-hoc / scratch output that should never live in the skill folder —
+# triage-real review packets and decision files, one-off scratch scripts,
+# and generic temp/output dumps. These belong in the user's working
+# directory or an OS scratch dir, not this repo; ignored here as a backstop.
+packet*.json
+decisions*.json
+scratch/
+tmp/
+*.tmp
+*.bak

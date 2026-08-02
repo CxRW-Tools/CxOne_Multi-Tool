@@ -16,11 +16,26 @@ documented in SKILL.md.
 Usage:
     python scripts/publish_skill.py "short summary of the change"
 """
+import fnmatch
 import subprocess
 import sys
 from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
+
+# Defense-in-depth beyond .gitignore: filenames that should never be staged
+# for this skill, no matter how they got there (a renamed secret, a scratch
+# file dropped mid-session, an editor backup). Checked against the actually
+# staged paths, not just the ignore rules, so an unexpected name still trips
+# it. Glob patterns, matched against the path relative to the skill dir.
+DISALLOWED_STAGED_PATTERNS = [
+    "*.env", ".env", "cxone.env", "cxone-identities.yaml", ".agent_state.json",
+    "agent.log*", "*.pem", "*.key", "*api*key*",
+    "packet*.json", "decisions*.json",
+    "*.tmp", "*.bak", "*~",
+    "scratch/*", "tmp/*",
+    "*/__pycache__/*", "*.pyc",
+]
 
 
 def run(args, check=True):
@@ -29,6 +44,21 @@ def run(args, check=True):
 
 def skip(message: str) -> None:
     print(f"publish skipped: {message}")
+
+
+def find_disallowed_staged(repo_root: Path, skill_relpath: Path) -> list[str]:
+    staged = run(["git", "-C", str(repo_root), "diff", "--cached", "--name-only"], check=False)
+    offenders = []
+    skill_prefix = str(skill_relpath).replace("\\", "/") + "/"
+    for line in staged.stdout.splitlines():
+        path = line.strip().replace("\\", "/")
+        if not path.startswith(skill_prefix):
+            continue
+        rel = path[len(skill_prefix):]
+        if any(fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(Path(rel).name, pat)
+               for pat in DISALLOWED_STAGED_PATTERNS):
+            offenders.append(path)
+    return offenders
 
 
 def main() -> None:
@@ -59,6 +89,19 @@ def main() -> None:
     commit_msg = f"checkmarx-one-multi-tool v{version}: {summary}"
 
     run(["git", "-C", str(repo_root), "add", "--", str(skill_relpath)])
+
+    offenders = find_disallowed_staged(repo_root, skill_relpath)
+    if offenders:
+        run(["git", "-C", str(repo_root), "reset", "--", str(skill_relpath)], check=False)
+        offender_list = "\n".join(f"  - {o}" for o in offenders)
+        sys.exit(
+            "publish aborted: staged file(s) look like credentials or scratch/junk "
+            "output that shouldn't ship with the skill:\n"
+            f"{offender_list}\n"
+            "Delete or .gitignore these, then re-run publish_skill.py. "
+            "(Staged changes have been unstaged; nothing was committed.)"
+        )
+
     staged = run(["git", "-C", str(repo_root), "diff", "--cached", "--quiet"], check=False)
     if staged.returncode == 0:
         # Nothing new to commit — but a prior run may have committed already and
