@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.36.2
+  version: 3.36.3
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -345,7 +345,7 @@ unimplemented things → Keep the package current**. Don't leave the installed
 | Scans | `ops/scans.py` + `ops/scan_status.py` | `scan` | trigger by name/id or random %, with weighted config rolls; duplicate-scan guard (`--force`); on-demand `scan status` / `history` (scans are fire-and-forget — no blocking wait) |
 | Results | `results.py` | `results` | `summary` by engine×severity (per project or per-application rollup), `show` finding drill-down (SCA rows labelled `<CVE> — <package>`; filter by engine/severity/state/`--match`, which also matches CVE ids, with `--ids`/`--json` exposing the scan/result/group ids the APIs need), `kpi` — tenant-wide server-aggregated KPIs (severity×state, aging, most-common, etc.) via the Analytics API in one call |
 | Reports | `reports.py` | `report` | PDF/JSON/CSV scan reports (async poll+download) and CycloneDX/SPDX SBOMs |
-| Audit trail | `audit.py` | `audit` | `list` — search/export tenant activity (who did what, when) via `GET /api/audit-events`, filter by `--type`/`--resource`/`--user`/`--search`/date range, `--human-readable` UUID resolution, `--csv` export. Read-only; platform event coverage is still growing engine by engine, and only goes back to 2026-03-29 — an empty result isn't proof nothing happened |
+| Audit trail | `audit.py` | `audit` | `list` — search/export tenant activity (who did what, when) via `GET /api/audit-events`, filter by `--type`/`--resource`/`--user`/`--search`/date range, `--human-readable` UUID resolution, `--csv` export. Read-only; platform event coverage is still growing engine by engine, and only goes back to 2026-03-29 — an empty result isn't proof nothing happened. **History only, not current state** — see caution below and `references/cxone-api.md` |
 | Triage (real review) | `triage_real.py` + `ops/source_fetch.py` | `triage-real` | `prepare` (findings + the exact scanned source) → the assistant reviews → `apply` (validated write). Free, genuine, never "Not Exploitable", no source = no verdict |
 | Checkmarx Assist (AI) | `ai_assist.py` + `ops/findings.py` | `ai-assist` | AI **Triage Assist** and **Remediation Assist**: `find` (resolve findings → scan/result/group ids), `triage`, `triage-status`, `remediate`, `remediation-details`, `discard`, `credits` (balance + per-action cost). SAST+SCA only; **consumes AI credits** |
 | Triage (simulated) | `ops/triage/` + `ops/realism.py` | `triage-simulate` | realistic triage across SAST/IaC/SCA/Secrets/Containers: coverage + outcome model, top-down, per-project variation, analyst comments, exceptions; intensity-scaled (light/some/moderate/thorough/heavy — heavy adds a per-pass human-volume cap) |
@@ -358,6 +358,17 @@ unimplemented things → Keep the package current**. Don't leave the installed
 | Containers triage | `ops/triage/containers_handler.py` | `triage-simulate` | Container findings via `POST containers/triage/…` (vulnerability/package/image); `packageId` is read from the containers GraphQL service — never reconstructed (see `references/cxone-api.md`) |
 | Local UI | `ui.py` | `ui` | browser panel: authenticate + run common actions with a dry-run toggle |
 | Autonomous activity | `agent.py` + `ops/activity.py` + `Dockerfile` | `agent` | real scans + triage over real time, business-hours-weighted, per-project cadence + private ledger; two verbs: **`run`** (the executor; container via docker/podman when available, else long-lived process) and **`plan`** (committed next-24h preview) |
+
+**Audit is for "who did what, when" — never for "what does X look like right
+now."** It's an append-only event stream, not reconciled against live state:
+events can point at scans/results that were since re-scanned (new scan =
+new result identifiers) or at projects that were deleted/purged, and they
+carry no severity filter unless you apply one. If a task needs a *current*
+count or state (open findings, active projects, who's in a group today),
+query live state (`results`/`project`/`iam`/etc.) — use `audit` only to
+attribute or narrate something you already confirmed live. Details and a
+live-verified example of the count mismatch this causes are in
+`references/cxone-api.md` under "Audit trail".
 
 ## "Triage" is ambiguous — ALWAYS disambiguate before acting
 

@@ -454,6 +454,24 @@ only emit events for a subset of their actions. Treat a thin or empty result
 for something you know happened as a platform coverage gap — say so — rather
 than concluding the action didn't occur or that this module is broken.
 
+**Audit answers "who did what, when" — never "what's true right now."** The
+log is append-only and never reconciled against live state: a project, scan,
+or result the events reference may since have been deleted, purged, or
+superseded by a re-scan (a new scan issues fresh result identifiers, so old
+events keep pointing at ones that no longer resolve to anything). Concretely:
+deduping `sast-result.update` events to "latest event per result" and
+counting them is NOT the same number as querying current findings (`GET
+results` / `results kpi`) for that state — the audit count runs over every
+result ID ever mentioned in the retention window, live or not, and (unless
+you also filter `data.severity`/equivalent) may span a different severity mix
+than whatever live number you're comparing it to. Live-verified 2026-08-02: an
+audit-derived "184 results currently in Not Exploitable/Proposed Not
+Exploitable" collapsed to 172 once cross-checked against live results, with
+several of the audit-only project IDs no longer present in `project list` at
+all. **For a "what does X look like today" question, query live state
+(`results`/`project`/`iam` etc.) and use audit only to attribute or narrate
+already-known live findings — never as the source of a current count.**
+
 **UUID resolution (`--human-readable`).** `actionUserId`/`userId`,
 `roleId`/`assignedRoles`/`unassignedRoles`, and `groupId` values are Keycloak
 IDs, resolved via the same IAM admin calls every other module already makes
