@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.34.1
+  version: 3.35.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -822,21 +822,20 @@ If a request isn't covered above, implement it — don't decline. Steps:
 Always dry-run new code and confirm with the user before mutating a real tenant.
 
 
-### Keep the package current (repackage + export after any change)
+### Keep the package current (publish after any change)
 
 This skill is meant to improve as you use it — fixes, new subcommands, doc updates.
-Those changes live in this skill's working folder, which is often a temporary copy
-that won't survive to the next session. So **whenever you modify any skill file**
-(code, config, or docs), bump the version and repackage so the user can reinstall
-and keep the improvement. Do this as the last step of the change, after verifying
-it works:
+Whenever you modify any skill file (code, config, or docs), bump the version and
+publish the change as the last step, after verifying it works. Where that publish
+goes depends on whether this skill folder is running from a git checkout.
+
+**0. Bump the version (always, regardless of publish path).** Read the CURRENT
+version from the `VERSION` file first, then set the NEXT semver in both places so
+they always match — patch = fix, minor = new capability, major = breaking.
+(Never copy a literal number from an example — it may be older than the
+installed version and would silently downgrade.)
 
 ```bash
-# 0. BUMP THE VERSION (required on every repackage): read the CURRENT version
-#    from the VERSION file first, then set the NEXT semver in both places so
-#    they always match — patch = fix, minor = new capability, major = breaking.
-#    (Never copy a literal number from an example — it may be older than the
-#    installed version and would silently downgrade.)
 cat <this-skill-dir>/VERSION                    # current, e.g. 2.7.14
 echo "<NEXT-VERSION>" > <this-skill-dir>/VERSION
 #    then edit SKILL.md frontmatter: metadata.version: <NEXT-VERSION>  (same value)
@@ -846,27 +845,58 @@ echo "<NEXT-VERSION>" > <this-skill-dir>/VERSION
 #    spec/CLEANUP_NOTES.md "spec/LAST_SYNCED"); a code-only change should NOT
 #    touch it, since that would falsely claim a re-verification happened.
 echo "<TODAYS-DATE, YYYY-MM-DD>" > <this-skill-dir>/spec/LAST_SYNCED   # only if synced
-
-# Stage a clean copy (no secrets / state / build artifacts), then package it
-rm -rf /tmp/checkmarx-one-multi-tool && cp -r <this-skill-dir> /tmp/checkmarx-one-multi-tool
-rm -f /tmp/checkmarx-one-multi-tool/.env /tmp/checkmarx-one-multi-tool/scripts/.env /tmp/checkmarx-one-multi-tool/cxone-identities.yaml /tmp/checkmarx-one-multi-tool/scripts/cxone-identities.yaml  # never ship credentials
-rm -f /tmp/checkmarx-one-multi-tool/scripts/.agent_state.json                        # never ship agent state
-find /tmp/checkmarx-one-multi-tool -name __pycache__ -type d -prune -exec rm -rf {} +
-
-# Package. If the skill-creator skill is installed, its packager works:
-#   python -m scripts.package_skill /tmp/checkmarx-one-multi-tool   # from the skill-creator dir
-# Otherwise (no skill-creator available), a .skill is just a zip of the skill
-# folder — package it directly; the result installs identically:
-(cd /tmp && zip -qr checkmarx-one-multi-tool.skill checkmarx-one-multi-tool)
-mv /tmp/checkmarx-one-multi-tool.skill <user-working-dir>/checkmarx-one-multi-tool.skill
 ```
 
-Then verify the change is inside the archive (`unzip -p ... <file> | grep ...`) and
-that no `.env`/secret slipped in (`unzip -l ... | grep -i env`). Confirm the new
-version shows (`unzip -p ... VERSION`). Tell the user where the `.skill` landed,
-which version it is, and that reinstalling makes the change permanent. Tip: batch
-several edits and repackage once at the end (one version bump) rather than after
-every tiny change.
+**1. Check whether this skill folder is git-connected:**
+
+```bash
+git -C <this-skill-dir> remote get-url origin
+```
+
+- **Succeeds → publish via git (preferred whenever available):**
+
+  ```bash
+  python <this-skill-dir>/scripts/publish_skill.py "<one-line summary of the change>"
+  ```
+
+  This commits only the files under this skill's directory, pushes the current
+  branch to `origin`, and — since VERSION just changed — tags and pushes
+  `v<version>`. On a repo with the `release-skill` GitHub Action configured (this
+  one included), that tag push builds the `.skill` zip and attaches it to a new
+  GitHub Release automatically — no manual zip step. It no-ops safely (prints why,
+  changes nothing) if there's nothing staged, the tag already exists, there's no
+  commit identity configured, or HEAD is detached — treat any of those messages as
+  "resolve and re-run," not silent success. Never force-push; if the push is
+  rejected because the remote moved, pull/rebase and retry rather than overriding
+  it. Tell the user the commit/tag that went out and that both their local copy
+  and the GitHub copy are now current.
+
+- **Fails (no git repo, or no `origin` remote) → fall back to the manual
+  `.skill` export below.** This is the path for a standalone install (skill
+  copied somewhere without cloning a repo it lives in).
+
+  ```bash
+  # Stage a clean copy (no secrets / state / build artifacts), then package it
+  rm -rf /tmp/checkmarx-one-multi-tool && cp -r <this-skill-dir> /tmp/checkmarx-one-multi-tool
+  rm -f /tmp/checkmarx-one-multi-tool/.env /tmp/checkmarx-one-multi-tool/scripts/.env /tmp/checkmarx-one-multi-tool/cxone-identities.yaml /tmp/checkmarx-one-multi-tool/scripts/cxone-identities.yaml  # never ship credentials
+  rm -f /tmp/checkmarx-one-multi-tool/scripts/.agent_state.json                        # never ship agent state
+  find /tmp/checkmarx-one-multi-tool -name __pycache__ -type d -prune -exec rm -rf {} +
+
+  # Package. If the skill-creator skill is installed, its packager works:
+  #   python -m scripts.package_skill /tmp/checkmarx-one-multi-tool   # from the skill-creator dir
+  # Otherwise (no skill-creator available), a .skill is just a zip of the skill
+  # folder — package it directly; the result installs identically:
+  (cd /tmp && zip -qr checkmarx-one-multi-tool.skill checkmarx-one-multi-tool)
+  mv /tmp/checkmarx-one-multi-tool.skill <user-working-dir>/checkmarx-one-multi-tool.skill
+  ```
+
+  Then verify the change is inside the archive (`unzip -p ... <file> | grep ...`) and
+  that no `.env`/secret slipped in (`unzip -l ... | grep -i env`). Confirm the new
+  version shows (`unzip -p ... VERSION`). Tell the user where the `.skill` landed,
+  which version it is, and that reinstalling makes the change permanent.
+
+Either way: batch several edits and publish once at the end (one version bump,
+one commit/tag or one zip) rather than after every tiny change.
 
 ## Blueprints (repeatable environments)
 
