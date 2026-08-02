@@ -40,13 +40,14 @@ KNOWN_SPEC_OMISSIONS = {
     # (SAST_ADVANCED_GROUPING_ENABLED). Refresh the bundled spec when a new
     # export includes it.
     ("POST", "/api/sast-results-predicates/attack-vector"),
-    # NOTE (not scraper-visible, listed for the reader): sast_handler.py also
-    # calls, via constants the endpoint scraper does not pick up:
-    #   GET  /api/sast-configuration            (mode read; X-Source gated)
-    #   GET  /api/sast-results/                 (AV-mode listing)
-    #   POST /api/sast-results/similar-results  (hash -> vector-id resolver)
-    #   GET  /api/sast-results/compare          (fallback id source)
-    # Same newer-than-spec status.
+    # Same Attack Vector feature (sast_handler.py), same newer-than-spec status.
+    # These were invisible to this scraper until it learned to resolve
+    # endpoint-as-constant calls (`self.api.get(_SAST_CONFIG_ENDPOINT, ...)`) —
+    # once visible, `GET /api/sast-results/` and `GET /api/sast-results/compare`
+    # (also called this way) turned out to already be OK in the bundled spec;
+    # only these two are genuinely absent:
+    ("GET", "/api/sast-configuration"),               # mode read; X-Source gated
+    ("POST", "/api/sast-results/similar-results"),    # hash -> vector-id resolver
 }
 
 # Paths that are intentionally non-/api (auth plane, cloud insights base, etc.)
@@ -92,6 +93,9 @@ IAM_PLANE_PATHS = {
     "/users/{}/role-mappings/realm", "/roles",
     # Client (ast-app) role assignment for demo personas — Keycloak admin API.
     "/clients", "/clients/{}/roles", "/users/{}/role-mappings/clients/{}",
+    # Role-by-id lookup — audit.py's UUID resolver (roleId/assignedRoles/
+    # unassignedRoles in audit event payloads -> role name).
+    "/roles-by-id/{}",
 }
 
 
@@ -105,22 +109,44 @@ _CALL_RE = re.compile(
     r"""(?:^|[^A-Za-z_])(?:self\.)?(?:api|client)\.(get|post|put|patch|delete|paginate)\(\s*f?["']([^"']+)["']""",
     re.MULTILINE,
 )
-# Explicit endpoint string constants used by handlers (e.g. _VULN_BULK = "sca/.../bulk")
-_CONST_RE = re.compile(r'^[A-Z_]+\s*=\s*"([a-z][a-z0-9/_-]*(?:predicates|bulk|update|requests|changelog|imports|projectScan)[a-z0-9/_-]*)"', re.MULTILINE)
+# Same call shape, but the first arg is a bare module-level constant instead of a
+# literal (e.g. `self.api.post(_SIMILAR_RESULTS_ENDPOINT, ...)`) — resolved via
+# _MODULE_CONST_RE below rather than assumed to be any particular verb, so the
+# endpoint is attributed to whatever verb the call site actually uses.
+_CALL_CONST_RE = re.compile(
+    r"""(?:^|[^A-Za-z_])(?:self\.)?(?:api|client)\.(get|post|put|patch|delete|paginate)\(\s*(_?[A-Z][A-Z0-9_]*)\s*[,)]""",
+    re.MULTILINE,
+)
+# Simple module-level `NAME = "endpoint/path"` assignments — the endpoint-as-
+# constant style some handlers use instead of inlining the literal at every call
+# site (this codebase's convention is a leading underscore for module-private
+# constants, e.g. `_ENDPOINT`, `_SOURCE_ENDPOINT`). Deliberately narrow (one
+# plain string, no f-string/concatenation) so it stays a static, unambiguous
+# resolution.
+_MODULE_CONST_RE = re.compile(r'^(_?[A-Z][A-Z0-9_]*)\s*=\s*"([a-z][a-z0-9/_-]*)"\s*$', re.MULTILINE)
 
 
 def collect_code_endpoints(scripts_dir: Path) -> set[tuple[str, str]]:
-    """Return {(METHOD, normalized_path)} discovered in the skill's scripts."""
+    """Return {(METHOD, normalized_path)} discovered in the skill's scripts.
+
+    Endpoints are commonly passed as a literal string, but some handlers assign
+    the path to a module-level constant first (e.g. `_ENDPOINT = "audit-events"`
+    then `self.api.paginate(_ENDPOINT, ...)`) — both styles are resolved here,
+    per-file, so neither is silently invisible to this scraper.
+    """
     found: set[tuple[str, str]] = set()
-    const_paths: dict[str, str] = {}     # CONST name -> path (for handlers that post(_CONST))
     for py in scripts_dir.rglob("*.py"):
         text = py.read_text(encoding="utf-8", errors="replace")
         for verb, path in _CALL_RE.findall(text):
             if not _looks_like_path(path):
                 continue
             found.add((_VERB_METHOD[verb], _norm(path)))
-        for cpath in _CONST_RE.findall(text):
-            found.add(("POST", _norm(cpath)))   # these constants are all POST targets
+        const_map = dict(_MODULE_CONST_RE.findall(text))
+        for verb, const_name in _CALL_CONST_RE.findall(text):
+            path = const_map.get(const_name)
+            if not path or not _looks_like_path(path):
+                continue
+            found.add((_VERB_METHOD[verb], _norm(path)))
     return found
 
 
@@ -139,7 +165,8 @@ def _looks_like_path(s: str) -> bool:
     roots = ("applications", "projects", "scans", "groups", "users", "roles",
              "configuration/", "repos-manager", "sca/", "sast-results", "kics-results",
              "micro-engines", "containers/", "results", "reports", "audit",
-             "custom-states", "feedback", "byor", "uploads", "policy")
+             "custom-states", "feedback", "byor", "uploads", "policy",
+             "sast-configuration")
     return "/" in s or s in ("applications", "projects", "scans", "groups", "users", "roles") \
         or s.startswith(roots)
 
