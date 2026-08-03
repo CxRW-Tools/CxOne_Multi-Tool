@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.36.3
+  version: 3.37.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -424,6 +424,11 @@ triage-real prepare --project "Acme" --match "SQL Injection" --out packet.json
 # 3. Apply — dry-run, list, confirm, then write
 triage-real --dry-run apply --decisions decisions.json
 triage-real apply --decisions decisions.json
+
+# Attribute the write to a specific/random team member (see "Multi-identity
+# attribution" below) — same --as pool as scan/triage-simulate:
+triage-real apply --decisions decisions.json --as alice.dev
+triage-real apply --decisions decisions.json --as random --seed 774213
 ```
 
 **How the review is genuinely real.** `prepare` downloads the scan's own source
@@ -995,15 +1000,28 @@ and refuses paths inside the skill folder. Imports succeed partially: valid
 keys register, bad ones are reported and skipped. `identities list` shows
 what's registered; `identities test` authenticates each key.
 
-Selection on `scan`/`triage-simulate`: `--as <name>` acts as that user; `--as random`
-picks one seeded over ALL identities (primary included — the admin is a team
-member too); `--as auto` uses stable per-project affinity over all (the same
-person "owns" a project across runs, with occasional seeded hand-offs); the
-`-secondary` variants — `--as random-secondary` / `--as auto-secondary` — do
-the same EXCLUDING the primary/admin key, and fail with a clear error if no
-secondaries are registered (an explicit "not the admin" is never silently
-downgraded to the admin). Excluding secondaries is just `--as primary` or no
-flag; default stays primary.
+Selection on `scan`/`triage-simulate`/`triage-real apply`: `--as <name>` acts as
+that user; `--as random` picks one seeded over ALL identities (primary included —
+the admin is a team member too); `--as auto` uses stable per-project affinity
+over all (the same person "owns" a project across runs, with occasional seeded
+hand-offs); the `-secondary` variants — `--as random-secondary` / `--as
+auto-secondary` — do the same EXCLUDING the primary/admin key, and fail with a
+clear error if no secondaries are registered (an explicit "not the admin" is
+never silently downgraded to the admin). Excluding secondaries is just `--as
+primary` or no flag; default stays primary.
+
+**`triage-real apply` only, not `prepare`.** `prepare` just reads findings and
+source (no tenant write, so no attribution to make); `--as` lives on `apply`,
+the mutating step, same split as the read-only/mutating line elsewhere in this
+doc. One `apply` call already targets a single project/scan (one decisions
+file), so unlike the batch `--projects "A,B,C"` case on `scan`/`triage-simulate`,
+`random`/`auto` resolve ONCE per `apply` call, keyed by that file's project —
+`auto` therefore hands a project to the SAME stable owner triage-simulate would
+pick for it. Want several identities across one review batch (e.g. "triage
+these 7 findings as different people")? Split the decisions into one file per
+finding (or per small group) and call `apply --as random` once per file, each
+with its own `--seed` — the dry-run's printed seed reproduces each pick for the
+live run exactly like elsewhere in this doc.
 
 **The automatic specs roll PER PROJECT, the explicit ones pin.** `auto`,
 `auto-secondary`, `random` and `random-secondary` are resolved once per project
