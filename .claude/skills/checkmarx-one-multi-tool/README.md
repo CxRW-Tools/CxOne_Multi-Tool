@@ -14,7 +14,12 @@ Those run locally with your network and a real terminal, so Claude can reach you
 Checkmarx tenant *and* run the commands itself — the experience is natural language
 end to end (you don't paste commands).
 
-1. Install the skill: drop `checkmarx-one-multi-tool.skill` into your Claude Code /
+1. Install the skill. **From the git repo (recommended):** clone
+   [CxOne_Multi-Tool](https://github.com/CxRW-Tools/CxOne_Multi-Tool) and either open
+   it as your working directory or symlink `.claude/skills/checkmarx-one-multi-tool`
+   into your personal skills folder — a clone *is* an install, and `git pull`
+   updates it (see the [repo README](../../../README.md) for the exact commands).
+   **Otherwise:** drop `checkmarx-one-multi-tool.skill` into your Claude Code /
    Cowork skills location (or unzip it into your skills folder).
 2. Have **Python 3.10+** available. On Windows, if the bare `python` resolves to
    the Microsoft Store stub (can't reach the skill's install path), use the
@@ -59,6 +64,14 @@ along on every command's startup output, so you can always confirm which version
 a session is on — useful after installing an update to be sure the new build is
 actually loaded (reinstalling a skill doesn't affect an already-running session;
 start a fresh session to pick it up).
+
+**Are you running the latest?** `python run.py selfcheck` compares this checkout
+against the repo's published branch — merged work only, so an unmerged branch
+someone pushed for review never counts as an update. `selfcheck --sync`
+fast-forwards to it. Running from a git clone, that's the whole update path; a
+standalone `.skill` install can't self-update and is told to reinstall instead.
+`welcome` runs the check at session start and stays silent unless you're behind
+(the remote is polled at most once every 4 hours).
 
 ## Autonomous activity: real time, not simulated
 
@@ -108,11 +121,17 @@ for demo realism: coverage + outcome model, top-down, per-project variation,
 exceptions; five intensity levels up to `heavy`, a backlog push hard-capped at a
 human day's decisions per project per pass), `triage-real` (a GENUINE review by
 the coding assistant against the exact scanned source, written back as real
-states and comments; free, and it refuses to guess when the code can't be read),
+states and comments; free, and it refuses to guess when the code can't be read —
+Criticals it confirms are written as `Urgent`, since a confirmed-exploitable
+Critical is the drop-everything tier),
 and `ai-assist` (Checkmarx Assist AI Triage + Remediation — real, and spends AI
-credits, with balance and cost shown before every run), **multi-identity attribution** (register secondary
+credits, with balance and cost shown before every run), **triage history**
+(`results show --history` / `--full-history`: past state, comment, user and
+timestamp, read from each engine's own predicate/action store — never from the
+audit trail, which records events rather than current state), **multi-identity attribution** (register secondary
 users' API keys and scans/triage run as different team members — `--as` on
-demand incl. `-secondary` variants that exclude the admin key, automatic
+`scan`, `triage-simulate` and `triage-real apply`, incl. `-secondary` variants
+that exclude the admin key, automatic
 per-project owners in the agent with an `include_primary` knob), full blueprint provisioning
 **and export** (capture a live tenant back to blueprint YAML), ordered teardown
 (scoped to tool-created resources by default; `--all` for a full reset), a
@@ -139,6 +158,14 @@ simulation, no time compression). One entry point: `run.py` (or
   403-fallback to primary.
 - `scripts/ops/` — scan + triage engines (with `--seed`-reproducible randomness),
   the realism model (`realism.py`), runners.
+- `scripts/triage_real.py` + `scripts/ops/source_fetch.py` — genuine review
+  (`triage-real prepare` -> assistant reads the real scanned source -> `apply`).
+- `scripts/ops/triage_history.py` — past triage (state, comment, user, when) per
+  engine, behind `results show --history`.
+- `scripts/selfcheck.py` — is this checkout current with the published branch,
+  and `--sync` to fast-forward.
+- `scripts/publish_skill.py` — publish a change: branch -> PR -> squash-merge ->
+  release tag, with spec- and freshness-preflights.
 - `scripts/ui.py` — local browser UI (auth + common actions, dry-run toggle).
 - `scripts/agent.py` + `scripts/ops/activity.py` — the real-time activity agent
   (`agent run` / `agent plan`); `Dockerfile` is its container substrate.
@@ -152,3 +179,10 @@ simulation, no time compression). One entry point: `run.py` (or
 When asked for something not yet built, Claude adds it using `references/`
 (API index + Stoplight, CLI, MCP, and the module pattern in `extending.md`)
 rather than declining. Always dry-run and confirm before mutating a real tenant.
+
+New work is published straight from the session — `scripts/publish_skill.py`
+opens the PR, merges it, and tags the release; the GitHub Action builds the
+`.skill`. Running from a git clone there is no repackaging step. Publishing runs
+`validate_spec.py --strict` first, so a change that references an API endpoint
+the bundled OpenAPI spec can't describe is refused rather than quietly widening
+the gap between the code and the spec. See SKILL.md "Keep the skill current".

@@ -1,7 +1,8 @@
 # OpenAPI Spec — Cleanup Notes
 
 `cxone_openapi.json` here is a cleaned copy of the Checkmarx One OpenAPI export
-(`openapi: 3.0.3`, 188 paths), generated from Stoplight docs on 2026-06-27.
+(`openapi: 3.0.3`, 189 paths), generated from Stoplight docs on 2026-06-27,
+plus the per-service additions logged under "Vendor-spec additions" below.
 **Last live-sync check: 2026-07-31** — this line, `spec/LAST_SYNCED`, and the
 file's own `info.x-last-synced`/`info.x-sync-notes` must always agree; update
 all three together (see "spec/LAST_SYNCED" below) whenever a sync pass touches
@@ -221,3 +222,45 @@ symptom here was produced by a stale-but-well-formed response.
 User/group/role endpoints are served by Keycloak at
 `/auth/admin/realms/{tenant}/...` and are **not** part of this AST OpenAPI spec.
 `validate_spec.py` labels them `IAM-PLANE` and excludes them from drift checks.
+
+
+## Vendor-spec additions
+
+Operations folded in from Checkmarx's own per-service spec files rather than
+from a full re-export. These are additive and scoped to the named service, so
+`spec/LAST_SYNCED` is deliberately NOT advanced by them — that date means "the
+whole bundled spec was re-checked against live", and claiming it for a
+single-service addition would overstate what was verified.
+
+### 2026-08-03 — SAST Results Predicates (attack-vector operations)
+
+Source: the vendor's *SAST Results Predicates API* spec (`NEWSastResultsPredicates.yaml`).
+
+* **Added `POST /api/sast-results-predicates/attack-vector`.** This is what
+  `ops/triage/sast_handler.py` writes through on Attack-Vector-mode tenants —
+  it has been exercised live on cnf26 throughout, most recently applying 43
+  reviewed SAST decisions. It had been carried in
+  `validate_spec.KNOWN_SPEC_OMISSIONS` since the bundled export predates the
+  feature; that allowlist entry is now **deleted**, because a carried omission
+  is debt to clear, not a permanent silence. Captured behaviours worth keeping:
+  409/4091 on inconsistent states across similarity groups unless
+  `allowInconsistentStates` (the mixed-state case `triage_rules.yaml →
+  sast_grouping.mixed_state_policy` handles), and 405/4002 when
+  `SAST_ADVANCED_GROUPING_ENABLED` is off — which is a Similarity-ID tenant
+  answering normally, not an error.
+* **Added `GET /api/sast-results-predicates`** (`getPredicatesByAttackVectorID`),
+  the read counterpart: predicate history — state, comment, `createdBy`,
+  `createdAt` — for an attack vector. The bundled export had only `post`/`patch`
+  on that path. `ops/triage_history.py` currently reads history via
+  `GET /api/sast-results-predicates/{similarityId}`; this is the vector-keyed
+  equivalent for AV-mode tenants.
+
+Also confirmed against the vendor specs for
+`kics-results-predicates` and `micro-engines/{read,write}/predicates`: both
+already matched the bundled spec, no change needed.
+
+**Enforcement.** `scripts/publish_skill.py` now runs `validate_spec.py --strict`
+as a publish preflight, so a change that leaves code or docs referencing an
+endpoint the spec cannot describe cannot be published. The validator's summary
+also prints the carried `KNOWN_SPEC_OMISSIONS` on every run, so remaining debt
+stays visible instead of reading as "0 misses".

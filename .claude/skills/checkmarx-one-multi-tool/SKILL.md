@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.40.0
+  version: 3.41.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -942,11 +942,41 @@ squash-merge → tag `v<version>` cut from the default branch *after* the merge.
 Variants: `--no-merge` opens the PR and stops for review (then
 `--tag-only` once it lands); `--tag-only` alone tags an already-merged version.
 
+**Every PR must describe what changed.** The script always builds a body with a
+`## Summary` and the concrete changed-file list, so a bare title is impossible.
+Pass `--notes` with the reasoning and the verification you actually did whenever
+the change is more than trivial — a reviewer, or whoever bisects to this commit
+in six months, should not have to read the diff to learn the scope:
+
+```bash
+python scripts/publish_skill.py "Add X" --notes "$(cat <<'EOF'
+Why: <the problem this solves>
+
+## Test plan
+- [x] <what you ran, and what it showed>
+EOF
+)"
+```
+
 It refuses rather than guesses, and each refusal names the fix: staged files
 that look like credentials or scratch output, nothing staged, detached HEAD, a
-tag that already exists, `gh` missing or unauthenticated, or — the important
-one — **this checkout being behind the published branch**. Never force-push; if
-a push is rejected because the remote moved, sync and retry.
+tag that already exists, `gh` missing or unauthenticated, **this checkout being
+behind the published branch**, or **the API spec being out of sync** (see
+below). Never force-push; if a push is rejected because the remote moved, sync
+and retry.
+
+**Keep the bundled API spec honest — this is enforced, not advisory.** Publishing
+runs `validate_spec.py --strict` and aborts on real drift, because the failure
+mode is silent: an endpoint gets used in code, the validator is never run, and
+the next person reads a spec that omits something the tool depends on. When it
+fires, fix it properly — fold the endpoint into `spec/cxone_openapi.json` (see
+`spec/CLEANUP_NOTES.md` → "Vendor-spec additions" for a worked example),
+correct a wrong path, or add a **justified** `KNOWN_SPEC_OMISSIONS` entry.
+That allowlist is carried debt, not a mute button: the validator prints every
+carried entry on each run, and an entry must be deleted as soon as a vendor
+spec covers it. Note the omissions list and `spec/LAST_SYNCED` are different
+things — an additive per-service fold-in does NOT advance `LAST_SYNCED`, which
+means "the whole spec was re-verified against live".
 
 Report the PR and tag that went out, and that local + GitHub are now level.
 
