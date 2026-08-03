@@ -132,3 +132,42 @@ If the `cx` CLI already does it well (scan/results/triage in pipelines) or the
 Checkmarx MCP is connected and the user wants conversational querying, prefer
 those (see `cli.md`, `mcp.md`) rather than reimplementing. Build new API code for
 the admin-plane gaps those tools don't cover.
+
+## Manual `.skill` export (standalone installs only)
+
+**Check before using this.** Run `python run.py selfcheck`. If it reports
+`Mode: repo`, stop — you are in a git checkout and this section does not apply.
+There, `publish_skill.py` commits and the release workflow builds the `.skill`
+on tag push; hand-zipping produces a rival artifact nobody installs. See
+SKILL.md "Keep the skill current" → Mode A.
+
+This path is for a skill folder copied somewhere with no repo behind it
+(`Mode: standalone`), where there is nothing to commit to and reinstalling is
+the only way to make a change permanent. Bump the version first (same rules as
+Mode A), then:
+
+```bash
+# Stage a clean copy (no secrets / state / build artifacts), then package it
+rm -rf /tmp/checkmarx-one-multi-tool && cp -r <this-skill-dir> /tmp/checkmarx-one-multi-tool
+rm -f /tmp/checkmarx-one-multi-tool/.env /tmp/checkmarx-one-multi-tool/scripts/.env \
+      /tmp/checkmarx-one-multi-tool/cxone-identities.yaml \
+      /tmp/checkmarx-one-multi-tool/scripts/cxone-identities.yaml   # never ship credentials
+rm -f /tmp/checkmarx-one-multi-tool/scripts/.agent_state.json       # never ship agent state
+rm -f /tmp/checkmarx-one-multi-tool/.selfcheck_state.json           # local cache, not content
+find /tmp/checkmarx-one-multi-tool -name __pycache__ -type d -prune -exec rm -rf {} +
+
+# Package. If the skill-creator skill is installed, its packager works:
+#   python -m scripts.package_skill /tmp/checkmarx-one-multi-tool   # from the skill-creator dir
+# Otherwise a .skill is just a zip of the skill folder — the result installs
+# identically:
+(cd /tmp && zip -qr checkmarx-one-multi-tool.skill checkmarx-one-multi-tool)
+mv /tmp/checkmarx-one-multi-tool.skill <user-working-dir>/checkmarx-one-multi-tool.skill
+```
+
+Then verify the change is inside the archive (`unzip -p ... <file> | grep ...`),
+that no `.env`/secret slipped in (`unzip -l ... | grep -i env`), and that the new
+version shows (`unzip -p ... VERSION`). Tell the user where the `.skill` landed,
+which version it is, and that reinstalling makes the change permanent.
+
+A standalone install cannot self-update: `selfcheck --sync` will say so and
+point at the latest GitHub Release instead of pretending it can fast-forward.
