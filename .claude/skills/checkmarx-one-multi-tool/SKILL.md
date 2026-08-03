@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.41.1
+  version: 3.42.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -648,9 +648,19 @@ Claude remains the primary, richer interface — the UI is a convenience panel.
 
 A real tenant generates activity continuously, not in one batch. The `agent`
 (`agent.py` + `ops/activity.py`, configured in `config/activity.yaml`) plays a
-realistic stream of **activities — scans AND triage** (rare onboarding) — spread
-across business hours with jitter and weekday/weekend variation. This is what
-"run realistic activity for the next week" maps to.
+realistic stream of **activities — scans, and optionally triage** (rare
+onboarding) — spread across business hours with jitter and weekday/weekend
+variation. This is what "run realistic activity for the next week" maps to.
+
+**Triage is OFF by default (`event_mix.triage: 0.0`).** The agent has no
+assistant in its loop, so any triage it fires can only be `triage-simulate` —
+fabricated states, not a real assessment. Leaving that on by default meant a
+background process was silently inventing triage decisions with nobody having
+asked for that specific tradeoff. Restoring a nonzero weight is a deliberate,
+informed choice — say so explicitly when a user wants it back, since it means
+"the agent will fabricate triage outcomes on my tenant," not just "make the
+agent busier." Real review always requires a live session: `triage-real`
+prepare/apply, with the assistant actually reading the code.
 
 **Cadence (so it doesn't scan too often).** Each project gets a stable intrinsic
 scan interval (busiest ~daily, legacy weekly+, hard per-project daily ceiling);

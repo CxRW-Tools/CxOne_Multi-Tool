@@ -1,7 +1,8 @@
 # Checkmarx One Multi-Tool — Activity model (autonomous/timed staggering)
 #
-# Controls WHEN the agent fires ACTIVITIES (scans AND triage) so a demo tenant
-# looks like real work happened over time: activity clusters in business hours,
+# Controls WHEN the agent fires ACTIVITIES (scans, and optionally triage) so a
+# demo tenant looks like real work happened over time: activity clusters in
+# business hours,
 # tapers overnight and on weekends, arrives at irregular (Poisson) intervals, and
 # — critically — each project has its own intrinsic cadence so it isn't scanned
 # too often. All keys optional; shown values are the defaults.
@@ -63,7 +64,14 @@ activity:
   # Scans and triage both matter for realism ("real work" = scan, then review).
   event_mix:
     scan: 0.55
-    triage: 0.53                   # raised from 0.35 (~+50% triage frequency)
+    triage: 0.0                    # DISABLED per current standard: the agent must
+                                   # not fabricate triage. `triage-simulate` states
+                                   # are invented, not a real assessment; genuine
+                                   # review only happens via `triage-real`, which
+                                   # needs the assistant in a live session reading
+                                   # the actual code — a background agent cannot do
+                                   # that. Restore a nonzero weight (was 0.53) only
+                                   # if fabricated triage becomes acceptable again.
     onboard: 0.02
     idle: 0.08
 
