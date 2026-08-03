@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.38.0
+  version: 3.39.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -438,6 +438,9 @@ triage-real apply --decisions decisions.json
 # attribution" below) — same --as pool as scan/triage-simulate:
 triage-real apply --decisions decisions.json --as alice.dev
 triage-real apply --decisions decisions.json --as random --seed 774213
+
+# Confirmed Criticals are written as Urgent by default (see below); this opts out
+triage-real apply --decisions decisions.json --no-escalate-critical
 ```
 
 **How the review is genuinely real.** `prepare` downloads the scan's own source
@@ -456,6 +459,26 @@ difference between reviewing and pattern-matching.
    finding and is a human's ratification to give; propose dismissal with
    "Proposed Not Exploitable" instead. Allowed: Confirmed, Proposed Not
    Exploitable, To Verify, Urgent.
+
+**Write-time policy: a Critical you confirm is written as Urgent.** Review
+answers the question you're qualified to answer — "is this real?" — so keep
+answering `Confirmed` for anything genuinely exploitable, at any severity.
+`apply` then promotes CRITICAL + Confirmed to **Urgent** on the way in, because
+a confirmed-exploitable Critical is the drop-everything tier and Urgent is what
+the UI and the analytics KPIs read for that. Applied once at the write boundary
+rather than per finding, so it can't be forgotten or applied inconsistently.
+
+- Severity is read from the **live result**, never from the decisions file, so
+  a wrong severity in a hand-written file can't dodge (or trigger) the rule.
+- **Only** CRITICAL + Confirmed changes. Other severities pass through, and so
+  does every non-Confirmed verdict — in particular this never escalates a
+  dismissal, and never touches "Proposed Not Exploitable".
+- The run prints exactly which findings were promoted, on dry-runs too, so the
+  listing you confirm already shows Urgent.
+- `--no-escalate-critical` records the reviewer's verdict verbatim.
+
+Don't pre-empt it by answering `Urgent` yourself — that conflates "this is real"
+with "this is top of the queue", and the two are different judgments.
 
 **SCA caveat:** the management-of-risk endpoints return 200 even when a write
 changes nothing, so `apply` reads SCA states back and un-counts anything that
