@@ -18,9 +18,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = REPO_ROOT / ".claude" / "skills"
 DIST_DIR = REPO_ROOT / "dist"
 
+# Local runtime state and credentials. These are gitignored, so a CI build from
+# a fresh checkout never sees them — but a LOCAL `package_skill.py` run zips the
+# working directory as it stands, which is how one machine's state would
+# otherwise ride along into a .skill someone else installs.
 EXCLUDE_NAMES = {
     "__pycache__", ".venv", ".DS_Store", "Thumbs.db",
     ".env", "cxone.env", "cxone-identities.yaml", ".agent_state.json",
+    ".selfcheck_state.json",
 }
 EXCLUDE_SUFFIXES = {".pyc", ".skill"}
 EXCLUDE_PREFIXES = ("agent.log",)
