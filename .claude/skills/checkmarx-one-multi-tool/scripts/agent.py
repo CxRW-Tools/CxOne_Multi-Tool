@@ -120,7 +120,35 @@ def _identity_include_primary() -> bool:
     return True
 
 
-def _assign_identities(plan: list[Event], pool, rng: random.Random) -> None:
+def _log_behavior(model, behavior=None) -> None:
+    """State this agent's behavior on every run and plan.
+
+    Printed whether or not anything was overridden: the point is that the log
+    describes the agent that ran, rather than leaving a future reader to infer
+    it from a shared config file that may have changed since.
+    """
+    from ops.agent_behavior import AgentBehavior
+    b = behavior or AgentBehavior()
+    logger.info("Agent behavior — %s",
+                b.describe(model,
+                           affinity=_effective_affinity(behavior),
+                           include_primary=_effective_include_primary(behavior)))
+
+
+def _effective_affinity(behavior=None) -> float:
+    """activity.yaml's affinity, unless this run overrode it."""
+    base = _identity_affinity()
+    return base if behavior is None else behavior.effective_affinity(base)
+
+
+def _effective_include_primary(behavior=None) -> bool:
+    """activity.yaml's include_primary, unless this run overrode it."""
+    base = _identity_include_primary()
+    return base if behavior is None else behavior.effective_include_primary(base)
+
+
+def _assign_identities(plan: list[Event], pool, rng: random.Random,
+                       behavior=None) -> None:
     """Stamp each scan/triage event with the identity that will perform it
     (detail['as']). Done at PLANNING time, not execution, so the identity shows
     in the plan log, persists in the plan file, and survives a restart-resume
@@ -129,7 +157,7 @@ def _assign_identities(plan: list[Event], pool, rng: random.Random) -> None:
     single-identity plans are byte-identical to pre-3.4)."""
     if pool is None or not pool.has_secondaries():
         return
-    include_primary = _identity_include_primary()
+    include_primary = _effective_include_primary(behavior)
     for e in plan:
         if e.type == "scan":
             key = ",".join(sorted(e.detail.get("projects", []))) or "?"
@@ -352,7 +380,7 @@ def _execute(event: Event, cfg: CxConfig, api: ApiClient,
 # --------------------------------------------------------------------- modes
 def cmd_plan(cfg: CxConfig, model: ActivityModel, seed: int | None,
              api: ApiClient | None, until: str | None = None,
-             scope=None) -> int:
+             scope=None, behavior=None) -> int:
     projects = (_projects(api, scope) if api
                 else [{"id": f"p{i}", "name": f"demo-project-{i}"} for i in range(12)])
     if not projects:
@@ -360,6 +388,7 @@ def cmd_plan(cfg: CxConfig, model: ActivityModel, seed: int | None,
         return 2
     rng = random.Random(seed)
     now = datetime.now()
+    _log_behavior(model, behavior)
 
     # Only ever list the committed window (the internal 24h rolling horizon): what
     # the agent actually locks in before its next re-plan. We never print specific
@@ -368,7 +397,8 @@ def cmd_plan(cfg: CxConfig, model: ActivityModel, seed: int | None,
     listed_window = float(_HORIZON_S)
     plan = model.generate_plan(now, listed_window, projects, rng)
     from cxone.identity_pool import IdentityPool
-    _assign_identities(plan, IdentityPool(cfg, affinity=_identity_affinity()), rng)
+    _assign_identities(plan, IdentityPool(cfg, affinity=_effective_affinity(behavior)),
+                       rng, behavior)
     listed_end = now + timedelta(seconds=listed_window)
     src = "live tenant projects" if api else "placeholder projects"
 
@@ -498,7 +528,8 @@ def _resolve_timezone() -> tuple[str | None, str]:
 
 
 def _launch_container(rt: str, cfg: CxConfig, until: str | None,
-                      max_lateness: str, live: bool, scope=None) -> int:
+                      max_lateness: str, live: bool, scope=None,
+                      behavior=None) -> int:
     """Build the agent image if needed and start the containerized run loop.
 
     The container runs `agent run --process` internally (never recursing into
@@ -624,6 +655,12 @@ def _launch_container(rt: str, cfg: CxConfig, until: str | None,
     if scope is not None and scope.active:
         cmd += scope.as_cli_args()
         logger.info("Project scope passed to the container: %s", scope.describe())
+    # Same trap as scope: the image's baked activity.yaml cannot see host-side
+    # flags, so per-run behavior has to travel as flags or it is silently lost.
+    if behavior is not None and behavior.active:
+        cmd += behavior.as_cli_args()
+        logger.info("Behavior passed to the container: %s",
+                    " ".join(behavior.as_cli_args()))
     try:
         r = _run(cmd, capture_output=True, text=True)
     finally:
@@ -649,7 +686,8 @@ def _launch_container(rt: str, cfg: CxConfig, until: str | None,
 
 def cmd_run(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
             until: str | None, max_lateness_s: int, seed: int | None,
-            substrate: str | None, max_lateness_raw: str, scope=None) -> int:
+            substrate: str | None, max_lateness_raw: str, scope=None,
+            behavior=None) -> int:
     """The single executor: real activity over real time, re-planning each
     (internal) 24h horizon, until --until or stopped.
 
@@ -685,7 +723,8 @@ def cmd_run(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
             logger.error("--container requested but no working docker/podman found. "
                          "Use --process instead.")
             return 2
-        return _launch_container(rt, cfg, until, max_lateness_raw, live, scope)
+        return _launch_container(rt, cfg, until, max_lateness_raw, live, scope,
+                                behavior)
 
     return _run_loop(cfg, model, api, live, until, max_lateness_s, _HORIZON_S,
                      seed, scope)
@@ -723,8 +762,9 @@ def _run_loop(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
     rng = random.Random(seed)
     ledger = _load_ledger()
     from cxone.identity_pool import IdentityPool
-    pool = IdentityPool(cfg, affinity=_identity_affinity())
+    pool = IdentityPool(cfg, affinity=_effective_affinity(behavior))
     mode = "LIVE" if live else "DRY-RUN"
+    _log_behavior(model, behavior)
     logger.info("Agent run loop starting [%s] until=%s lateness-tolerance=%dm horizon=%dh state=%s",
                 mode, until or "(none)", max_lateness_s // 60, horizon_s // 3600, _STATE)
 
@@ -781,7 +821,7 @@ def _run_loop(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
                     time.sleep(_RETRY)
                     continue
                 plan = model.generate_plan(now, horizon_s, projects, rng, history=ledger)
-                _assign_identities(plan, pool, rng)
+                _assign_identities(plan, pool, rng, behavior)
                 plan_end = now + timedelta(seconds=horizon_s)
                 if live:
                     _save_plan(plan, plan_end)  # commit the promise before announcing it
@@ -882,6 +922,28 @@ def main(argv: list[str] | None = None) -> int:
         g.add_argument("--exclude-tags", default=None, metavar="TAGS",
                        help="comma-separated tag filters to exclude (wins over includes)")
 
+    def _add_behavior_args(sp):
+        """Per-run behavior — same flags on `run` and `plan`, so a preview
+        reflects the agent you are about to start. CLI > env > activity.yaml;
+        nothing here edits the shared config file. See ops/agent_behavior.py."""
+        g = sp.add_argument_group("agent behavior (this run only)")
+        tg = g.add_mutually_exclusive_group()
+        tg.add_argument("--triage", dest="triage", action="store_true", default=None,
+                        help="run triage passes. NOTE these are triage-simulate: "
+                             "FABRICATED states, not a real review (the agent has no "
+                             "assistant in its loop). Off by default.")
+        tg.add_argument("--no-triage", dest="triage", action="store_false", default=None,
+                        help="scans only (the shipped default)")
+        g.add_argument("--triage-weight", type=float, default=None, metavar="W",
+                       help="explicit triage weight in the event mix (implies --triage; "
+                            "0 implies --no-triage). Default when --triage is given: 0.53")
+        g.add_argument("--identities", default=None, choices=["all", "secondaries"],
+                       help="who performs events: 'all' includes the primary/admin key, "
+                            "'secondaries' restricts to registered secondary identities")
+        g.add_argument("--affinity", type=float, default=None, metavar="F",
+                       help="0..1 stickiness of each project's owner (1.0 = always the "
+                            "same person, 0.85 = realistic hand-offs)")
+
     sub = p.add_subparsers(dest="mode", required=True)
 
     rn = sub.add_parser("run", help="run the agent: real activity over real time, "
@@ -898,6 +960,7 @@ def main(argv: list[str] | None = None) -> int:
     grp.add_argument("--process", action="store_true",
                      help="run as a long-lived process in this session")
     _add_scope_args(rn)
+    _add_behavior_args(rn)
 
     pl = sub.add_parser("plan", help="preview the committed next-24h events + general "
                         "behavior beyond (no execution)")
@@ -905,11 +968,19 @@ def main(argv: list[str] | None = None) -> int:
                     help="agent end date (YYYY-MM-DD) to state in the summary; "
                          "defaults to CXONE_AGENT_UNTIL if set")
     _add_scope_args(pl)
+    _add_behavior_args(pl)
 
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     model = _load_activity()
+    from ops.agent_behavior import AgentBehavior
+    behavior = AgentBehavior.resolve(
+        cli={"triage": args.triage, "triage_weight": args.triage_weight,
+             "identities": args.identities, "affinity": args.affinity},
+        env=os.environ,
+    )
+    behavior.apply_to_model(model)
     cfg = CxConfig.from_env(args.env)
     if args.debug:
         cfg.debug = True
@@ -937,7 +1008,7 @@ def main(argv: list[str] | None = None) -> int:
             logger.warning("Project scope is set (%s) but planning is using "
                            "placeholder projects, so it will not be applied.",
                            scope.describe())
-        return cmd_plan(cfg, model, args.seed, api, args.until, scope)
+        return cmd_plan(cfg, model, args.seed, api, args.until, scope, behavior)
 
     api = ApiClient(cfg)
     if not args.live:
@@ -945,7 +1016,7 @@ def main(argv: list[str] | None = None) -> int:
     substrate = "container" if args.container else ("process" if args.process else None)
     return cmd_run(cfg, model, api, args.live, args.until,
                    int(parse_window(args.max_lateness)), args.seed,
-                   substrate, args.max_lateness, scope)
+                   substrate, args.max_lateness, scope, behavior)
 
 
 if __name__ == "__main__":
