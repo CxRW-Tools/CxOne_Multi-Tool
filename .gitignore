@@ -8,6 +8,7 @@ dist/
 **/cxone.env
 **/cxone-identities.yaml
 **/.agent_state.json
+**/.selfcheck_state.json
 agent.log*
 
 # Python

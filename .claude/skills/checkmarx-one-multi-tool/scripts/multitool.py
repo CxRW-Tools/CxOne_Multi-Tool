@@ -74,6 +74,25 @@ def _freshness_line(*, indent: str = "") -> str | None:
     return line
 
 
+def _update_line(*, indent: str = "") -> str | None:
+    """"You are behind the published branch" for `welcome`, or None.
+
+    Throttled (see selfcheck.TTL_HOURS) so session start pays at most one
+    network round-trip per window, and silent when the checkout is current —
+    an up-to-date copy should add nothing to the banner. Wrapped broadly on
+    purpose: a git or network problem must never stop `welcome` from
+    reporting the tenant, which is what the user actually came for.
+    """
+    try:
+        import selfcheck
+        line = selfcheck.check().summary_line()
+    except Exception:                                     # noqa: BLE001
+        return None
+    if not line:
+        return None
+    return "\n".join(f"{indent}{part}" for part in line.splitlines())
+
+
 def _welcome_entry(argv: list[str]) -> int:
     import os as _os
     import config_setup as cs
@@ -88,6 +107,9 @@ def _welcome_entry(argv: list[str]) -> int:
     freshness = _freshness_line(indent="  ")
     if freshness:
         print(freshness)
+    update = _update_line(indent="  ")
+    if update:
+        print(update)
     # Same read guard as CxConfig.from_env: never present credentials found inside
     # the skill's own directory as the "active tenant" — that file is shared across
     # chats and may be stale, which is exactly the wrong-tenant trap.
@@ -332,7 +354,7 @@ lived-in\", or \"scan a few projects and triage some results over the next hour.
 
 
 def _dispatch():
-    import iam, applications, onboard, scanconfig, purge, provision, export_blueprint, identities, ui, agent, envmgr, results, reports, workflows, ai_assist, triage_real, audit
+    import iam, applications, onboard, scanconfig, purge, provision, export_blueprint, identities, ui, agent, envmgr, results, reports, workflows, ai_assist, triage_real, audit, selfcheck
     return {
         "iam": iam.main,
         "app": applications.main,
@@ -363,6 +385,7 @@ def _dispatch():
         "welcome": _welcome_entry,
         "start": _welcome_entry,
         "version": _version_entry,
+        "selfcheck": selfcheck.main,
     }
 
 
@@ -398,6 +421,7 @@ Verbs:
   env         manage single-tenant credentials: derive/init/show/set
   welcome     concise overview, best practices, and credential status
   version     print the installed skill version
+  selfcheck   is this checkout current with the published branch? (--sync to update)
 """
 
 

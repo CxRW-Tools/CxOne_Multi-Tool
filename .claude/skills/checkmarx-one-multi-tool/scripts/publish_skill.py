@@ -1,22 +1,34 @@
 #!/usr/bin/env python3
-"""Publish this skill's own changes to GitHub, if the skill folder happens to
-be running from inside a git checkout with a reachable 'origin' remote.
+"""Publish this skill's own changes, when it runs from a git checkout.
 
-Commits only the files under this skill's directory, pushes the current
-branch, and — since VERSION is expected to have just changed — tags and
-pushes v<version>. On a repo with the release-skill GitHub Action configured,
-that tag push builds a .skill zip and attaches it to a new GitHub Release
-automatically.
+**In a repo, this IS the publish.** Merging to the default branch and pushing a
+``v<version>`` tag is the whole delivery path: the ``release-skill`` workflow
+packages the ``.skill`` and attaches it to a GitHub Release. Nobody should be
+zipping the folder by hand. The manual export in SKILL.md exists only for a
+standalone copy with no repo behind it.
 
-If there's no git repo, no 'origin' remote, nothing staged, a detached HEAD,
-or the tag already exists, this prints why and exits cleanly without making
-any change — the caller should fall back to the manual .skill export flow
-documented in SKILL.md.
+**Flow: branch -> commit -> push -> PR -> squash-merge -> tag.** The tag is cut
+from the default branch *after* the merge, so ``v<version>`` always names a
+commit that is actually published rather than one that only ever lived on a
+feature branch. ``--no-merge`` stops after opening the PR when a change wants
+eyes on it first; the tag then waits for the merge (re-run with ``--tag-only``
+once it lands).
+
+**Preflight is unthrottled on purpose.** Being behind the published branch is a
+correctness problem when publishing, not a cadence one: committing from a stale
+checkout is how a push gets rejected or two sessions pick the same version
+number. So this always asks the network, regardless of selfcheck's TTL.
+
+Every failure mode prints why and changes nothing. Never force-pushes.
 
 Usage:
     python scripts/publish_skill.py "short summary of the change"
+    python scripts/publish_skill.py "..." --no-merge     # open the PR, don't merge
+    python scripts/publish_skill.py "..." --tag-only     # tag an already-merged version
 """
+import argparse
 import fnmatch
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -32,6 +44,7 @@ DISALLOWED_STAGED_PATTERNS = [
     "*.env", ".env", "cxone.env", "cxone-identities.yaml", ".agent_state.json",
     "agent.log*", "*.pem", "*.key", "*api*key*",
     "packet*.json", "decisions*.json",
+    ".selfcheck_state.json",
     "*.tmp", "*.bak", "*~",
     "scratch/*", "tmp/*",
     "*/__pycache__/*", "*.pyc",
@@ -61,10 +74,74 @@ def find_disallowed_staged(repo_root: Path, skill_relpath: Path) -> list[str]:
     return offenders
 
 
+def _slug(summary: str) -> str:
+    """A branch-safe slug from the summary, so branches read like the change."""
+    s = re.sub(r"[^a-z0-9]+", "-", summary.lower()).strip("-")
+    return (s[:48].rstrip("-")) or "update"
+
+
+def _have_gh() -> bool:
+    if run(["gh", "--version"], check=False).returncode != 0:
+        return False
+    return run(["gh", "auth", "status"], check=False).returncode == 0
+
+
+def _default_branch(repo_root: Path) -> str:
+    r = run(["git", "-C", str(repo_root), "symbolic-ref", "--short",
+             "refs/remotes/origin/HEAD"], check=False)
+    out = r.stdout.strip()
+    if r.returncode == 0 and out.startswith("origin/"):
+        return out.split("/", 1)[1]
+    return "main"
+
+
+def _preflight(repo_root: Path, default_branch: str) -> None:
+    """Refuse to publish from a checkout that is behind the published branch."""
+    if run(["git", "-C", str(repo_root), "fetch", "--quiet", "--tags", "origin",
+            default_branch], check=False).returncode != 0:
+        sys.exit("publish aborted: cannot reach origin to verify this checkout is "
+                 "current. Publishing from a stale checkout risks a rejected push "
+                 "or a duplicated version number.")
+    counts = run(["git", "-C", str(repo_root), "rev-list", "--left-right", "--count",
+                  f"HEAD...origin/{default_branch}"], check=False)
+    try:
+        _ahead, behind = (int(x) for x in counts.stdout.split())
+    except ValueError:
+        return  # can't tell; the push itself will fail loudly if it matters
+    if behind:
+        sys.exit(
+            f"publish aborted: this checkout is {behind} commit(s) behind "
+            f"origin/{default_branch}. Another session has published since. "
+            f"Run `selfcheck --sync` first, re-check that your change still "
+            f"applies and that the version number is still free, then publish."
+        )
+
+
+def _tag_and_push(repo_root: Path, version: str, commit_msg: str) -> None:
+    tag = f"v{version}"
+    existing = run(["git", "-C", str(repo_root), "ls-remote", "--tags", "origin", tag],
+                   check=False)
+    if existing.stdout.strip():
+        skip(f"tag {tag} already exists on origin — bump VERSION again before the next publish.")
+        return
+    run(["git", "-C", str(repo_root), "tag", "-a", tag, "-m", commit_msg])
+    if run(["git", "-C", str(repo_root), "push", "origin", tag], check=False).returncode != 0:
+        sys.exit(f"tag push failed, resolve manually: {tag}")
+    print(f"pushed tag {tag} -> origin — the release workflow will build and "
+          f"publish the .skill artifact")
+
+
 def main() -> None:
-    if len(sys.argv) < 2 or not sys.argv[1].strip():
+    ap = argparse.ArgumentParser(prog="publish_skill.py")
+    ap.add_argument("summary", help="one-line summary of the change")
+    ap.add_argument("--no-merge", action="store_true",
+                    help="open the PR but do not merge or tag (review first)")
+    ap.add_argument("--tag-only", action="store_true",
+                    help="skip branch/PR; just tag the current default branch")
+    args = ap.parse_args()
+    summary = args.summary.strip()
+    if not summary:
         sys.exit('usage: publish_skill.py "short summary of the change"')
-    summary = sys.argv[1].strip()
 
     toplevel = run(["git", "-C", str(SKILL_DIR), "rev-parse", "--show-toplevel"], check=False)
     if toplevel.returncode != 0:
@@ -72,21 +149,44 @@ def main() -> None:
         return
     repo_root = Path(toplevel.stdout.strip())
 
-    remote = run(["git", "-C", str(repo_root), "remote", "get-url", "origin"], check=False)
-    if remote.returncode != 0:
+    if run(["git", "-C", str(repo_root), "remote", "get-url", "origin"],
+           check=False).returncode != 0:
         skip("no 'origin' remote configured — use the manual .skill export flow instead.")
         return
 
-    branch = run(["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"], check=False)
-    branch_name = branch.stdout.strip()
-    if branch.returncode != 0 or branch_name == "HEAD":
+    default_branch = _default_branch(repo_root)
+    skill_relpath = SKILL_DIR.relative_to(repo_root)
+    version = (SKILL_DIR / "VERSION").read_text().strip()
+    commit_msg = f"checkmarx-one-multi-tool v{version}: {summary}"
+
+    _preflight(repo_root, default_branch)
+
+    if args.tag_only:
+        _tag_and_push(repo_root, version, commit_msg)
+        return
+
+    if not _have_gh():
+        sys.exit(
+            "publish aborted: the GitHub CLI (`gh`) is not installed or not "
+            "authenticated, so the PR cannot be opened.\n"
+            "Fix with `gh auth login`, or do it by hand:\n"
+            f"  git checkout -b <branch> && git add -- {skill_relpath} && "
+            f"git commit && git push -u origin <branch>\n"
+            "  ...open and squash-merge the PR, then re-run with --tag-only."
+        )
+
+    start = run(["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+                check=False).stdout.strip()
+    if start == "HEAD":
         skip("repo is in a detached HEAD state — check out a branch first.")
         return
 
-    skill_relpath = SKILL_DIR.relative_to(repo_root)
-    version = (SKILL_DIR / "VERSION").read_text().strip()
-
-    commit_msg = f"checkmarx-one-multi-tool v{version}: {summary}"
+    branch_name = f"skill-v{version}-{_slug(summary)}"
+    if start != branch_name:
+        if run(["git", "-C", str(repo_root), "checkout", "-b", branch_name],
+               check=False).returncode != 0:
+            sys.exit(f"could not create branch {branch_name} — does it already exist?")
+        print(f"branch: {branch_name}")
 
     run(["git", "-C", str(repo_root), "add", "--", str(skill_relpath)])
 
@@ -102,37 +202,43 @@ def main() -> None:
             "(Staged changes have been unstaged; nothing was committed.)"
         )
 
-    staged = run(["git", "-C", str(repo_root), "diff", "--cached", "--quiet"], check=False)
-    if staged.returncode == 0:
-        # Nothing new to commit — but a prior run may have committed already and
-        # only failed to push/tag. Don't bail here; fall through and let the
-        # push/tag steps below no-op cleanly if there's truly nothing left to do.
-        print("nothing new staged under the skill directory — checking push/tag state.")
-    else:
-        commit = run(["git", "-C", str(repo_root), "commit", "-m", commit_msg], check=False)
-        if commit.returncode != 0:
-            sys.exit(f"commit failed, resolve manually:\n{commit.stderr}")
-        print(f"committed: {commit_msg}")
-
-    push = run(["git", "-C", str(repo_root), "push", "origin", branch_name], check=False)
-    if push.returncode != 0:
-        sys.exit(
-            f"push failed (resolve manually, e.g. pull/rebase if the remote moved):\n{push.stderr}"
-        )
-    print(f"pushed {branch_name} -> origin/{branch_name}")
-
-    tag = f"v{version}"
-    existing = run(["git", "-C", str(repo_root), "ls-remote", "--tags", "origin", tag], check=False)
-    if existing.stdout.strip():
-        skip(f"tag {tag} already exists on origin — bump VERSION again before the next publish.")
+    if run(["git", "-C", str(repo_root), "diff", "--cached", "--quiet"],
+           check=False).returncode == 0:
+        skip("nothing new staged under the skill directory.")
         return
 
-    run(["git", "-C", str(repo_root), "tag", "-a", tag, "-m", commit_msg])
-    tag_push = run(["git", "-C", str(repo_root), "push", "origin", tag], check=False)
-    if tag_push.returncode != 0:
-        sys.exit(f"tag push failed, resolve manually:\n{tag_push.stderr}")
-    print(f"pushed tag {tag} -> origin — release workflow (if configured) will "
-          f"build and publish the .skill artifact")
+    if run(["git", "-C", str(repo_root), "commit", "-m", commit_msg],
+           check=False).returncode != 0:
+        sys.exit("commit failed, resolve manually (is a commit identity configured?)")
+    print(f"committed: {commit_msg}")
+
+    if run(["git", "-C", str(repo_root), "push", "-u", "origin", branch_name],
+           check=False).returncode != 0:
+        sys.exit("push failed (resolve manually, e.g. pull/rebase if the remote moved)")
+    print(f"pushed {branch_name} -> origin/{branch_name}")
+
+    pr = run(["gh", "pr", "create", "--fill", "--head", branch_name,
+              "--base", default_branch, "--title", commit_msg], check=False)
+    if pr.returncode != 0:
+        sys.exit(f"could not open the PR, resolve manually:\n{pr.stderr}")
+    print((pr.stdout or "").strip())
+
+    if args.no_merge:
+        print("PR opened and left for review (--no-merge). Once it is merged, run "
+              "`publish_skill.py \"<summary>\" --tag-only` from the default branch "
+              "to cut the release tag.")
+        return
+
+    if run(["gh", "pr", "merge", branch_name, "--squash", "--delete-branch"],
+           check=False).returncode != 0:
+        sys.exit("merge failed — the PR is open; merge it in GitHub, then re-run "
+                 "with --tag-only to cut the tag.")
+    print(f"squash-merged into {default_branch}")
+
+    run(["git", "-C", str(repo_root), "checkout", default_branch], check=False)
+    run(["git", "-C", str(repo_root), "pull", "--ff-only", "origin", default_branch],
+        check=False)
+    _tag_and_push(repo_root, version, commit_msg)
 
 
 if __name__ == "__main__":

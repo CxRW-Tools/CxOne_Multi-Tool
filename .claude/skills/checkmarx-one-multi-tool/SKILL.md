@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.39.0
+  version: 3.40.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -903,18 +903,95 @@ If a request isn't covered above, implement it — don't decline. Steps:
 Always dry-run new code and confirm with the user before mutating a real tenant.
 
 
-### Keep the package current (publish after any change)
+### Keep the skill current (sync in, publish out)
 
-This skill is meant to improve as you use it — fixes, new subcommands, doc updates.
-Whenever you modify any skill file (code, config, or docs), bump the version and
-publish the change as the last step, after verifying it works. Where that publish
-goes depends on whether this skill folder is running from a git checkout.
+This skill is meant to improve as it is used. Two directions matter, and they
+are different problems:
 
-**0. Bump the version (always, regardless of publish path).** Read the CURRENT
-version from the `VERSION` file first, then set the NEXT semver in both places so
+- **Sync in** — another session may have published since this one started.
+- **Publish out** — your change has to reach everyone else.
+
+#### Which mode am I in?
+
+```bash
+python run.py selfcheck
+```
+
+It reports `Mode: repo` or `Mode: standalone`, and everything below follows
+from that. Decide once, then follow one path — never both.
+
+#### Mode A — git repo (this project's case, and the normal one)
+
+**The repo IS the installed skill.** The checkout you are editing is what runs.
+So:
+
+> **Do NOT build, zip, or export a `.skill` file.** Committing is the publish.
+> Pushing a `v<version>` tag triggers `.github/workflows/release-skill.yml`,
+> which packages the `.skill` and attaches it to a GitHub Release. Producing one
+> by hand creates a second artifact competing with the real release, and nobody
+> installs it. There is no "and also export it" step.
+
+**Publishing** — after verifying the change works, bump the version (below) then:
+
+```bash
+python scripts/publish_skill.py "<one-line summary of the change>"
+```
+
+That runs the full path: branch → commit (skill files only) → push → PR →
+squash-merge → tag `v<version>` cut from the default branch *after* the merge.
+Variants: `--no-merge` opens the PR and stops for review (then
+`--tag-only` once it lands); `--tag-only` alone tags an already-merged version.
+
+It refuses rather than guesses, and each refusal names the fix: staged files
+that look like credentials or scratch output, nothing staged, detached HEAD, a
+tag that already exists, `gh` missing or unauthenticated, or — the important
+one — **this checkout being behind the published branch**. Never force-push; if
+a push is rejected because the remote moved, sync and retry.
+
+Report the PR and tag that went out, and that local + GitHub are now level.
+
+#### Mode B — standalone install (no repo)
+
+Only when `selfcheck` says `Mode: standalone`: there is no repo to commit to, so
+the change is packaged by hand and reinstalled. That recipe lives in
+**`references/extending.md` → "Manual .skill export (standalone installs only)"**.
+It is deliberately out of the main flow — reaching for it while in a repo is the
+mistake this split exists to prevent.
+
+#### Staying current with other sessions
+
+`selfcheck` compares this checkout against **`origin`'s default branch — merged
+work only**. An unmerged feature branch someone pushed for review is a proposal,
+not a published version, and is intentionally invisible here.
+
+```bash
+python run.py selfcheck            # status (throttled network check)
+python run.py selfcheck --force    # check the remote right now
+python run.py selfcheck --sync     # fast-forward to the published branch
+```
+
+- `welcome` runs the check at session start and prints a line **only if behind**,
+  so a current checkout stays quiet. The remote is polled at most once every
+  `selfcheck.TTL_HOURS` (4h); in between the cached answer is reused and
+  labelled `(cached)`.
+- **Publishing re-checks unthrottled**, because "am I behind?" is a correctness
+  question there, not a cadence one.
+- `--sync` is **fast-forward only**. It refuses to pull over uncommitted tracked
+  changes, refuses when you are on a feature branch rather than the published
+  one, and refuses a diverged history — each with the specific next step. It
+  never merges, rebases, or switches branches for you.
+
+**If a sync changes the version mid-session, re-read `SKILL.md` before acting on
+it.** The copy already in context is the pre-sync one; the sync says so
+explicitly when the version moves. Following stale instructions while newer ones
+sit on disk is exactly the failure this mechanism is meant to prevent.
+
+#### Version bump (both modes, always)
+
+Read the CURRENT version first, then set the NEXT semver in **both** places so
 they always match — patch = fix, minor = new capability, major = breaking.
-(Never copy a literal number from an example — it may be older than the
-installed version and would silently downgrade.)
+(Never copy a literal number from an example — it may be older than what is
+installed and would silently downgrade.)
 
 ```bash
 cat <this-skill-dir>/VERSION                    # current, e.g. 2.7.14
@@ -922,62 +999,13 @@ echo "<NEXT-VERSION>" > <this-skill-dir>/VERSION
 #    then edit SKILL.md frontmatter: metadata.version: <NEXT-VERSION>  (same value)
 #    If this change included a live-spec sync (spec/CLEANUP_NOTES.md "Live
 #    sync"), ALSO update spec/LAST_SYNCED to today's date -- it's what
-#    `welcome`/`version`/`--help` print and stale-warn from (see
-#    spec/CLEANUP_NOTES.md "spec/LAST_SYNCED"); a code-only change should NOT
-#    touch it, since that would falsely claim a re-verification happened.
+#    `welcome`/`version`/`--help` print and stale-warn from; a code-only change
+#    should NOT touch it, since that would falsely claim a re-verification.
 echo "<TODAYS-DATE, YYYY-MM-DD>" > <this-skill-dir>/spec/LAST_SYNCED   # only if synced
 ```
 
-**1. Check whether this skill folder is git-connected:**
-
-```bash
-git -C <this-skill-dir> remote get-url origin
-```
-
-- **Succeeds → publish via git (preferred whenever available):**
-
-  ```bash
-  python <this-skill-dir>/scripts/publish_skill.py "<one-line summary of the change>"
-  ```
-
-  This commits only the files under this skill's directory, pushes the current
-  branch to `origin`, and — since VERSION just changed — tags and pushes
-  `v<version>`. On a repo with the `release-skill` GitHub Action configured (this
-  one included), that tag push builds the `.skill` zip and attaches it to a new
-  GitHub Release automatically — no manual zip step. It no-ops safely (prints why,
-  changes nothing) if there's nothing staged, the tag already exists, there's no
-  commit identity configured, or HEAD is detached — treat any of those messages as
-  "resolve and re-run," not silent success. Never force-push; if the push is
-  rejected because the remote moved, pull/rebase and retry rather than overriding
-  it. Tell the user the commit/tag that went out and that both their local copy
-  and the GitHub copy are now current.
-
-- **Fails (no git repo, or no `origin` remote) → fall back to the manual
-  `.skill` export below.** This is the path for a standalone install (skill
-  copied somewhere without cloning a repo it lives in).
-
-  ```bash
-  # Stage a clean copy (no secrets / state / build artifacts), then package it
-  rm -rf /tmp/checkmarx-one-multi-tool && cp -r <this-skill-dir> /tmp/checkmarx-one-multi-tool
-  rm -f /tmp/checkmarx-one-multi-tool/.env /tmp/checkmarx-one-multi-tool/scripts/.env /tmp/checkmarx-one-multi-tool/cxone-identities.yaml /tmp/checkmarx-one-multi-tool/scripts/cxone-identities.yaml  # never ship credentials
-  rm -f /tmp/checkmarx-one-multi-tool/scripts/.agent_state.json                        # never ship agent state
-  find /tmp/checkmarx-one-multi-tool -name __pycache__ -type d -prune -exec rm -rf {} +
-
-  # Package. If the skill-creator skill is installed, its packager works:
-  #   python -m scripts.package_skill /tmp/checkmarx-one-multi-tool   # from the skill-creator dir
-  # Otherwise (no skill-creator available), a .skill is just a zip of the skill
-  # folder — package it directly; the result installs identically:
-  (cd /tmp && zip -qr checkmarx-one-multi-tool.skill checkmarx-one-multi-tool)
-  mv /tmp/checkmarx-one-multi-tool.skill <user-working-dir>/checkmarx-one-multi-tool.skill
-  ```
-
-  Then verify the change is inside the archive (`unzip -p ... <file> | grep ...`) and
-  that no `.env`/secret slipped in (`unzip -l ... | grep -i env`). Confirm the new
-  version shows (`unzip -p ... VERSION`). Tell the user where the `.skill` landed,
-  which version it is, and that reinstalling makes the change permanent.
-
-Either way: batch several edits and publish once at the end (one version bump,
-one commit/tag or one zip) rather than after every tiny change.
+Batch several edits and publish once at the end (one version bump, one PR)
+rather than after every tiny change.
 
 ## Blueprints (repeatable environments)
 
