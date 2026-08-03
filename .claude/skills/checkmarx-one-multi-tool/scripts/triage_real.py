@@ -34,6 +34,17 @@ Two safety properties, both deliberate:
 * **Never "Not Exploitable".** That state suppresses a finding outright, which
   is a human's call. A reviewer proposes dismissal with "Proposed Not
   Exploitable" and leaves ratification to a person.
+
+One write-time policy sits on top of the reviewer's verdict:
+
+* **A Critical confirmed by review is written as Urgent.** The reviewer still
+  answers the question they are qualified to answer ("is this real?") with
+  Confirmed; promoting a confirmed-exploitable Critical into the
+  drop-everything tier is a reporting decision, applied once at the write
+  boundary so it cannot be forgotten per finding. Severity is read from the
+  live result, never from the decisions file. Nothing else is rewritten - other
+  severities, and every non-Confirmed verdict (notably dismissals), pass
+  through untouched. ``--no-escalate-critical`` records the verdict verbatim.
 """
 
 from __future__ import annotations
@@ -88,6 +99,26 @@ _CODE_ENGINES = {"sast", "kics", "sscs-secret-detection"}
 
 def _canon_state(raw: str) -> str | None:
     return _ALLOWED_CANON.get((raw or "").strip().lower().replace("_", " "))
+
+
+# --------------------------------------------------------------- write policy
+# A confirmed-exploitable CRITICAL is not the same class of item as a confirmed
+# MEDIUM: it is the queue's "drop everything" tier, and Urgent is the state the
+# UI and the analytics KPIs use to say so. Reviewers reason about truth
+# ("is this real?") and answer Confirmed; the escalation to Urgent is a
+# reporting-policy decision, so it belongs here at the write boundary rather
+# than in every reviewer's head. Verdicts other than Confirmed are untouched —
+# in particular this never escalates a dismissal.
+ESCALATE_SEVERITIES = {"CRITICAL"}
+ESCALATE_FROM_STATE = "Confirmed"
+ESCALATE_TO_STATE = "Urgent"
+
+
+def escalated_state(state: str, severity: str) -> str:
+    """The state to actually write, applying the critical-confirmed rule."""
+    if state == ESCALATE_FROM_STATE and (severity or "").upper() in ESCALATE_SEVERITIES:
+        return ESCALATE_TO_STATE
+    return state
 
 
 class TriageRealManager:
@@ -236,7 +267,12 @@ class TriageRealManager:
                 "'Proposed Not Exploitable' to propose dismissal). The comment is written "
                 "in a plain analyst voice, cites the specific code reason, and carries no "
                 "AI/tool attribution. If a finding cannot be judged from what is here, "
-                "OMIT it or set state to null with a reason — never guess."
+                "OMIT it or set state to null with a reason — never guess. "
+                "Judge exploitability only: answer 'Confirmed' for anything you find "
+                "genuinely exploitable regardless of its severity. Critical findings you "
+                "confirm are written to the tenant as 'Urgent' automatically — that "
+                "promotion is applied at write time, so do not pre-empt it by answering "
+                "'Urgent' yourself."
             ),
             "findings": findings,
         }
@@ -253,6 +289,7 @@ class TriageRealManager:
 
     # ----------------------------------------------------------------- apply
     def apply(self, args) -> int:
+        escalate = not getattr(args, "no_escalate_critical", False)
         path = Path(args.decisions)
         if not path.is_file():
             logger.error("Decisions file not found: %s", path)
@@ -318,13 +355,29 @@ class TriageRealManager:
         rows = {r.get("alternateId"): r for r in self.api.fetch_results(scan_id)}
         by_engine: dict[str, list[dict]] = {}
         missing = []
+        escalated = []
         for d in valid:
             row = rows.get(d["result_id"])
             if not row:
                 missing.append(d["result_id"]); continue
             row = dict(row)
-            row["_matched_rule"] = {"state": d["state"], "comment": d["comment"]}
+            state = d["state"]
+            if escalate:
+                # Severity comes from the live result, not the decisions file, so
+                # a reviewer cannot mis-state it and the rule can't be sidestepped.
+                promoted = escalated_state(state, row.get("severity") or "")
+                if promoted != state:
+                    escalated.append(_results._finding_label(row)[:46])
+                    state = promoted
+            row["_matched_rule"] = {"state": state, "comment": d["comment"]}
             by_engine.setdefault((row.get("type") or "").lower(), []).append(row)
+        if escalated:
+            logger.info("Policy: %d Critical finding(s) confirmed by review are being "
+                        "written as '%s' rather than '%s' (pass --no-escalate-critical "
+                        "to record the reviewer's verdict verbatim):",
+                        len(escalated), ESCALATE_TO_STATE, ESCALATE_FROM_STATE)
+            for label in escalated:
+                logger.info("    %s", label)
         if missing:
             logger.warning("%d decision(s) reference results not in scan %s: %s",
                            len(missing), scan_id, ", ".join(missing[:5]))
@@ -625,6 +678,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seed", type=int, default=None,
                     help="reproduce a prior apply's identity pick with --as random/auto "
                          "(the dry-run prints the seed it used; pass it here for the live run)")
+    ap.add_argument("--no-escalate-critical", action="store_true",
+                    help="write a reviewer's 'Confirmed' verdict verbatim on Critical "
+                         "findings. By default a Critical confirmed by review is written "
+                         "as 'Urgent', since a confirmed-exploitable Critical is the "
+                         "drop-everything tier; other severities and other verdicts are "
+                         "never changed.")
 
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
