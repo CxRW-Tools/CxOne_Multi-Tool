@@ -33,14 +33,17 @@ from pathlib import Path
 
 # Endpoints the platform has but the published OpenAPI export is known to omit.
 # These are live-validated in our code; absence in the spec is expected, not drift.
+#
+# This list is CARRIED DEBT, not a place to make a warning go away. Every entry
+# is an endpoint we depend on that the bundled spec cannot describe, so the
+# summary reports the count on every run rather than folding them into a
+# reassuring "0 misses". When a vendor spec for one of these turns up, fold it
+# into spec/cxone_openapi.json and DELETE the entry here — that is what happened
+# to POST /api/sast-results-predicates/attack-vector on 2026-08-03, which had
+# been silently carried while the spec stayed incomplete.
 KNOWN_SPEC_OMISSIONS = {
     ("POST", "/api/repos-manager/scms/{}/orgs/{}/repo/projectScan"),
-    # Attack-vector SAST triage (AST-87380 / FR-022): newer than the bundled
-    # OpenAPI export. Schema per the feature spec; flag-gated
-    # (SAST_ADVANCED_GROUPING_ENABLED). Refresh the bundled spec when a new
-    # export includes it.
-    ("POST", "/api/sast-results-predicates/attack-vector"),
-    # Same Attack Vector feature (sast_handler.py), same newer-than-spec status.
+    # Attack Vector feature (sast_handler.py), newer than the bundled export.
     # These were invisible to this scraper until it learned to resolve
     # endpoint-as-constant calls (`self.api.get(_SAST_CONFIG_ENDPOINT, ...)`) —
     # once visible, `GET /api/sast-results/` and `GET /api/sast-results/compare`
@@ -245,6 +248,7 @@ def main(argv=None) -> int:
     print("CODE -> SPEC  (endpoints the skill calls)")
     print("=" * 70)
     code_misses = []
+    carried = []   # KNOWN_SPEC_OMISSIONS actually hit this run — visible debt
     for method, npath in code:
         full = "/api" + npath
         if npath in DYNAMIC_PATHS:
@@ -262,7 +266,9 @@ def main(argv=None) -> int:
             known = (method, npath) in {(m, _norm(p)) for m, p in KNOWN_SPEC_OMISSIONS}
             tag = "KNOWN-OMIT" if known else "ABSENT"
             print(f"  {tag:9} {method:6} {full}" + ("   (live-validated; spec omits)" if known else ""))
-            if not known:
+            if known:
+                carried.append((method, npath))
+            else:
                 code_misses.append((method, npath, "absent"))
 
     # 2) DOCS -> SPEC
@@ -302,9 +308,19 @@ def main(argv=None) -> int:
     # summary
     print("\n" + "=" * 70)
     print(f"SUMMARY: {len(code)} code endpoints, {len(seen)} doc paths checked. "
-          f"CODE misses: {len(code_misses)} | DOC misses: {len(doc_misses)}")
+          f"CODE misses: {len(code_misses)} | DOC misses: {len(doc_misses)} | "
+          f"carried omissions: {len(carried)}")
+    if carried:
+        # Never let carried debt read as a clean bill of health: these are
+        # endpoints the tool depends on that the bundled spec cannot describe.
+        print("  Carried (KNOWN_SPEC_OMISSIONS) — fold into the spec and delete "
+              "the allowlist entry as soon as a vendor spec covers them:")
+        for method, npath in sorted(carried):
+            print(f"    {method:6} /api{npath}")
     print("=" * 70)
     if args.strict and code_misses:
+        print("STRICT: real drift found (ABSENT/METHOD?) — fix the spec, the code "
+              "path, or add a justified KNOWN_SPEC_OMISSIONS entry before publishing.")
         return 1
     return 0
 

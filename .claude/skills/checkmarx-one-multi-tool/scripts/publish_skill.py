@@ -74,6 +74,36 @@ def find_disallowed_staged(repo_root: Path, skill_relpath: Path) -> list[str]:
     return offenders
 
 
+def _changed_files(repo_root: Path, base: str) -> list[str]:
+    """`M path` / `A path` lines for this branch vs the published branch."""
+    r = run(["git", "-C", str(repo_root), "diff", "--name-status",
+             f"origin/{base}...HEAD"], check=False)
+    return [ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip()]
+
+
+def _pr_body(repo_root: Path, base: str, version: str, summary: str,
+             notes: str | None) -> str:
+    """Assemble the PR description.
+
+    A PR whose body is just its title tells a reviewer (or whoever bisects to it
+    in six months) nothing about scope. So the body ALWAYS carries a summary and
+    the concrete file list; ``--notes`` adds the reasoning and test evidence on
+    top when the change deserves more than one line.
+    """
+    files = _changed_files(repo_root, base)
+    parts = [f"## Summary\n\n{summary}"]
+    if notes:
+        parts.append(notes.strip())
+    if files:
+        rendered = "\n".join(f"- `{ln}`" for ln in files)
+        parts.append(f"## Changes ({len(files)} file(s))\n\n{rendered}")
+    parts.append(
+        f"Skill version: **v{version}**. Merging and tagging `v{version}` "
+        f"publishes the `.skill` via the release workflow."
+    )
+    return "\n\n".join(parts)
+
+
 def _slug(summary: str) -> str:
     """A branch-safe slug from the summary, so branches read like the change."""
     s = re.sub(r"[^a-z0-9]+", "-", summary.lower()).strip("-")
@@ -93,6 +123,36 @@ def _default_branch(repo_root: Path) -> str:
     if r.returncode == 0 and out.startswith("origin/"):
         return out.split("/", 1)[1]
     return "main"
+
+
+def _spec_preflight() -> None:
+    """Refuse to publish code/doc changes that reference endpoints the bundled
+    spec cannot describe.
+
+    The spec drifts silently otherwise: an endpoint gets added in code, the
+    validator is never run (or its warning is waved through), and the next
+    person reads a spec that quietly omits something the tool depends on. Tying
+    it to publish makes the check unskippable at exactly the moment the change
+    becomes everyone else's problem. `--strict` fails only on genuine drift
+    (ABSENT / METHOD?); entries deliberately carried in KNOWN_SPEC_OMISSIONS
+    still pass, and are printed on every run so they stay visible as debt.
+    """
+    validator = SKILL_DIR / "validate_spec.py"
+    if not validator.is_file():
+        return
+    r = run([sys.executable, str(validator), "--strict"], check=False)
+    if r.returncode != 0:
+        # Show only the offending lines. The full report is long, and pasting
+        # its tail buries the two lines that say what to fix.
+        offenders = [ln for ln in (r.stdout or "").splitlines()
+                     if ln.lstrip().startswith(("ABSENT", "METHOD?")) or ln.startswith("SUMMARY")]
+        sys.exit(
+            "publish aborted: the API spec is out of sync with the code or docs.\n"
+            + "\n".join(offenders)
+            + "\n\nFix the bundled spec (spec/cxone_openapi.json), correct the "
+              "path, or add a justified KNOWN_SPEC_OMISSIONS entry — then publish.\n"
+              "Full report: python validate_spec.py --strict"
+        )
 
 
 def _preflight(repo_root: Path, default_branch: str) -> None:
@@ -138,6 +198,10 @@ def main() -> None:
                     help="open the PR but do not merge or tag (review first)")
     ap.add_argument("--tag-only", action="store_true",
                     help="skip branch/PR; just tag the current default branch")
+    ap.add_argument("--notes", default=None,
+                    help="extra PR body detail (rationale, test evidence). The PR "
+                         "always carries a summary and the changed-file list; this "
+                         "adds the reasoning on top.")
     args = ap.parse_args()
     summary = args.summary.strip()
     if not summary:
@@ -160,6 +224,7 @@ def main() -> None:
     commit_msg = f"checkmarx-one-multi-tool v{version}: {summary}"
 
     _preflight(repo_root, default_branch)
+    _spec_preflight()
 
     if args.tag_only:
         _tag_and_push(repo_root, version, commit_msg)
@@ -217,8 +282,10 @@ def main() -> None:
         sys.exit("push failed (resolve manually, e.g. pull/rebase if the remote moved)")
     print(f"pushed {branch_name} -> origin/{branch_name}")
 
-    pr = run(["gh", "pr", "create", "--fill", "--head", branch_name,
-              "--base", default_branch, "--title", commit_msg], check=False)
+    body = _pr_body(repo_root, default_branch, version, summary, args.notes)
+    pr = run(["gh", "pr", "create", "--head", branch_name,
+              "--base", default_branch, "--title", commit_msg,
+              "--body", body], check=False)
     if pr.returncode != 0:
         sys.exit(f"could not open the PR, resolve manually:\n{pr.stderr}")
     print((pr.stdout or "").strip())
