@@ -36,6 +36,7 @@ hitting it again.
 |---|---|---|
 | `ops/findings.py` | Turning a finding into the ids an API wants (`FindingRef`, `FindingResolver`, `buckets_from`, `group_id_for`) | SCA `id` vs `alternateId`; base64 result ids need `quote(v, safe="")`; initiate and retrieve key findings differently; SAST group id is the similarityId OR the attackVectorID depending on tenant config |
 | `ops/sca_live_state.py` | **Any** read of current SCA triage state | SCA scans are immutable — `/api/results`, the export, and `/api/risks` all report stale or absent state (see `cxone-api.md`) |
+| `ops/triage_history.py` | **Any** "who triaged this / what did they say" question, all five engines | The audit trail is the wrong source (no comments, stale result ids, doesn't reconcile to current state); each engine has a different endpoint, key, and response shape; SAST reads by similarityId even on attack-vector tenants (opposite of the writer); the SCA GraphQL silently returns `[]` without `projectId` |
 | `ops/source_fetch.py` | Getting the code a scan actually ran against | The 302 looks like an S3 pre-signed URL but still needs the bearer token; token is attached only when the redirect host matches `base_url`; Zip Slip guard |
 | `ops/state_normalize.py` | Comparing or displaying triage states | Engines disagree on casing (`ProposedNotExploitable` vs `PROPOSED_NOT_EXPLOITABLE`) |
 

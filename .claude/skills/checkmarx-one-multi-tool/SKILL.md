@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.37.0
+  version: 3.38.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -208,7 +208,7 @@ discoverable, not things to infer). Load what's relevant to the task at hand:
   shapes and API notes. Start here when asked to build one of them.
 - **`references/extending.md`** — the module pattern for adding new areas/SCMs,
   the **shared helpers to reuse** (`ops/findings.py`, `ops/sca_live_state.py`,
-  `ops/source_fetch.py` — each absorbs a trap), the rules for adding anything
+  `ops/triage_history.py`, `ops/source_fetch.py` — each absorbs a trap), the rules for adding anything
   metered, and known sharp edges. Read before writing a new module.
   **`references/cli.md`** / **`references/mcp.md`** — when to defer to the `cx` CLI
   or Checkmarx MCP instead of reimplementing.
@@ -343,7 +343,8 @@ unimplemented things → Keep the package current**. Don't leave the installed
 | Projects & onboarding | `onboard.py` | `project` | manual projects; one-shot `create` (repo+preset+groups+app-tag); batch `onboard` (many repos, one call); GitHub bulk import (async); GitLab/Azure/Bitbucket extension points |
 | Scan configuration | `scanconfig.py` | `scanconfig` | per-project SAST preset / incremental |
 | Scans | `ops/scans.py` + `ops/scan_status.py` | `scan` | trigger by name/id or random %, with weighted config rolls; duplicate-scan guard (`--force`); on-demand `scan status` / `history` (scans are fire-and-forget — no blocking wait) |
-| Results | `results.py` | `results` | `summary` by engine×severity (per project or per-application rollup), `show` finding drill-down (SCA rows labelled `<CVE> — <package>`; filter by engine/severity/state/`--match`, which also matches CVE ids, with `--ids`/`--json` exposing the scan/result/group ids the APIs need), `kpi` — tenant-wide server-aggregated KPIs (severity×state, aging, most-common, etc.) via the Analytics API in one call |
+| Results | `results.py` | `results` | `summary` by engine×severity (per project or per-application rollup), `show` finding drill-down (SCA rows labelled `<CVE> — <package>`; filter by engine/severity/state/`--match`, which also matches CVE ids, with `--ids`/`--json` exposing the scan/result/group ids the APIs need, and `--history`/`--full-history` showing WHO triaged each finding, when, and their comment), `kpi` — tenant-wide server-aggregated KPIs (severity×state, aging, most-common, etc.) via the Analytics API in one call |
+| Triage history | `ops/triage_history.py` | (via `results show --history`) | past triage — state, comment, user, timestamp — read from each engine's own predicate/action store (SAST/IaC/Secrets/SCA/Containers). **The only correct source for "who triaged this"; never the audit trail.** See `references/cxone-api.md` "Triage history" |
 | Reports | `reports.py` | `report` | PDF/JSON/CSV scan reports (async poll+download) and CycloneDX/SPDX SBOMs |
 | Audit trail | `audit.py` | `audit` | `list` — search/export tenant activity (who did what, when) via `GET /api/audit-events`, filter by `--type`/`--resource`/`--user`/`--search`/date range, `--human-readable` UUID resolution, `--csv` export. Read-only; platform event coverage is still growing engine by engine, and only goes back to 2026-03-29 — an empty result isn't proof nothing happened. **History only, not current state** — see caution below and `references/cxone-api.md` |
 | Triage (real review) | `triage_real.py` + `ops/source_fetch.py` | `triage-real` | `prepare` (findings + the exact scanned source) → the assistant reviews → `apply` (validated write). Free, genuine, never "Not Exploitable", no source = no verdict |
@@ -358,6 +359,14 @@ unimplemented things → Keep the package current**. Don't leave the installed
 | Containers triage | `ops/triage/containers_handler.py` | `triage-simulate` | Container findings via `POST containers/triage/…` (vulnerability/package/image); `packageId` is read from the containers GraphQL service — never reconstructed (see `references/cxone-api.md`) |
 | Local UI | `ui.py` | `ui` | browser panel: authenticate + run common actions with a dry-run toggle |
 | Autonomous activity | `agent.py` + `ops/activity.py` + `Dockerfile` | `agent` | real scans + triage over real time, business-hours-weighted, per-project cadence + private ledger; two verbs: **`run`** (the executor; container via docker/podman when available, else long-lived process) and **`plan`** (committed next-24h preview) |
+
+**For "who triaged this finding and what did they say", use `results show
+--history` — NEVER `audit`.** Every engine has its own predicate/action store
+that returns the current state plus the full comment+user history
+(`ops/triage_history.py`; SAST/IaC/Secrets/SCA/Containers all covered). Audit
+is the wrong tool for that question in three ways: it carries no comment text
+for most engines, its result ids go stale on the next scan, and rebuilding
+"current state" from an append-only stream doesn't reconcile (see below).
 
 **Audit is for "who did what, when" — never for "what does X look like right
 now."** It's an append-only event stream, not reconciled against live state:
