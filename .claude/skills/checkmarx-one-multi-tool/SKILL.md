@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.42.0
+  version: 3.43.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -652,15 +652,47 @@ realistic stream of **activities — scans, and optionally triage** (rare
 onboarding) — spread across business hours with jitter and weekday/weekend
 variation. This is what "run realistic activity for the next week" maps to.
 
-**Triage is OFF by default (`event_mix.triage: 0.0`).** The agent has no
-assistant in its loop, so any triage it fires can only be `triage-simulate` —
-fabricated states, not a real assessment. Leaving that on by default meant a
-background process was silently inventing triage decisions with nobody having
-asked for that specific tradeoff. Restoring a nonzero weight is a deliberate,
-informed choice — say so explicitly when a user wants it back, since it means
-"the agent will fabricate triage outcomes on my tenant," not just "make the
-agent busier." Real review always requires a live session: `triage-real`
-prepare/apply, with the assistant actually reading the code.
+**Triage is OFF by default.** The agent has no assistant in its loop, so any
+triage it fires can only be `triage-simulate` — fabricated states, not a real
+assessment. Turning it on is a deliberate, informed choice: say plainly that it
+means "the agent will fabricate triage outcomes on my tenant," not just "make
+the agent busier." Real review always requires a live session (`triage-real`
+prepare/apply, with the assistant actually reading the code).
+
+**Configure each agent at launch — never by editing the shared config.**
+`config/activity.yaml` is the tenant-wide default, committed and read by every
+future run; editing it to shape one agent silently changes everyone's default
+and leaves the run you started undescribed. So the per-agent knobs are flags,
+resolved **CLI > env var > `activity.yaml`** (the same precedence project scope
+uses), on BOTH `run` and `plan` so a preview matches the agent you launch:
+
+| Flag | Env | Effect |
+|---|---|---|
+| `--triage` / `--no-triage` | `CXONE_AGENT_TRIAGE` | run fabricated triage passes, or not (default: not) |
+| `--triage-weight W` | `CXONE_AGENT_TRIAGE_WEIGHT` | explicit event-mix weight; implies `--triage` (`0` implies `--no-triage`). `--triage` alone uses 0.53 |
+| `--identities all\|secondaries` | `CXONE_AGENT_IDENTITIES` | may the primary/admin key act, or secondaries only |
+| `--affinity F` | `CXONE_AGENT_AFFINITY` | 0..1 per-project owner stickiness (1.0 = always the same person) |
+
+plus the existing `--include-projects` / `--exclude-projects` / `--include-tags` /
+`--exclude-tags` scope flags. Every run and plan logs one `Agent behavior — …`
+line stating what it will do and whether each value came from config or an
+override, so the log describes the agent that actually ran rather than a config
+file that may have changed since. Overrides are forwarded into the container
+automatically — the image's baked `activity.yaml` cannot see host-side flags,
+which is the same trap project scope documents.
+
+```bash
+# scans only across a demo subset, secondaries only (the common case)
+agent run --live --until 2026-08-07 --container \
+  --include-projects "BankCx,ShopCx" --identities secondaries
+
+# same agent, but ALSO fabricating triage — state that plainly before running
+agent run --live --until 2026-08-07 --container \
+  --include-projects "BankCx,ShopCx" --triage
+```
+
+Nothing above writes to `activity.yaml`. Change that file only to move the
+*default* for every future agent, and say so when you do.
 
 **Cadence (so it doesn't scan too often).** Each project gets a stable intrinsic
 scan interval (busiest ~daily, legacy weekly+, hard per-project daily ceiling);

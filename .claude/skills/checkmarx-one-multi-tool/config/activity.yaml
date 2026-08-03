@@ -64,14 +64,18 @@ activity:
   # Scans and triage both matter for realism ("real work" = scan, then review).
   event_mix:
     scan: 0.55
-    triage: 0.0                    # DISABLED per current standard: the agent must
-                                   # not fabricate triage. `triage-simulate` states
-                                   # are invented, not a real assessment; genuine
-                                   # review only happens via `triage-real`, which
-                                   # needs the assistant in a live session reading
-                                   # the actual code — a background agent cannot do
-                                   # that. Restore a nonzero weight (was 0.53) only
-                                   # if fabricated triage becomes acceptable again.
+    triage: 0.0                    # DISABLED by default: the agent must not
+                                   # fabricate triage. `triage-simulate` states are
+                                   # invented, not a real assessment; genuine review
+                                   # only happens via `triage-real`, which needs the
+                                   # assistant in a live session reading the actual
+                                   # code — a background agent cannot do that.
+                                   #
+                                   # To enable it for ONE agent, do NOT edit this
+                                   # file: pass `--triage` (or `--triage-weight W`,
+                                   # or CXONE_AGENT_TRIAGE=true) at launch. This
+                                   # value is the default for EVERY future run;
+                                   # change it only when you mean that.
     onboard: 0.02
     idle: 0.08
 

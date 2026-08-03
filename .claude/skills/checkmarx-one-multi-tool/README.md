@@ -81,6 +81,14 @@ triaging on its natural schedule. Two verbs:
 - `agent plan` — read-only preview of the committed next-24h events plus a
   summary of the general behavior beyond (rate, business-hours weighting, end
   date). No execution.
+Each agent is configured **at launch**, not by editing the shared
+`config/activity.yaml`: `--triage`/`--no-triage` (fabricated triage is OFF by
+default), `--triage-weight`, `--identities all|secondaries`, `--affinity`, and
+the `--include-projects`/`--exclude-projects`/`--include-tags`/`--exclude-tags`
+scope flags — all resolved CLI > env > config, on both verbs, and forwarded into
+the container. Every run logs an `Agent behavior — …` line recording what it
+actually did.
+
 - `agent run --live --until <date>` — the executor. Detects Docker or Podman; if
   found, choose a durable **container** (survives host sleep/restarts;
   recommended for multi-day runs) or a **process**; with no container runtime it
