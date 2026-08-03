@@ -535,6 +535,57 @@ class TriageRealManager:
         return handler_cls(rules=[], **kwargs)
 
 
+def _peek_project_key(decisions_path: str) -> str | None:
+    """Read just enough of a decisions file to get its project name/id, so
+    `--as auto` can key its affinity pick the same way it would for a
+    triage-simulate pass on that project. Best-effort: a bad path/JSON here
+    just falls through to the generic 'triage-real' affinity key."""
+    try:
+        doc = json.loads(Path(decisions_path).read_text())
+    except (OSError, ValueError):
+        return None
+    if isinstance(doc, dict):
+        proj = doc.get("project") or {}
+        return proj.get("name") or proj.get("id")
+    return None
+
+
+def _resolve_identity(cfg: CxConfig, args) -> tuple[ApiClient, str | None]:
+    """Map `apply --as ...` to an ApiClient acting as that identity.
+
+    Mirrors multitool.py's scan/triage-simulate resolution (same
+    IdentityPool, same seeded 'random'/'auto' + '-secondary' specs), adapted
+    to the fact that one `apply` call already targets a single project/scan
+    rather than a batch: an explicit name, or the default (no --as), pins one
+    identity for the whole call; 'random'/'auto' resolve ONCE, keyed by the
+    decisions file's project so 'auto' hands a project to the same stable
+    owner triage-simulate would. No secondaries configured -> 'random'/'auto'
+    fall back to primary with a log line; the '-secondary' variants fail
+    loudly instead, since that's an explicit "not the admin" request.
+    """
+    as_spec = getattr(args, "as_identity", None)
+    if not as_spec:
+        return ApiClient(cfg), None
+    from cxone.identity_pool import IdentityPool
+    import random as _random
+    pool = IdentityPool(cfg)
+    if as_spec in ("random", "auto") and not pool.has_secondaries():
+        logger.info("No secondary identities configured (%s missing or empty) — "
+                    "acting as primary.", pool.sidecar_path() or "identities file")
+        return ApiClient(cfg), None
+    key = args.project or _peek_project_key(args.decisions) or "triage-real"
+    seed = args.seed if args.seed is not None else _random.SystemRandom().randint(0, 2**31 - 1)
+    try:
+        name = pool.resolve(as_spec, "triage", key, _random.Random(seed))
+    except (KeyError, ValueError) as exc:
+        print(f"error: {exc.args[0]}", file=sys.stderr)
+        raise SystemExit(2)
+    if as_spec in pool.AUTOMATIC_SPECS:
+        logger.info("Identity seed: %d (pass --seed %d to reproduce this pick)", seed, seed)
+    logger.info("Acting as identity '%s' (--as %s)", name, as_spec)
+    return pool.client_for(name), name
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="triage-real",
@@ -565,13 +616,26 @@ def main(argv: list[str] | None = None) -> int:
     ap = sub.add_parser("apply", help="apply reviewed decisions (dry-run first)")
     ap.add_argument("--decisions", required=True, help="decisions JSON from the review")
     ap.add_argument("--project", default=None, help="only if the file lacks project/scan")
+    ap.add_argument("--as", dest="as_identity", default=None, metavar="IDENTITY",
+                    help="act as this identity from cxone-identities.yaml; 'random'/'auto' "
+                         "pick over ALL identities (seeded random / stable per-project "
+                         "affinity, same as scan/triage-simulate); 'random-secondary'/"
+                         "'auto-secondary' do the same EXCLUDING the primary/admin key; "
+                         "default: primary")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="reproduce a prior apply's identity pick with --as random/auto "
+                         "(the dry-run prints the seed it used; pass it here for the live run)")
 
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cfg = CxConfig.from_env(args.env)
     cfg.dry_run = cfg.dry_run or args.dry_run
-    mgr = TriageRealManager(ApiClient(cfg))
+    if args.cmd == "apply":
+        api, _acting = _resolve_identity(cfg, args)
+    else:
+        api = ApiClient(cfg)
+    mgr = TriageRealManager(api)
     return mgr.prepare(args) if args.cmd == "prepare" else mgr.apply(args)
 
 
