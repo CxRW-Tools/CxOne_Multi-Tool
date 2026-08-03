@@ -472,6 +472,16 @@ all. **For a "what does X look like today" question, query live state
 (`results`/`project`/`iam` etc.) and use audit only to attribute or narrate
 already-known live findings — never as the source of a current count.**
 
+**NEVER use audit to answer "who triaged this finding, and what did they
+say".** That is what the per-engine predicate/action stores are for — see
+"Triage history" below. Audit is the wrong tool for it in three separate
+ways: it carries no comment text for most engines, its result identifiers go
+stale the moment a project is re-scanned, and reconstructing "current state"
+from an append-only event stream is exactly the mismatch measured above. The
+predicate endpoints return the current state AND the full comment/user
+history from the service that owns the triage, so they are both correct and
+simpler. `ops/triage_history.py` wraps all five engines.
+
 **UUID resolution (`--human-readable`).** `actionUserId`/`userId`,
 `roleId`/`assignedRoles`/`unassignedRoles`, and `groupId` values are Keycloak
 IDs, resolved via the same IAM admin calls every other module already makes
@@ -503,6 +513,69 @@ token is never leaked if this ever moves to genuine third-party storage.
 Archives age out; a 404 means "no stored source", which `triage-real` treats as
 "cannot review" rather than "empty project". Extraction guards against Zip Slip
 (`../` entries are skipped) since the archive mirrors a scanned repo.
+
+## Triage history — who triaged a finding, when, and why (`ops/triage_history.py`)
+
+**This is the ONLY correct source for past triage information. Never use the
+audit trail for it** (see the caution under "Audit trail" above). Each engine
+owns its own predicate/action store; these return the current state *and* the
+full change history with comments and usernames. All five live-verified on
+cnf26 2026-08-03.
+
+| Engine | Endpoint | Method | Key |
+|---|---|---|---|
+| SAST | `sast-results-predicates/{similarityId}` | GET | `similarityId` |
+| IaC/KICS | `kics-results-predicates/{similarityId}` | GET | `similarityId` |
+| Secrets | `micro-engines/read/predicates/{similarityId}` | GET | `similarityId` |
+| Containers | `containers/triage/triage/triage-history/{projectId}/{scanId}` | POST | `packageId` + `cveId` |
+| SCA | `sca/graphql/graphql` (GraphQL) | POST | project + package + advisory |
+
+API Security has no history endpoint — `history_for` returns empty for it.
+
+**Five traps, each of which cost a live round-trip:**
+
+1. **`Accept: application/json; version=1.0` is REQUIRED** on the three
+   predicate GETs (and the containers POST). The client's default
+   `Accept: application/json` is not sufficient — same pattern as
+   `/api/audit-events` and `query_analytics_kpi`.
+2. **SAST reads by `similarityId` even on Attack-Vector tenants.** This is the
+   opposite of the WRITE path (`ops/triage/sast_handler.py`), which must use
+   the attack-vector id when the tenant groups that way. Passing a vector id
+   to the predicate read returns nothing. Do not "fix" this to match the
+   writer.
+3. **The SCA GraphQL queries require `projectId`** — and omitting it is NOT an
+   error: the query returns `actions: []`, indistinguishable from "never
+   triaged". This is the same silent-empty failure class as the short-vs-full
+   risk uuid documented under "SCA triage" below. The working query is
+   `searchPackageVulnerabilityStateAndScoreActions(scanId, projectId,
+   isLatest, packageName, packageVersion, packageManager, vulnerabilityId)`.
+   Note the filter is `vulnerabilityId`, **not** `cve`/`cveId`/`similarityId`
+   (all rejected as nonexistent arguments).
+4. **SCA splits by risk type**, exactly as `ops/sca_live_state.py` does:
+   regular advisories answer to `searchPackageVulnerabilityStateAndScoreActions`,
+   supply-chain (malicious/typosquat) to
+   `searchPackageSupplyChainRiskStateAndScoreActions` — and the latter needs
+   the FULL risk uuid, not the short `Cx…-…` form. `_sca_history` tries the
+   regular query first and falls back. Both are **undocumented**; the
+   published REST reference exposes no SCA triage-history endpoint at all.
+5. **Filter SCA/containers actions to state changes.** Both feeds also carry
+   score overrides and standalone comments (`isComment: true` on SCA), which
+   otherwise render as state changes with an empty state.
+
+**Response shapes differ per engine** and `_predicate_events` /
+`_sca_events` / `_containers_events` normalize them:
+- SAST/KICS/Secrets share a `predicateHistoryPerProject[].predicates[]`
+  envelope, but the predicate id key is `ID` on SAST/KICS and `id` on Secrets.
+  SAST alone supports `include-comment-json=true`, whose `commentJSON.user` is
+  the authoritative username when present.
+- Containers nests the state change in `actions[].events[]` (with
+  `actionType: "StateChanged"`, `oldValue`/`newValue`) while the comment and
+  user sit on the **parent** action.
+- SCA returns `actions[]` with `actionValue`/`previousActionValue` and a
+  nested `comment { message, userName, createdOn }`.
+
+Surfaced via `results show --history` (latest change) / `--full-history`
+(every change), in both table and `--json` output.
 
 ## SCA triage — writes work; the READ paths are scan-immutable
 

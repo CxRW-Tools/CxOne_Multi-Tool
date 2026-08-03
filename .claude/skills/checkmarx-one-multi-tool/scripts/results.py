@@ -237,7 +237,8 @@ class ResultsManager:
     def show(self, project_name: str, *, engine: str | None = None,
              severities: list[str] | None = None, states: list[str] | None = None,
              limit: int = 25, match: str | None = None, show_ids: bool = False,
-             as_json: bool = False) -> int:
+             as_json: bool = False, history: bool = False,
+             full_history: bool = False) -> int:
         projects = self._resolve_projects([project_name])
         if not projects:
             return 1
@@ -266,17 +267,28 @@ class ResultsManager:
         results.sort(key=lambda r: _SEV_RANK.get(_norm_sev(r.get("severity")), 99))
         shown = results[:limit]
 
+        want_history = history or full_history
+
         if as_json:
             # Machine-readable form always carries the identifiers, so a finding
             # can be piped straight into `ai-assist` or any API call.
             from ops.findings import group_id_for
-            print(json.dumps([{
-                "projectId": project_id, "projectName": project_name, "scanId": sid,
-                "resultId": r.get("alternateId"), "engine": (r.get("type") or "").lower(),
-                "groupId": group_id_for(r, project_id), "label": _finding_label(r),
-                "severity": _norm_sev(r.get("severity")), "state": r.get("state"),
-                "location": _location(r),
-            } for r in shown], indent=2))
+            rows = []
+            for r in shown:
+                row = {
+                    "projectId": project_id, "projectName": project_name, "scanId": sid,
+                    "resultId": r.get("alternateId"), "engine": (r.get("type") or "").lower(),
+                    "groupId": group_id_for(r, project_id), "label": _finding_label(r),
+                    "severity": _norm_sev(r.get("severity")), "state": r.get("state"),
+                    "location": _location(r),
+                }
+                if want_history:
+                    from ops.triage_history import history_for
+                    events = history_for(self.api, r, sid, project_id)
+                    row["triageHistory"] = [e.to_dict()
+                                            for e in (events if full_history else events[:1])]
+                rows.append(row)
+            print(json.dumps(rows, indent=2))
             return 0
 
         eng_disp = ENGINE_LABELS.get(result_type, engine) if engine else "all engines"
@@ -302,6 +314,15 @@ class ResultsManager:
                 gid = group_id_for(r, project_id)
                 if gid:
                     logger.info("             group id : %s", gid)
+            if want_history:
+                from ops.triage_history import history_for
+                events = history_for(self.api, r, sid, project_id)
+                if not events:
+                    logger.info("             (no triage history)")
+                for e in (events if full_history else events[:1]):
+                    for i, part in enumerate(e.describe().split("\n")):
+                        logger.info("             %s%s", "" if i else "triaged: ", part.strip()
+                                    if i else part)
         return 0
 
     # ----------------------------------------------------------------- kpi
@@ -375,6 +396,12 @@ def main(argv: list[str] | None = None) -> int:
                          "each finding needs for API calls (e.g. ai-assist)")
     sh.add_argument("--json", action="store_true",
                     help="emit findings as JSON, identifiers included")
+    sh.add_argument("--history", action="store_true",
+                    help="also show WHO triaged each finding, when, and their comment "
+                         "(the latest change) — read from the engine's own predicate/"
+                         "action store, never the audit trail")
+    sh.add_argument("--full-history", action="store_true",
+                    help="like --history but every triage change, not just the latest")
 
     k = sub.add_parser("kpi", help="tenant-wide server-aggregated KPI (Analytics API)")
     k.add_argument("--kpi", required=True,
@@ -418,6 +445,8 @@ def main(argv: list[str] | None = None) -> int:
             match=args.match,
             show_ids=args.ids,
             as_json=args.json,
+            history=args.history,
+            full_history=args.full_history,
         )
     if args.cmd == "kpi":
         return mgr.kpi(

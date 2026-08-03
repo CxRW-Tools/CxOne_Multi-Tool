@@ -48,6 +48,11 @@ KNOWN_SPEC_OMISSIONS = {
     # only these two are genuinely absent:
     ("GET", "/api/sast-configuration"),               # mode read; X-Source gated
     ("POST", "/api/sast-results/similar-results"),    # hash -> vector-id resolver
+    # SCA's GraphQL gateway. The published REST reference exposes NO way to read
+    # current SCA triage state, its comments, or its history — this endpoint is
+    # the only source, found by observing the UI. Backs ops/sca_live_state.py
+    # (current state) and ops/triage_history.py (state + comment + user).
+    ("POST", "/api/sca/graphql/graphql"),
 }
 
 # Paths that are intentionally non-/api (auth plane, cloud insights base, etc.)
@@ -124,6 +129,16 @@ _CALL_CONST_RE = re.compile(
 # plain string, no f-string/concatenation) so it stays a static, unambiguous
 # resolution.
 _MODULE_CONST_RE = re.compile(r'^(_?[A-Z][A-Z0-9_]*)\s*=\s*"([a-z][a-z0-9/_-]*)"\s*$', re.MULTILINE)
+# An f-string whose FIRST segment is a module-level constant, with the rest of
+# the path interpolated: `api.post(f"{_CONTAINERS_HISTORY}/{project_id}/{scan_id}")`.
+# Without this the whole path collapses to `/api/{}/{}/{}` — an ABSENT that names
+# no endpoint and so can't be acted on. The constant is resolved via
+# _MODULE_CONST_RE and the trailing `{expr}` segments become {} wildcards, which
+# is exactly how a literal f-string path is already normalized.
+_CALL_FSTRING_CONST_RE = re.compile(
+    r"""(?:^|[^A-Za-z_])(?:self\.)?(?:api|client)\.(get|post|put|patch|delete|paginate)\(\s*f["']\{(_?[A-Z][A-Z0-9_]*)\}([^"']*)["']""",
+    re.MULTILINE,
+)
 
 
 def collect_code_endpoints(scripts_dir: Path) -> set[tuple[str, str]]:
@@ -138,7 +153,13 @@ def collect_code_endpoints(scripts_dir: Path) -> set[tuple[str, str]]:
     for py in scripts_dir.rglob("*.py"):
         text = py.read_text(encoding="utf-8", errors="replace")
         for verb, path in _CALL_RE.findall(text):
-            if not _looks_like_path(path):
+            # An f-string starting with an interpolation carries no literal
+            # prefix to identify it — it normalizes to a bare `/api/{}/{}` that
+            # names no endpoint. _CALL_FSTRING_CONST_RE resolves these properly
+            # when the leading expression is a module-level constant; reporting
+            # the collapsed form here too would just add an unactionable ABSENT
+            # alongside the resolved OK.
+            if path.startswith("{") or not _looks_like_path(path):
                 continue
             found.add((_VERB_METHOD[verb], _norm(path)))
         const_map = dict(_MODULE_CONST_RE.findall(text))
@@ -147,6 +168,11 @@ def collect_code_endpoints(scripts_dir: Path) -> set[tuple[str, str]]:
             if not path or not _looks_like_path(path):
                 continue
             found.add((_VERB_METHOD[verb], _norm(path)))
+        for verb, const_name, suffix in _CALL_FSTRING_CONST_RE.findall(text):
+            base = const_map.get(const_name)
+            if not base or not _looks_like_path(base):
+                continue
+            found.add((_VERB_METHOD[verb], _norm(base + suffix)))
     return found
 
 
