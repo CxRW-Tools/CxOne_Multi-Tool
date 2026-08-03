@@ -1,10 +1,11 @@
-# CxOne_Multi-Tool
+# Checkmarx One Multi-Tool
 
-Source of truth for the **`checkmarx-one-multi-tool` Claude Skill** — end-to-end
-management of Checkmarx One (CxOne) tenants for Solution Engineers building and
-maintaining realistic demo / POV environments. You describe what you want in
-plain language; the skill runs deterministic, dry-run-safe Python against your
-tenant.
+End-to-end management of Checkmarx One (CxOne) tenants for Solution Engineers
+building and maintaining realistic demo / POV environments. You describe what you
+want in plain language; the tool runs deterministic, dry-run-safe Python against
+your tenant.
+
+This repo is the source of truth for the `checkmarx-one-multi-tool` Claude Skill.
 
 > **What can it actually do?** Users, groups, roles, applications, repo
 > onboarding, scan config, scans, three distinct kinds of triage, full blueprint
@@ -12,10 +13,12 @@ tenant.
 > activity over real time.
 > **→ [Full tool documentation](.claude/skills/checkmarx-one-multi-tool/README.md)**
 
-## Quick start (git deploy — recommended)
+## Quick start — clone the repo (recommended)
 
-Claude Code reads skills from a **live directory**, so a clone *is* an install.
-No packaging, no upload: `git pull` is how you update.
+**Claude Code works directly against the cloned source. There is nothing to
+export and nothing to import.** No `.skill` file is built, and the skill never
+has to be installed into Claude — point Claude Code at the clone and it reads
+`SKILL.md` and the scripts as they sit on disk.
 
 ```bash
 git clone https://github.com/CxRW-Tools/CxOne_Multi-Tool.git
@@ -23,13 +26,31 @@ cd CxOne_Multi-Tool
 pip install -r .claude/skills/checkmarx-one-multi-tool/requirements.txt
 ```
 
-Then pick how you want it available:
+Open that directory in Claude Code and say:
 
-**A. Project skill — simplest.** Open this repo as your working directory in
-Claude Code. `.claude/skills/checkmarx-one-multi-tool/` is auto-discovered. Done.
+> Run the Checkmarx One Multi-Tool
 
-**B. Personal skill — available in every project.** Link (don't copy) your
-personal skills folder at the clone, so `git pull` keeps it current:
+It prints a banner, reports that no tenant is configured, and asks for your CxOne
+API key (Settings → Identity and Access Management → API Keys). The key is a JWT,
+so the tool derives your region and tenant name from it and confirms with you
+before saving anything. Python 3.10+ required.
+
+Then just ask:
+
+> Stand up a demo tenant for Acme: two groups, a few users, onboard WebGoat and
+> juice-shop, scan them, and triage so it looks realistic.
+
+Every command names the tenant it's acting on, previews changes with a dry-run,
+and asks before anything destructive.
+
+**Updating is `git pull`.** Because the clone *is* what runs, there is no
+re-export or re-import step — the next session picks up the new version.
+
+<details>
+<summary><b>Optional: use it from any directory, not just this repo</b></summary>
+
+Link your personal skills folder at the clone (link, don't copy — a copy stops
+tracking git and you lose `git pull` updates):
 
 ```bash
 # macOS / Linux
@@ -42,28 +63,44 @@ ln -s "$(pwd)/.claude/skills/checkmarx-one-multi-tool" \
 mklink /J %USERPROFILE%\.claude\skills\checkmarx-one-multi-tool C:\path\to\CxOne_Multi-Tool\.claude\skills\checkmarx-one-multi-tool
 ```
 
-**Then connect a tenant.** Start a Claude Code session and say:
+Still the same clone and still git-updated — this only changes *where* it's
+visible from.
+</details>
 
-> Run the Checkmarx One Multi-Tool
+## Alternative: install a released `.skill`
 
-It prints a banner, reports that no tenant is configured, and asks for your CxOne
-API key (Settings → Identity and Access Management → API Keys). The key is a JWT,
-so the tool derives your region and tenant name from it and confirms with you
-before saving anything. Python 3.10+ required.
+Use this **only when cloning isn't an option** — no git access, or a surface that
+requires an upload rather than a directory (Claude.ai, the Desktop app, API skill
+upload). Download the latest `.skill` from
+[Releases](https://github.com/CxRW-Tools/CxOne_Multi-Tool/releases/latest) and
+import it into Claude.
 
-From there, just ask:
+It works, but it is the weaker path:
 
-> Stand up a demo tenant for Acme: two groups, a few users, onboard WebGoat and
-> juice-shop, scan them, and triage so it looks realistic.
+- **No `git pull`.** Every update means downloading a new `.skill` and importing
+  it again.
+- **Reinstalling doesn't affect a running session** — start a fresh one, and
+  check with `python run.py version` that the build you expect is loaded.
+- **Web and app surfaces cannot reach your tenant.** They can design blueprints
+  and tune configs, but anything that touches CxOne has to run from Claude Code
+  or Cowork on a machine with network access to it.
 
-Every command names the tenant it's acting on, previews changes with a dry-run,
-and asks before anything destructive.
+To build one locally instead of downloading:
+
+```bash
+python scripts/package_skill.py checkmarx-one-multi-tool   # -> dist/ (gitignored)
+```
 
 ## Staying up to date
+
+Running from a clone, that's the whole story:
 
 ```bash
 git pull      # you now have the latest
 ```
+
+(If you installed a released `.skill` instead, updating means downloading and
+importing a new one — see the alternative above.)
 
 The skill also checks itself. At session start it compares your checkout against
 `origin`'s default branch — merged work only, since an unmerged branch is a
@@ -93,20 +130,6 @@ spec.
 Bump `.claude/skills/checkmarx-one-multi-tool/VERSION` (and the matching
 `metadata.version` in `SKILL.md`) with any change — semver: patch = fix, minor =
 new capability, major = breaking.
-
-## Other install surfaces
-
-Claude.ai, the Desktop app, and API skill upload need a packaged `.skill` rather
-than a live directory. Grab one from
-[Releases](https://github.com/CxRW-Tools/CxOne_Multi-Tool/releases/latest), or
-build it locally:
-
-```bash
-python scripts/package_skill.py checkmarx-one-multi-tool   # -> dist/ (gitignored)
-```
-
-Those surfaces can design blueprints and tune configs, but **cannot reach your
-tenant** — run from Claude Code or Cowork for anything that touches CxOne.
 
 ## Layout
 
