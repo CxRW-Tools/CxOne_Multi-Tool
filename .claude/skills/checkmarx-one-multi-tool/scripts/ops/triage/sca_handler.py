@@ -54,6 +54,13 @@ _HIGH_SEVERITIES = {"CRITICAL", "HIGH"}
 # Default snooze window for vulnerable packages with no available fix.
 _SNOOZE_DAYS = 90
 
+# States that DISMISS a finding. Simulated triage may never apply these to a
+# supply-chain risk (malicious / typosquatted / compromised package): the states
+# are a fabricated roll, not an analyst's judgement, and "Not Exploitable" on real
+# malware is the one wrong answer that actively hides it. Matched pre-API-mapping,
+# i.e. against realism/rule output ("Not Exploitable", "Proposed Not Exploitable").
+_DISMISSIVE_STATES = {"Not Exploitable", "Proposed Not Exploitable"}
+
 
 class SCAHandler(BaseTriageHandler):
     """SCA triage: vulnerabilities, supply-chain risks, and package state."""
@@ -108,9 +115,22 @@ class SCAHandler(BaseTriageHandler):
                 self._pkg_key(v.get("PackageName"), v.get("PackageVersion"))
                 for v in vulns if self._is_exploitable(v)
             }
+            # Packages carrying a SUPPLY-CHAIN risk must never be muted/snoozed.
+            #
+            # `IsMalicious` alone does not identify these. Observed live: two npm
+            # packages each carrying a ContributorReputation supply-chain risk
+            # reported IsMalicious=false, so the flag-based guard let them be
+            # muted — hiding the very risk it exists to protect. The risk ENTRIES
+            # (Type != 'Regular') are the reliable signal, so derive the set from
+            # them, exactly as exploitable_pkgs is derived above.
+            supply_chain_pkgs = {
+                self._pkg_key(v.get("PackageName"), v.get("PackageVersion"))
+                for v in supply
+            }
             self._triage_vulnerabilities(project_id, regular, summary)
             self._triage_supply_chain(project_id, supply, summary)
-            self._triage_packages(project_id, packages, exploitable_pkgs, summary)
+            self._triage_packages(project_id, packages, exploitable_pkgs, summary,
+                                  supply_chain_pkgs)
             # A 201 means the request was accepted, not that it matched anything —
             # confirm against current state.
             self.verify_states(project_id, scan_id, self._intended, summary)
@@ -259,19 +279,36 @@ class SCAHandler(BaseTriageHandler):
             if not is_to_verify(r.get("RiskState") or ""):
                 summary.results_skipped += 1
                 continue
-            # Supply-chain (malware) risks skew urgent/confirmed — they're rarely benign.
             severity = severity_normalize_for_match(r.get("Severity") or "")
             rule = self._decide_state(severity, str(r.get("Id") or ""))
             if not rule:
                 continue
             state = rule.get("state", "")
-            # Nudge confirmed-ish for malware unless the model said not-exploitable.
+            comment = rule.get("comment", "")
+            # HARD FLOOR: simulated triage must never DISMISS a supply-chain risk.
+            #
+            # These are malicious/typosquatted/compromised packages. The realism
+            # model is severity-driven and has no concept of maliciousness, so it
+            # happily returned Not Exploitable / Proposed Not Exploitable here —
+            # ~30% of Critical supply-chain risks and ~90% of Low ones. Two paths
+            # produced it: the `sca_risks` outcome table lists Not Exploitable
+            # directly, and the model's exception_rate can emit ANY state via
+            # rng.choice(ACTIVE_STATES) regardless of the table.
+            #
+            # Coverage is left alone on purpose — a realistic team still leaves a
+            # tail untriaged, and _decide_state returning None above is untouched.
+            # What is clamped is the OUTCOME: if this code triages a supply-chain
+            # risk at all, it may only ever affirm it.
+            if state in _DISMISSIVE_STATES:
+                state = "Confirmed"
+                comment = ("Supply-chain risk affirmed: malicious/compromised package "
+                           "findings are not dismissed by automated triage.")
             target_api = sca_risk_state_to_api(state)
             if not all([r.get("Id"), r.get("PackageName"), r.get("PackageVersion"), r.get("PackageManager")]):
                 summary.errors.append(f"Missing supply-chain fields for {r.get('Id')}")
                 continue
             summary.results_matched += 1
-            groups[(target_api, rule.get("comment", ""))].append(r)
+            groups[(target_api, comment)].append(r)
         for (state_api, _c), items in groups.items():
             self._intended.update({str(i.get("Id")): state_api for i in items})
         self._post_risk_groups(_SUPPLY_CHAIN_BULK, "packageSupplyChainRisks",
@@ -311,7 +348,8 @@ class SCAHandler(BaseTriageHandler):
                 summary.errors.append(msg)
 
     # --------------------------------------------------- packages (mute/snooze)
-    def _decide_package_action(self, pkg: dict, exploitable_pkgs: set) -> tuple[str, str | None, str] | None:
+    def _decide_package_action(self, pkg: dict, exploitable_pkgs: set,
+                               supply_chain_pkgs: set | None = None) -> tuple[str, str | None, str] | None:
         """Signal-driven package triage: mute unused packages, snooze vulnerable
         packages with no available fix. Returns (state, endDate_iso|None, comment)
         or None to leave the package Monitored (the default).
@@ -322,6 +360,9 @@ class SCAHandler(BaseTriageHandler):
         """
         if pkg.get("IsMalicious"):
             return None  # real supply-chain risk — never auto-mute
+        if (supply_chain_pkgs and
+                self._pkg_key(pkg.get("Name"), pkg.get("Version")) in supply_chain_pkgs):
+            return None  # carries a supply-chain risk entry — never auto-mute
         if (pkg.get("PackageStateValue") or "None") != "None":
             return None  # already triaged
         has_vulns = (pkg.get("VulnerabilityCount") or 0) > 0
@@ -355,13 +396,14 @@ class SCAHandler(BaseTriageHandler):
         scale = self.realism.intensity_scale(self.intensity) * float(self.diligence)
         return rng.random() < min(0.9, 0.55 * scale)
 
-    def _triage_packages(self, project_id, packages, exploitable_pkgs, summary) -> None:
+    def _triage_packages(self, project_id, packages, exploitable_pkgs, summary,
+                         supply_chain_pkgs: set | None = None) -> None:
         if not packages:
             return
         # Group by (state, endDate, comment) — one bulk Ignore action per group.
         groups: dict[tuple, list[dict]] = defaultdict(list)
         for p in packages:
-            decision = self._decide_package_action(p, exploitable_pkgs)
+            decision = self._decide_package_action(p, exploitable_pkgs, supply_chain_pkgs)
             if not decision:
                 continue
             pkg_disc = str(p.get("Id") or p.get("Name") or p.get("packageName") or "")
