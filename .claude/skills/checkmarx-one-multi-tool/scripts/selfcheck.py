@@ -96,11 +96,49 @@ class Status:
     latest_tag: str | None = None       # newest v* tag known to origin
     remote_checked: bool = False        # did this call hit the network?
     checked_at: str | None = None       # when the counts were last refreshed
+    capability: str = "unknown"         # see "publish capability" below
+    capability_reason: str = ""         # why that level, in one clause
+    capability_checked_at: str | None = None
     notes: list[str] = field(default_factory=list)
 
     @property
     def on_publish_branch(self) -> bool:
         return self.branch is not None and self.branch == self.publish_branch
+
+    @property
+    def can_publish(self) -> bool:
+        """Full flow available: push a branch AND open/merge a PR."""
+        return self.capability == "publish"
+
+    @property
+    def needs_feature_request(self) -> bool:
+        """No write path to origin — a change must be handed off instead.
+
+        'unknown' is deliberately excluded: a failed probe is not evidence of
+        denial, and routing someone to the handoff path on a flaky network
+        would be its own kind of wrong.
+        """
+        return self.capability in ("local-only", "standalone")
+
+    def capability_line(self) -> str:
+        """One line describing what this checkout can contribute, and how."""
+        label = {
+            "publish": "publish (push + PR/merge)",
+            "push-only": "push branches only (no PR tooling)",
+            "local-only": "local only (no write access to origin)",
+            "standalone": "standalone install (no repo)",
+            "unknown": "unknown (could not probe)",
+        }.get(self.capability, self.capability)
+        line = f"  Contribution: {label}"
+        if self.capability_reason:
+            line += f"\n    {self.capability_reason}"
+        if self.capability == "push-only":
+            line += ("\n    Changes can be pushed as a branch, but someone with PR "
+                     "rights must open and merge it.")
+        elif self.needs_feature_request:
+            line += ("\n    Build changes locally, then run `feature-request new` to "
+                     "produce a shareable handoff bundle.")
+        return line
 
     @property
     def out_of_date(self) -> bool:
@@ -138,11 +176,17 @@ class Status:
 
 
 # ------------------------------------------------------------------ git plumbing
+# git emits UTF-8; `text=True` alone would decode it with the locale codec
+# (cp1252 on Windows), mangling any non-ASCII in a branch name or an error
+# message. Pin the codec rather than inherit the console's.
+_ENC = {"encoding": "utf-8", "errors": "replace"}
+
+
 def _git(*args: str, timeout: int = _LOCAL_TIMEOUT) -> tuple[int, str]:
     """Run a git command rooted at the skill dir. Never raises."""
     try:
         p = subprocess.run(["git", "-C", str(SKILL_ROOT), *args],
-                           capture_output=True, text=True, timeout=timeout)
+                           capture_output=True, timeout=timeout, **_ENC)
         return p.returncode, (p.stdout or "").strip()
     except (OSError, subprocess.SubprocessError):
         return 1, ""
@@ -355,11 +399,15 @@ def check(*, force: bool = False, ttl_hours: float | None = None) -> Status:
 
     if st.remote_checked:
         st.checked_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
-        _write_state({"checked_at": st.checked_at, "publish_branch": st.publish_branch,
+        # Merge, never replace: the capability probe keeps its own keys and its
+        # own (much longer) TTL in this same file, and a wholesale overwrite
+        # here would silently discard them on every refresh.
+        state.update({"checked_at": st.checked_at, "publish_branch": st.publish_branch,
                       "ahead": st.ahead, "behind": st.behind,
                       "latest_tag": st.latest_tag, "mode": st.mode,
                       "branch": st.branch, "dirty": st.dirty,
                       "version": st.version})
+        _write_state(state)
     else:
         st.checked_at = state.get("checked_at")
     return st
@@ -391,6 +439,208 @@ def _latest_tag() -> str | None:
     if rc != 0 or not out:
         return None
     return out.splitlines()[0].strip() or None
+
+
+# ------------------------------------------------------- publish capability
+# Being CURRENT is not the same as being able to CONTRIBUTE. A user can sit on
+# a perfectly up-to-date checkout and still have no write access to origin —
+# and today they only find out at the moment `publish_skill.py` tries to push,
+# which is *after* the change is written, staged and committed to a local
+# branch. That strands tested work at the worst possible moment.
+#
+# Probing capability up front is what lets a session say "I can build this, but
+# you can't publish it — I'll produce a handoff bundle" BEFORE any of that work
+# happens. Four levels, each mapped to what it can actually do:
+#
+#   publish     push a branch AND open/merge a PR   -> the normal publish flow
+#   push-only   push a branch, but no PR tooling    -> push it, hand off the name
+#   local-only  no write access at all              -> feature-request bundle
+#   standalone  not a git checkout                  -> feature-request bundle
+#
+# 'unknown' means the probe could not reach the network. It is never treated as
+# permission — but it is never treated as denial either, because routing
+# someone to the handoff path over a flaky connection is its own failure.
+#
+# This probe is NOT on the ambient path. It costs a network round-trip, and the
+# hot path's whole design is that a tenant command never pays for git. It runs
+# only from the explicit `selfcheck` verb, from `feature-request`, and from
+# publish's preflight — all of which are already synchronous and blocking.
+
+CAPABILITY_TTL_HOURS = 24.0   # write access changes far less often than commits
+
+# Pushed to a throwaway ref name, never to the publish branch: a --dry-run
+# against a protected `main` reports the protection rule, which would read as
+# "no write access" for someone who has plenty. Branch creation is the
+# permission the publish flow actually needs.
+_PROBE_REF = "refs/heads/_cxone_capability_probe"
+
+
+def _capability_ttl_hours() -> float:
+    raw = os.environ.get("CXONE_CAPABILITY_TTL_HOURS")
+    if raw:
+        try:
+            val = float(raw)
+            if val > 0:
+                return val
+        except ValueError:
+            pass
+    return CAPABILITY_TTL_HOURS
+
+
+def _capability_expired(state: dict) -> bool:
+    raw = state.get("capability_checked_at")
+    if not raw:
+        return True
+    try:
+        last = _dt.datetime.fromisoformat(raw)
+    except ValueError:
+        return True
+    age = _dt.datetime.now(_dt.timezone.utc) - last
+    return age.total_seconds() < 0 or age > _dt.timedelta(hours=_capability_ttl_hours())
+
+
+def _run(*args: str, timeout: int = _LOCAL_TIMEOUT) -> tuple[int, str]:
+    """Run a command that isn't rooted at the skill dir (gh). Never raises."""
+    try:
+        p = subprocess.run(list(args), capture_output=True, timeout=timeout, **_ENC)
+        return p.returncode, (p.stdout or "").strip()
+    except (OSError, subprocess.SubprocessError):
+        return 1, ""
+
+
+def _git_err(*args: str, timeout: int = _LOCAL_TIMEOUT) -> tuple[int, str]:
+    """Like _git, but returns stdout AND stderr combined.
+
+    Git reports transport and permission failures on stderr — "Repository not
+    found", "Permission denied" and friends never appear on stdout. Classifying
+    a push probe from stdout alone means classifying an empty string, which is
+    how every denial silently became "unknown".
+    """
+    try:
+        p = subprocess.run(["git", "-C", str(SKILL_ROOT), *args],
+                           capture_output=True, timeout=timeout, **_ENC)
+        return p.returncode, ((p.stdout or "") + "\n" + (p.stderr or "")).strip()
+    except (OSError, subprocess.SubprocessError):
+        return 1, ""
+
+
+def _origin_slug() -> str | None:
+    """'owner/repo' from origin's URL, for `gh api`. None if not GitHub-shaped."""
+    rc, url = _git("remote", "get-url", "origin")
+    if rc != 0 or not url:
+        return None
+    u = url.strip()
+    if u.endswith(".git"):
+        u = u[:-4]
+    if u.startswith("git@"):                    # git@github.com:owner/repo
+        _, _, path = u.partition(":")
+    elif "://" in u:                            # https://github.com/owner/repo
+        path = u.split("://", 1)[1]
+        path = path.split("/", 1)[1] if "/" in path else ""
+    else:
+        return None
+    parts = [p for p in path.split("/") if p]
+    return "/".join(parts[-2:]) if len(parts) >= 2 else None
+
+
+def _gh_pr_capable() -> bool | None:
+    """Can `gh` open a PR here? None when gh is absent or unauthenticated.
+
+    Only a *capability* answer — whether a given PR would pass branch
+    protection is a review-policy question no probe can settle in advance.
+    """
+    if _run("gh", "--version")[0] != 0:
+        return None
+    if _run("gh", "auth", "status", timeout=_NET_TIMEOUT)[0] != 0:
+        return None
+    slug = _origin_slug()
+    if not slug:
+        return None
+    rc, out = _run("gh", "api", f"repos/{slug}", "--jq", ".permissions.push",
+                   timeout=_NET_TIMEOUT)
+    if rc != 0:
+        return None
+    return out.strip().lower() == "true"
+
+
+def _push_capable() -> tuple[bool | None, str]:
+    """Can we create a branch on origin? (True/False/None-unknown, reason).
+
+    `git push --dry-run` is the only probe that actually exercises the
+    credential path rather than inferring from config, which is why it is the
+    load-bearing one. It contacts the server and changes nothing.
+    """
+    rc, _ = _git("rev-parse", "HEAD")
+    if rc != 0:
+        return None, "no commit to probe with"
+    p_rc, out = _git_err("push", "--dry-run", "--porcelain", "origin",
+                         f"HEAD:{_PROBE_REF}", timeout=_NET_TIMEOUT)
+    if p_rc == 0:
+        return True, "write access to origin confirmed"
+    blob = (out or "").lower()
+    # Network trouble is checked FIRST: an offline machine can produce messages
+    # containing "authentication", and calling that a denial would route a
+    # privileged user onto the handoff path for the duration of an outage.
+    if any(s in blob for s in ("could not resolve", "timed out", "timeout",
+                               "network is unreachable", "connection refused",
+                               "connection timed out", "unable to access",
+                               "failed to connect")):
+        return None, "could not reach origin to probe write access"
+    if any(s in blob for s in ("permission", "denied", "403", "forbidden",
+                               "read-only", "unauthorized", "authentication",
+                               "protected branch", "pre-receive hook declined")):
+        return False, "origin rejected the push probe (no write access)"
+    # GitHub deliberately answers "not found" rather than 403 for a repo the
+    # caller cannot see, so this is the SHAPE most private-repo denials take.
+    # A genuinely deleted repo lands here too — different cause, same
+    # consequence (nothing can be pushed), so the reason states what was
+    # observed instead of asserting why.
+    if "not found" in blob or "does not exist" in blob:
+        return False, "origin reports the repository as not found (no access, or it moved)"
+    # Non-zero for a reason we cannot classify. Refusing to guess is the point:
+    # calling this 'denied' would push a privileged user onto the handoff path.
+    return None, "push probe failed for an unrecognized reason"
+
+
+def probe_capability(st: Status, *, force: bool = False) -> Status:
+    """Fill in st.capability, using the cache unless it has aged out."""
+    if st.mode != "repo":
+        st.capability = "standalone"
+        st.capability_reason = "not a git checkout — nothing to push to"
+        return st
+
+    state = _read_state()
+    if not force and not _capability_expired(state) and state.get("capability"):
+        st.capability = str(state.get("capability"))
+        st.capability_reason = str(state.get("capability_reason") or "") + " (cached)"
+        st.capability_checked_at = state.get("capability_checked_at")
+        return st
+
+    can_push, reason = _push_capable()
+    if can_push is None:
+        st.capability, st.capability_reason = "unknown", reason
+        return st                      # never cache an inconclusive probe
+    if not can_push:
+        st.capability, st.capability_reason = "local-only", reason
+    else:
+        pr_ok = _gh_pr_capable()
+        if pr_ok:
+            st.capability = "publish"
+            st.capability_reason = "write access to origin, and gh can open PRs"
+        elif pr_ok is None:
+            st.capability = "push-only"
+            st.capability_reason = ("write access to origin, but gh is missing or "
+                                    "not authenticated")
+        else:
+            st.capability = "push-only"
+            st.capability_reason = "gh reports no push permission on this repo"
+
+    st.capability_checked_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
+    state.update({"capability": st.capability,
+                  "capability_reason": st.capability_reason,
+                  "capability_checked_at": st.capability_checked_at})
+    _write_state(state)
+    return st
 
 
 # ----------------------------------------------------------------------- sync
@@ -462,6 +712,7 @@ def report(st: Status) -> None:
         when = st.checked_at or "never"
         how = "this run" if st.remote_checked else f"cached, TTL {TTL_HOURS}h"
         print(f"  Remote last checked: {when} ({how})")
+    print(st.capability_line())
     for n in st.notes:
         print(f"  {n}")
     if st.out_of_date:
@@ -491,6 +742,9 @@ def main(argv: list[str] | None = None) -> int:
         rc, _ = sync()
         return rc
     st = check(force=a.force)
+    if not a.quiet:
+        # Explicit, synchronous command — affordable place to pay for the probe.
+        probe_capability(st, force=a.force)
     if a.quiet:
         line = st.summary_line()
         if line:

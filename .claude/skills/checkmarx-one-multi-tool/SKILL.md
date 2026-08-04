@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.45.0
+  version: 3.46.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -359,6 +359,7 @@ unimplemented things → Keep the package current**. Don't leave the installed
 | Containers triage | `ops/triage/containers_handler.py` | `triage-simulate` | Container findings via `POST containers/triage/…` (vulnerability/package/image); `packageId` is read from the containers GraphQL service — never reconstructed (see `references/cxone-api.md`) |
 | Local UI | `ui.py` | `ui` | browser panel: authenticate + run common actions with a dry-run toggle |
 | Autonomous activity | `agent.py` + `ops/activity.py` + `Dockerfile` | `agent` | real scans + triage over real time, business-hours-weighted, per-project cadence + private ledger; two verbs: **`run`** (the executor; container via docker/podman when available, else long-lived process) and **`plan`** (committed next-24h preview) |
+| Contribution handoff | `feature_request.py` + `selfcheck.py` | `feature-request` | for users who can't push: capture a gap as a shareable bundle (REQUEST.md + `change.patch`, new files included), with credential redaction as a hard gate. `selfcheck` reports the `Contribution:` level (publish / push-only / local-only / standalone) — check it BEFORE implementing |
 
 **For "who triaged this finding and what did they say", use `results show
 --history` — NEVER `audit`.** Every engine has its own predicate/action store
@@ -976,6 +977,70 @@ If a request isn't covered above, implement it — don't decline. Steps:
 
 Always dry-run new code and confirm with the user before mutating a real tenant.
 
+**Check the user can PUBLISH before you start building.** Not everyone who
+finds a gap can push to origin, and the failure is silent until the very end:
+the change gets written, staged and committed, and only then does the push get
+rejected — leaving tested work stranded on a local branch. One line, before any
+implementation work:
+
+```bash
+python run.py selfcheck        # reports a "Contribution:" line
+```
+
+| Contribution | What to do |
+|---|---|
+| `publish` | build it, then publish normally |
+| `push-only` | build it, push the branch, tell the user who must open the PR |
+| `local-only` / `standalone` | build it, then `feature-request new` (below) |
+| `unknown` | proceed as normal — an unreachable probe is not a denial |
+
+Say which one applies up front. "I can build this, but this checkout can't
+publish it — I'll produce a handoff bundle" is a fine answer; discovering it
+after the work is not.
+
+### When the user can't publish — `feature-request`
+
+Produces a self-contained bundle a developer *with* write access can act on,
+written to the user's own directory (never inside the skill folder):
+
+```
+<user-dir>/cxone-feature-requests/<date>-<slug>/
+  REQUEST.md      use case, the gap, scenario, proposed CLI, version, capability
+  change.patch    the local change, if there is one
+```
+
+```bash
+python run.py feature-request new \
+    --title "Branch-scope filter for results kpi" \
+    --use-case "Reconcile a KPI table against the UI project view." \
+    --gap "results kpi is always production-scope; it can't be pinned to a branch." \
+    --proposed-cli "results kpi --kpi vulnerabilitiesByStateTotal --scope primary"
+python run.py feature-request list
+```
+
+Four things worth knowing:
+
+- **Ship the patch, not just the prose.** If the change already exists locally
+  it is captured automatically — tracked edits, staged changes, commits ahead
+  of the published branch, *and new files* — so the recipient runs `git am` /
+  `git apply` instead of rebuilding from a description. `--no-patch` when the
+  user only identified the gap.
+- **Long prose belongs in a file.** Any field takes `@path` to read from a file
+  or `-` for stdin, which is how a transcript or scenario gets in without
+  shell-quoting mangling it.
+- **Redaction is a gate, not a nicety.** This file exists to be sent to someone
+  else, and the context worth capturing is exactly where credentials live — a
+  session that configured a tenant has API keys in its scrollback. JWTs, PATs,
+  `KEY=value` pairs, `--api-key <value>` flags and the tenant name are scrubbed
+  before write (`--keep-tenant` to keep the last one). An unclassifiable
+  high-entropy string **blocks** the write; `--allow-unclassified` overrides it
+  only after the user confirms it isn't a secret.
+- **Relay a redaction warning inside the patch.** If redaction fires *inside*
+  the diff, the bundle says so — that means the patch no longer matches the
+  author's source, and the recipient needs to know before applying it.
+
+`publish_skill.py` also refuses up front on a confirmed `local-only` checkout
+and points here, so nothing gets committed only to be stranded.
 
 ### Keep the skill current (sync in, publish out)
 
@@ -991,8 +1056,9 @@ are different problems:
 python run.py selfcheck
 ```
 
-It reports `Mode: repo` or `Mode: standalone`, and everything below follows
-from that. Decide once, then follow one path — never both.
+It reports `Mode: repo` or `Mode: standalone` plus a `Contribution:` line, and
+everything below follows from that. Decide once, then follow one path — never
+both.
 
 #### Mode A — git repo (this project's case, and the normal one)
 
