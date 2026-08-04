@@ -78,6 +78,16 @@ ANALYTICS_STATE_ALIASES = {
 }
 
 
+# Shown beside the scope label so a number is never presented without saying
+# which branches produced it.
+_SCOPE_HINT = {
+    "primary": " (project primary branch — matches the UI project view)",
+    "production": " (primary + protected + conventional — matches analytics/KPIs)",
+    "latest": " (newest scan on ANY branch — may include feature/agent branches)",
+    "all": " (every branch)",
+}
+
+
 def _norm_sev(raw: str) -> str:
     return (raw or "UNKNOWN").upper()
 
@@ -137,6 +147,26 @@ class ResultsManager:
     def __init__(self, api: ApiClient):
         self.api = api
         self.cfg = api.config
+        self._branches = None
+
+    @property
+    def branches(self):
+        """Lazy BranchResolver — only built when a query needs branch scoping,
+        so nothing pays for the protected-branches lookups unless asked."""
+        if self._branches is None:
+            from ops.branch_scope import BranchResolver
+            self._branches = BranchResolver(self.api)
+        return self._branches
+
+    def _scoped_scan(self, project: dict, scope: str, branch: str | None):
+        """(scan_id, BranchChoice) for a project under the active scope.
+
+        Always returns the choice so the caller can SAY which branch/scan it
+        used; reporting a number without that is what made the branch bug
+        invisible in the first place.
+        """
+        choice = self.branches.resolve(project, scope=scope, branch=branch)
+        return choice.scan_id, choice
 
     # ----------------------------------------------------- project resolution
     def _all_projects(self) -> list[dict]:
@@ -192,7 +222,8 @@ class ResultsManager:
         return counts
 
     def summarize(self, names: list[str] | None = None, app_name: str | None = None,
-                  min_severity: str | None = None) -> int:
+                  min_severity: str | None = None, scope: str = "primary",
+                  branch: str | None = None) -> int:
         projects = self._resolve_projects(names, app_name)
         if not projects:
             logger.warning("No matching projects.")
@@ -200,14 +231,20 @@ class ResultsManager:
         min_rank = _SEV_RANK.get((min_severity or "").upper(), len(SEVERITY_ORDER))
         # Application rollup totals across member projects.
         rollup: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-        scope = f"application '{app_name}'" if app_name else "projects"
-        logger.info("Results summary (%s):", scope)
+        what = f"application '{app_name}'" if app_name else "projects"
+        logger.info("Results summary (%s) — branch scope: %s%s",
+                    what, "--branch " + branch if branch else scope,
+                    "" if branch else _SCOPE_HINT.get(scope, ""))
         for p in projects:
-            sid = self._latest_scan_id(p["id"])
+            sid, choice = self._scoped_scan(p, scope, branch)
             if not sid:
-                logger.info("  %-26s no completed scan", p.get("name"))
+                logger.info("  %-26s no completed scan in scope", p.get("name"))
                 continue
             counts = self._counts_for_scan(sid)
+            logger.info("  %s", choice.describe())
+            drift = choice.drift_note()
+            if drift:
+                logger.warning("      %s", drift)
             self._print_project(p.get("name", "?"), counts, min_rank)
             if app_name:
                 for eng, sevs in counts.items():
@@ -238,14 +275,16 @@ class ResultsManager:
              severities: list[str] | None = None, states: list[str] | None = None,
              limit: int = 25, match: str | None = None, show_ids: bool = False,
              as_json: bool = False, history: bool = False,
+             scope: str = "primary", branch: str | None = None,
              full_history: bool = False) -> int:
         projects = self._resolve_projects([project_name])
         if not projects:
             return 1
         project_id = projects[0]["id"]
-        sid = self._latest_scan_id(project_id)
+        sid, choice = self._scoped_scan(projects[0], scope, branch)
         if not sid:
-            logger.info("%s: no completed scan", project_name)
+            logger.info("%s: no completed scan in scope (%s)", project_name,
+                        branch or scope)
             return 0
         result_type = ENGINE_ALIASES.get((engine or "").lower()) if engine else None
         results = self.api.fetch_results(sid, result_type=result_type)
@@ -277,6 +316,7 @@ class ResultsManager:
             for r in shown:
                 row = {
                     "projectId": project_id, "projectName": project_name, "scanId": sid,
+                    "branch": choice.branch, "branchScope": choice.scope,
                     "resultId": r.get("alternateId"), "engine": (r.get("type") or "").lower(),
                     "groupId": group_id_for(r, project_id), "label": _finding_label(r),
                     "severity": _norm_sev(r.get("severity")), "state": r.get("state"),
@@ -294,6 +334,10 @@ class ResultsManager:
         eng_disp = ENGINE_LABELS.get(result_type, engine) if engine else "all engines"
         logger.info("%s — %s: %d finding(s)%s", project_name, eng_disp, len(results),
                     f" (showing {len(shown)})" if len(shown) < len(results) else "")
+        logger.info("  %s", choice.describe())
+        _drift = choice.drift_note()
+        if _drift:
+            logger.warning("  %s", _drift)
         if show_ids:
             logger.info("  scan id: %s", sid)
         for r in shown:
@@ -340,6 +384,13 @@ class ResultsManager:
         # (live-verified: uppercase 400s) — unlike every other engine in this tool,
         # which uses UPPER severities. Don't reuse _norm_sev/.upper() here.
         sev_vals = [ANALYTICS_SEVERITY_ALIASES.get(s.lower(), s.lower()) for s in (severities or [])] or None
+        # The Analytics API applies its OWN production-branch filter server-side
+        # (primary + protected + conventional names). Saying so matters: these
+        # numbers can and do differ from `results summary`, and an unlabelled
+        # difference reads as a bug in one of them rather than two scopes.
+        logger.info("Analytics KPI '%s' — branch scope: production branches "
+                    "(server-side; may differ from `results summary --scope primary`)",
+                    kpi_name)
         data = self.api.query_analytics_kpi(
             kpi_name, start_date=start_date, end_date=end_date,
             scanners=scanner_vals, states=state_vals, severities=sev_vals,
@@ -364,6 +415,9 @@ class ResultsManager:
             logger.info(line)
 
 
+SCOPE_HELP = ("branch scope: primary (project primary branch — UI parity, default), production (primary+protected+conventional — analytics parity), latest (newest scan on any branch), all")
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="results")
     p.add_argument("--env", default=None)
@@ -375,12 +429,22 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--projects", help="comma-separated project names")
     g.add_argument("--app", help="roll up across an application's projects")
     g.add_argument("--all", action="store_true", help="every project in the tenant")
+    s.add_argument("--scope", default="primary",
+                   choices=["primary", "production", "latest", "all"],
+                   help="%s" % SCOPE_HELP)
+    s.add_argument("--branch", default=None,
+                   help="report this exact branch (overrides --scope)")
     s.add_argument("--min-severity", default=None,
                    choices=["Critical", "High", "Medium", "Low", "Info"],
                    help="only show this severity and above")
 
     sh = sub.add_parser("show", help="list findings (drill-down)")
     sh.add_argument("--project", required=True)
+    sh.add_argument("--scope", default="primary",
+                    choices=["primary", "production", "latest", "all"],
+                    help="%s" % SCOPE_HELP)
+    sh.add_argument("--branch", default=None,
+                    help="report this exact branch (overrides --scope)")
     sh.add_argument("--engine", default=None,
                     choices=["sast", "sca", "iac", "kics", "containers", "secrets", "apisec"])
     sh.add_argument("--severity", default=None,
@@ -434,7 +498,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "summary":
         names = [n.strip() for n in (args.projects or "").split(",") if n.strip()] or None
-        return mgr.summarize(names=names, app_name=args.app, min_severity=args.min_severity)
+        return mgr.summarize(names=names, app_name=args.app,
+                             min_severity=args.min_severity,
+                             scope=args.scope, branch=args.branch)
     if args.cmd == "show":
         return mgr.show(
             args.project,
@@ -445,6 +511,8 @@ def main(argv: list[str] | None = None) -> int:
             match=args.match,
             show_ids=args.ids,
             as_json=args.json,
+            scope=args.scope,
+            branch=args.branch,
             history=args.history,
             full_history=args.full_history,
         )

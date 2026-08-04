@@ -898,3 +898,44 @@ same path). `validate_spec.py` flags these as `METHOD?` — expected, not an err
 `GET <results lists>/states|statuses|severities`, `GET applications/{id}/project-rules`.
 See `api-index.md` for the full catalog.
 
+
+## Branch scoping — which branch's results are "the" results
+
+`GET /api/scans?project-id=<uuid>` returns scans across **every** branch, newest
+first. Taking `scans[0]` is therefore *not* what the UI shows, and the two can
+disagree badly: a `cx-ai-agent-main-…` branch scan once made a project report 18
+Critical "To Verify" that its UI showed none of. `ops/branch_scope.py` owns the
+resolution; the rules it implements are Checkmarx One's own:
+
+- **Project view (UI):** the project's configured **primary branch**
+  (`mainBranch` on `GET /api/projects/{id}`). If unset, the UI falls back to the
+  branch of the most recent scan.
+- **Analytics / reports / KPIs:** *production branches* — the primary branch,
+  plus branches flagged **protected** at integration setup, plus the
+  conventional names `main`, `master`, `dev`, `develop`, `development`, `merge`.
+
+**`GET /api/repos-manager/protected-branches?cxProjectName=<name>`**
+→ `[{"pattern": "main", "isDefaultBranch": true, "tags": {}}]`
+
+- Keyed by project **name**, not id, and **400s if `cxProjectName` is omitted**
+  (it does not return the whole tenant).
+- Live-verified far more useful than `mainBranch` alone: on this tenant only
+  **6 of 33** projects had `mainBranch` set, but protected-branches knew the
+  default branch for **15 more**. Resolving "primary" from `mainBranch` alone
+  therefore falls through to "latest scan" for projects whose real default
+  branch is perfectly well known.
+- Patterns may be wildcards (`release/*`). Those can't be equality-matched
+  against a scan's `branch`, so `branch_scope` skips them rather than
+  mis-scoping.
+- Projects with no SCM integration return `[]` — normal, not an error.
+
+**Parameter trap on `GET /api/scans`:** the filter is **`project-id`**
+(hyphenated, per the spec). Passing `projectId` is silently IGNORED — the call
+returns HTTP 200 with tenant-wide scans belonging to other projects, which looks
+like data rather than an error. `filteredTotalCount` (not `totalCount`) reflects
+the filter; `totalCount` stays tenant-wide.
+
+**Projects get re-created.** Ids are not stable across a rebuild — a project can
+keep its name and change id mid-session, at which point queries pinned to the
+old id return an empty list rather than an error. Resolve by name for anything
+long-running, and treat "suddenly zero scans" as a possible re-create.
