@@ -102,9 +102,11 @@ git pull      # you now have the latest
 (If you installed a released `.skill` instead, updating means downloading and
 importing a new one — see the alternative above.)
 
-The skill also checks itself. At session start it compares your checkout against
+The skill also checks itself. Every command compares your checkout against
 `origin`'s default branch — merged work only, since an unmerged branch is a
-proposal, not a release — and speaks up only if you're behind:
+proposal, not a release — and speaks up only if you're behind. The per-command
+cost is one cached file read; the actual git fetch happens on a background
+thread at most once an hour, so nothing ever waits on it:
 
 ```bash
 python run.py selfcheck          # status
