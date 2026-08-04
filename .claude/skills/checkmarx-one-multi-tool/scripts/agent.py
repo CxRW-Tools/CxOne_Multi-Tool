@@ -625,8 +625,16 @@ def _launch_container(rt: str, cfg: CxConfig, until: str | None,
                         len(_pool.names(include_primary=False)),
                         "y" if len(_pool.names(include_primary=False)) == 1 else "ies")
     except Exception as exc:
-        logger.warning("Could not load identities for the container (%s) — the "
-                       "agent will run as the primary identity only.", exc)
+        # ERROR, not warning: this does not merely lose a feature, it silently
+        # changes WHO the tenant records as having run every scan for days.
+        logger.error("Could not pass identities into the container (%s) — every "
+                     "event would be attributed to the primary/admin key.", exc)
+        raise RuntimeError(
+            "Refusing to start: secondary identities are configured but could "
+            "not be delivered to the container, so all activity would be "
+            "attributed to the admin key. Fix the identities file (see "
+            "`identities list`), or pass --identities all to accept the "
+            "primary key deliberately.") from exc
     if cfg.github_token and not os.environ.get("CXONE_GITHUB_TOKEN"):
         cmd += ["-e", f"CXONE_GITHUB_TOKEN={cfg.github_token}"]  # GITHUB_TOKEN alias
     for var in ("CXONE_GITHUB_TOKEN", "CXONE_AZURE_TOKEN",
@@ -727,12 +735,12 @@ def cmd_run(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
                                 behavior)
 
     return _run_loop(cfg, model, api, live, until, max_lateness_s, _HORIZON_S,
-                     seed, scope)
+                     seed, scope, behavior)
 
 
 def _run_loop(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
                until: str | None, max_lateness_s: float, horizon_s: float,
-               seed: int | None, scope=None) -> int:
+               seed: int | None, scope=None, behavior=None) -> int:
     """
     Long-lived, scheduler-free mode — the primary deployment target (container).
 
@@ -943,6 +951,11 @@ def main(argv: list[str] | None = None) -> int:
         g.add_argument("--affinity", type=float, default=None, metavar="F",
                        help="0..1 stickiness of each project's owner (1.0 = always the "
                             "same person, 0.85 = realistic hand-offs)")
+        g.add_argument("--scans-per-hour", type=float, default=None, metavar="N",
+                       help="target scans per BUSINESS hour (default ~1.2 from config). "
+                            "Raises the arrival rate, the tenant-wide caps, and "
+                            "per-project cadence together, since any one of the three "
+                            "alone would silently throttle the others")
 
     sub = p.add_subparsers(dest="mode", required=True)
 
@@ -977,7 +990,8 @@ def main(argv: list[str] | None = None) -> int:
     from ops.agent_behavior import AgentBehavior
     behavior = AgentBehavior.resolve(
         cli={"triage": args.triage, "triage_weight": args.triage_weight,
-             "identities": args.identities, "affinity": args.affinity},
+             "identities": args.identities, "affinity": args.affinity,
+             "scans_per_hour": args.scans_per_hour},
         env=os.environ,
     )
     behavior.apply_to_model(model)
