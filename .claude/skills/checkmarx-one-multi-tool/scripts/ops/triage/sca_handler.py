@@ -55,11 +55,25 @@ _HIGH_SEVERITIES = {"CRITICAL", "HIGH"}
 _SNOOZE_DAYS = 90
 
 # States that DISMISS a finding. Simulated triage may never apply these to a
-# supply-chain risk (malicious / typosquatted / compromised package): the states
-# are a fabricated roll, not an analyst's judgement, and "Not Exploitable" on real
-# malware is the one wrong answer that actively hides it. Matched pre-API-mapping,
-# i.e. against realism/rule output ("Not Exploitable", "Proposed Not Exploitable").
+# MALICIOUS-package risk: the states are a fabricated roll, not an analyst's
+# judgement, and "Not Exploitable" on real malware is the one wrong answer that
+# actively hides it. Matched pre-API-mapping, i.e. against realism/rule output
+# ("Not Exploitable", "Proposed Not Exploitable").
 _DISMISSIVE_STATES = {"Not Exploitable", "Proposed Not Exploitable"}
+
+# Non-Regular risk types that are NOT malware, and for which dismissal is a
+# legitimate analytic conclusion:
+#   Disputed      — the CVE's validity is contested; NE is often the right call
+#   configuration — only exploitable under a configuration you may not use
+#   Usage         — only exploitable via a call path you may not exercise
+# These carry CVE ids. True supply-chain/malware findings carry Checkmarx
+# proprietary `Cx…` ids (RunTimeBehavior, ContributorReputation, ...).
+#
+# Deliberately an ALLOWLIST of dismissible types rather than a denylist of
+# malicious ones: an unrecognized new supply-chain type is then clamped by
+# default. The failure mode of guessing wrong is "a malware finding stays
+# Confirmed", never "a malware finding gets hidden".
+_DISMISSIBLE_RISK_TYPES = {"disputed", "configuration", "usage"}
 
 
 class SCAHandler(BaseTriageHandler):
@@ -125,7 +139,7 @@ class SCAHandler(BaseTriageHandler):
             # them, exactly as exploitable_pkgs is derived above.
             supply_chain_pkgs = {
                 self._pkg_key(v.get("PackageName"), v.get("PackageVersion"))
-                for v in supply
+                for v in supply if self._is_malicious_risk(v)
             }
             self._triage_vulnerabilities(project_id, regular, summary)
             self._triage_supply_chain(project_id, supply, summary)
@@ -203,6 +217,22 @@ class SCAHandler(BaseTriageHandler):
         The export marks regular vulnerabilities Type='Regular'; other types are
         supply-chain risks, which use a different endpoint and id field."""
         return (str(vuln.get("Type") or "Regular").strip().lower() != "regular")
+
+    @classmethod
+    def _is_malicious_risk(cls, vuln: dict) -> bool:
+        """A supply-chain risk that asserts the PACKAGE is bad (malicious runtime
+        behavior, untrustworthy contributor, typosquat, ...) — as opposed to a
+        non-Regular risk that merely qualifies an ordinary CVE.
+
+        `_is_supply_chain` answers "which endpoint does this post to?" and is true
+        for Disputed/configuration/Usage as well. That is the wrong question for
+        "may this be dismissed?", and conflating the two blocks legitimate triage
+        of contested and configuration-dependent CVEs.
+        """
+        if not cls._is_supply_chain(vuln):
+            return False
+        return (str(vuln.get("Type") or "").strip().lower()
+                not in _DISMISSIBLE_RISK_TYPES)
 
     @staticmethod
     def _is_exploitable(vuln: dict) -> bool:
@@ -285,7 +315,7 @@ class SCAHandler(BaseTriageHandler):
                 continue
             state = rule.get("state", "")
             comment = rule.get("comment", "")
-            # HARD FLOOR: simulated triage must never DISMISS a supply-chain risk.
+            # HARD FLOOR: simulated triage must never DISMISS a malicious-package risk.
             #
             # These are malicious/typosquatted/compromised packages. The realism
             # model is severity-driven and has no concept of maliciousness, so it
@@ -299,7 +329,7 @@ class SCAHandler(BaseTriageHandler):
             # tail untriaged, and _decide_state returning None above is untouched.
             # What is clamped is the OUTCOME: if this code triages a supply-chain
             # risk at all, it may only ever affirm it.
-            if state in _DISMISSIVE_STATES:
+            if state in _DISMISSIVE_STATES and self._is_malicious_risk(r):
                 state = "Confirmed"
                 comment = ("Supply-chain risk affirmed: malicious/compromised package "
                            "findings are not dismissed by automated triage.")
