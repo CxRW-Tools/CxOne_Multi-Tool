@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.46.0
+  version: 3.46.1
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -346,7 +346,7 @@ unimplemented things → Keep the package current**. Don't leave the installed
 | Results | `results.py` | `results` | `summary` by engine×severity (per project or per-application rollup), `show` finding drill-down (SCA rows labelled `<CVE> — <package>`; filter by engine/severity/state/`--match`, which also matches CVE ids, with `--ids`/`--json` exposing the scan/result/group ids the APIs need, and `--history`/`--full-history` showing WHO triaged each finding, when, and their comment), `kpi` — tenant-wide server-aggregated KPIs (severity×state, aging, most-common, etc.) via the Analytics API in one call |
 | Triage history | `ops/triage_history.py` | (via `results show --history`) | past triage — state, comment, user, timestamp — read from each engine's own predicate/action store (SAST/IaC/Secrets/SCA/Containers). **The only correct source for "who triaged this"; never the audit trail.** See `references/cxone-api.md` "Triage history" |
 | Reports | `reports.py` | `report` | PDF/JSON/CSV scan reports (async poll+download) and CycloneDX/SPDX SBOMs |
-| Audit trail | `audit.py` | `audit` | `list` — search/export tenant activity (who did what, when) via `GET /api/audit-events`, filter by `--type`/`--resource`/`--user`/`--search`/date range, `--human-readable` UUID resolution, `--csv` export. Read-only; platform event coverage is still growing engine by engine, and only goes back to 2026-03-29 — an empty result isn't proof nothing happened. **History only, not current state** — see caution below and `references/cxone-api.md` |
+| Audit trail | `audit.py` | `audit` | `list` — search/export tenant activity (who did what, when) via `GET /api/audit-events`, filter by `--type`/`--resource`/`--user`/`--search`/date range, `--human-readable` UUID resolution, `--csv` export. Read-only; platform event coverage is still growing engine by engine, and only goes back to 2026-03-29 — an empty result isn't proof nothing happened. `--type`/`--resource` are FREE TEXT, not enums (the valid set is whatever the tenant's stream contains), so a zero-row result now says whether the range was empty or your filter value simply doesn't exist, listing the values that do and suggesting near-misses — read that hint before reporting "nothing happened". **History only, not current state** — see caution below and `references/cxone-api.md` |
 | Triage (real review) | `triage_real.py` + `ops/source_fetch.py` | `triage-real` | `prepare` (findings + the exact scanned source) → the assistant reviews → `apply` (validated write). Free, genuine, never "Not Exploitable", no source = no verdict |
 | Checkmarx Assist (AI) | `ai_assist.py` + `ops/findings.py` | `ai-assist` | AI **Triage Assist** and **Remediation Assist**: `find` (resolve findings → scan/result/group ids), `triage`, `triage-status`, `remediate`, `remediation-details`, `discard`, `credits` (balance + per-action cost). SAST+SCA only; **consumes AI credits** |
 | Triage (simulated) | `ops/triage/` + `ops/realism.py` | `triage-simulate` | realistic triage across SAST/IaC/SCA/Secrets/Containers: coverage + outcome model, top-down, per-project variation, analyst comments, exceptions; intensity-scaled (light/some/moderate/thorough/heavy — heavy adds a per-pass human-volume cap) |
