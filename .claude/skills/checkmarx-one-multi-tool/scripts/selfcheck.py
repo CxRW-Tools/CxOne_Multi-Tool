@@ -41,19 +41,39 @@ operation that has nothing to do with git.
 
 from __future__ import annotations
 
+import os
 import json
 import datetime as _dt
 import subprocess
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 STATE_FILE = SKILL_ROOT / ".selfcheck_state.json"
 
-# How long a remote check stays fresh. Four hours means a session-start check
-# plus one more if the day runs long — roughly one or two fetches a day, which
-# is responsive to another session's merge without turning into git spam.
-TTL_HOURS = 4
+
+def _ttl_hours() -> float:
+    """How long a remote check stays fresh.
+
+    One hour: the check now runs from every command (cache read on the hot path,
+    refresh on a background thread), so the TTL sets how often git is actually
+    consulted rather than how often you are told. An hour is responsive to
+    another session's merge while keeping fetches to roughly one per working
+    hour. ``CXONE_UPDATE_TTL_HOURS`` overrides it.
+    """
+    raw = os.environ.get("CXONE_UPDATE_TTL_HOURS")
+    if raw:
+        try:
+            val = float(raw)
+            if val > 0:
+                return val
+        except ValueError:
+            pass
+    return 1.0
+
+
+TTL_HOURS = 1.0   # nominal default; call _ttl_hours() for the effective value
 
 # Used only if origin/HEAD isn't set locally (a clone that never resolved it).
 _FALLBACK_DEFAULT_BRANCH = "main"
@@ -144,13 +164,27 @@ def _read_state() -> dict:
 
 
 def _write_state(data: dict) -> None:
+    """Write the cache atomically.
+
+    The refresh now runs on a background thread while the foreground is reading
+    this same file, so a partially-written file is a real possibility. Write to
+    a sibling temp file and rename (atomic on POSIX, and on Windows for
+    os.replace), so a reader sees either the old contents or the new ones.
+    """
+    tmp = STATE_FILE.with_suffix(".tmp")
     try:
-        STATE_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, STATE_FILE)
     except OSError:
-        pass  # a cache we cannot persist just means we re-check next time
+        # A cache we cannot persist just means we re-check next time.
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
 
 
-def _ttl_expired(state: dict, ttl_hours: int) -> bool:
+def _ttl_expired(state: dict, ttl_hours: float | None = None) -> bool:
+    ttl_hours = _ttl_hours() if ttl_hours is None else ttl_hours
     raw = state.get("checked_at")
     if not raw:
         return True
@@ -163,8 +197,109 @@ def _ttl_expired(state: dict, ttl_hours: int) -> bool:
     return age.total_seconds() < 0 or age > _dt.timedelta(hours=ttl_hours)
 
 
+# -------------------------------------------------------------- ambient check
+# Used by multitool's per-command hook. The design constraint is that a tenant
+# command must never pay for this: the hot path touches ONE small file and runs
+# no subprocess at all, and the git work happens on a background thread whose
+# result is read by a LATER command. That trade — learning one command late
+# instead of blocking this one — is what makes an every-command check
+# affordable at all.
+
+_ENV_DISABLE = "CXONE_NO_UPDATE_CHECK"
+_refresh_started = False        # at most one refresh per process
+
+
+def _remember_mode(mode: str) -> None:
+    """Record repo/standalone so the hot path stops spawning refreshes on a
+    checkout that can never be behind (a packaged install, the agent's
+    container image). Without this, every command in those environments would
+    fork git only to rediscover there is no repo."""
+    state = _read_state()
+    if state.get("mode") == mode:
+        return
+    state["mode"] = mode
+    state.setdefault("checked_at", _dt.datetime.now(_dt.timezone.utc).isoformat())
+    _write_state(state)
+
+
+def ambient_notice() -> str | None:
+    """The "you are behind" line for the per-command hook, from cache only.
+
+    Returns None when there is nothing to say — which is the common case and
+    must stay silent. Also schedules a background refresh when the cache has
+    aged past the TTL. Never raises, never blocks, never runs git inline.
+    """
+    if os.environ.get(_ENV_DISABLE):
+        return None
+    state = _read_state()
+    if state.get("mode") == "standalone":
+        return None                      # nothing to sync from; stay quiet
+    if _ttl_expired(state):
+        _refresh_async()
+    if not state or int(state.get("behind") or 0) <= 0:
+        return None
+    st = Status(
+        mode="repo",
+        version=str(state.get("version") or ""),
+        branch=state.get("branch"),
+        publish_branch=str(state.get("publish_branch") or _FALLBACK_DEFAULT_BRANCH),
+        behind=int(state.get("behind") or 0),
+        ahead=int(state.get("ahead") or 0),
+        dirty=bool(state.get("dirty")),
+        latest_tag=state.get("latest_tag"),
+        remote_checked=False,            # always cached on this path
+    )
+    return st.summary_line()
+
+
+def _refresh_async() -> None:
+    """Refresh the cache on a daemon thread. Fire-and-forget by design.
+
+    Daemon so it can never hold up interpreter exit: if the command finishes
+    first the fetch is simply abandoned and the TTL stays expired, so the next
+    command tries again. That is strictly better than making every command wait
+    on the network.
+    """
+    global _refresh_started
+    if _refresh_started:
+        return
+    _refresh_started = True
+
+    def _work():
+        try:
+            check(force=True)
+        except Exception:                                 # noqa: BLE001
+            pass                                          # advisory only
+    try:
+        threading.Thread(target=_work, name="selfcheck-refresh",
+                         daemon=True).start()
+    except Exception:                                     # noqa: BLE001
+        pass
+
+
+def record_check(*, publish_branch: str, ahead: int, behind: int,
+                 latest_tag: str | None = None) -> None:
+    """Let another component donate a fresh result to the cache.
+
+    `publish_skill.py` already fetches and computes behind/ahead in its
+    preflight; without this it threw that away, so publishing repeatedly (four
+    times in one afternoon, in the case that prompted this) left the update
+    cache hours stale while claiming to be authoritative about the same fact.
+    """
+    from cxone import get_version
+    state = _read_state()
+    state.update({
+        "checked_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        "publish_branch": publish_branch, "ahead": int(ahead),
+        "behind": int(behind), "mode": "repo", "version": get_version(),
+    })
+    if latest_tag is not None:
+        state["latest_tag"] = latest_tag
+    _write_state(state)
+
+
 # ---------------------------------------------------------------------- check
-def check(*, force: bool = False, ttl_hours: int = TTL_HOURS) -> Status:
+def check(*, force: bool = False, ttl_hours: float | None = None) -> Status:
     """Sync state against the published branch. ``force=True`` hits the network."""
     from cxone import get_version
     st = Status(version=get_version())
@@ -172,10 +307,12 @@ def check(*, force: bool = False, ttl_hours: int = TTL_HOURS) -> Status:
     rc, _ = _git("rev-parse", "--is-inside-work-tree")
     if rc != 0:
         st.notes.append("Not a git checkout — this is a standalone install.")
+        _remember_mode(st.mode)
         return st
     rc, _ = _git("remote", "get-url", "origin")
     if rc != 0:
         st.notes.append("No 'origin' remote — cannot compare against a source of truth.")
+        _remember_mode(st.mode)
         return st
 
     st.mode = "repo"
@@ -220,7 +357,9 @@ def check(*, force: bool = False, ttl_hours: int = TTL_HOURS) -> Status:
         st.checked_at = _dt.datetime.now(_dt.timezone.utc).isoformat()
         _write_state({"checked_at": st.checked_at, "publish_branch": st.publish_branch,
                       "ahead": st.ahead, "behind": st.behind,
-                      "latest_tag": st.latest_tag})
+                      "latest_tag": st.latest_tag, "mode": st.mode,
+                      "branch": st.branch, "dirty": st.dirty,
+                      "version": st.version})
     else:
         st.checked_at = state.get("checked_at")
     return st

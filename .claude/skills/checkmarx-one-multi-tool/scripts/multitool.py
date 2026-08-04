@@ -74,23 +74,27 @@ def _freshness_line(*, indent: str = "") -> str | None:
     return line
 
 
-def _update_line(*, indent: str = "") -> str | None:
-    """"You are behind the published branch" for `welcome`, or None.
+def _emit_update_notice() -> None:
+    """THE update check. One call site, on every command (see main()).
 
-    Throttled (see selfcheck.TTL_HOURS) so session start pays at most one
-    network round-trip per window, and silent when the checkout is current —
-    an up-to-date copy should add nothing to the banner. Wrapped broadly on
-    purpose: a git or network problem must never stop `welcome` from
-    reporting the tenant, which is what the user actually came for.
+    Deliberately the only automatic trigger: `welcome` used to run its own copy,
+    which meant two places could disagree about when a check happened. The
+    `selfcheck` verb and publish_skill's preflight still call into selfcheck,
+    but those are explicit, synchronous, blocking uses — a different policy over
+    the same implementation, not a second scattered trigger.
+
+    Cache read only; the refresh happens on a background thread inside
+    selfcheck, so no command ever waits on git. Goes to stderr so it can never
+    corrupt parseable stdout, and swallows everything: an advisory notice must
+    never break a tenant operation.
     """
     try:
         import selfcheck
-        line = selfcheck.check().summary_line()
+        line = selfcheck.ambient_notice()
+        if line:
+            print(line, file=sys.stderr)
     except Exception:                                     # noqa: BLE001
-        return None
-    if not line:
-        return None
-    return "\n".join(f"{indent}{part}" for part in line.splitlines())
+        pass
 
 
 def _welcome_entry(argv: list[str]) -> int:
@@ -107,9 +111,6 @@ def _welcome_entry(argv: list[str]) -> int:
     freshness = _freshness_line(indent="  ")
     if freshness:
         print(freshness)
-    update = _update_line(indent="  ")
-    if update:
-        print(update)
     # Same read guard as CxConfig.from_env: never present credentials found inside
     # the skill's own directory as the "active tenant" — that file is shared across
     # chats and may be stale, which is exactly the wrong-tenant trap.
@@ -454,6 +455,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Checkmarx One Multi-Tool v{get_version()}", file=sys.stderr)
         except Exception:
             pass
+    # Ambient "you're behind" notice — every verb except `selfcheck`, which
+    # prints its own, fuller report and would otherwise say it twice.
+    if verb != "selfcheck":
+        _emit_update_notice()
     return table[verb](rest)
 
 

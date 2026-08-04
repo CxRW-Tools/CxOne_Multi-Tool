@@ -165,9 +165,20 @@ def _preflight(repo_root: Path, default_branch: str) -> None:
     counts = run(["git", "-C", str(repo_root), "rev-list", "--left-right", "--count",
                   f"HEAD...origin/{default_branch}"], check=False)
     try:
-        _ahead, behind = (int(x) for x in counts.stdout.split())
+        ahead, behind = (int(x) for x in counts.stdout.split())
     except ValueError:
         return  # can't tell; the push itself will fail loudly if it matters
+    # Donate this result to the ambient update cache. Without it, publishing —
+    # which fetches anyway — left the per-command check reading hours-stale data
+    # (four publishes in one afternoon and it still reported the version from
+    # before any of them).
+    try:
+        sys.path.insert(0, str(SKILL_DIR / "scripts"))
+        import selfcheck
+        selfcheck.record_check(publish_branch=default_branch, ahead=ahead,
+                               behind=behind)
+    except Exception:                                     # noqa: BLE001
+        pass
     if behind:
         sys.exit(
             f"publish aborted: this checkout is {behind} commit(s) behind "

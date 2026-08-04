@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.43.0
+  version: 3.44.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -1042,12 +1042,33 @@ python run.py selfcheck --force    # check the remote right now
 python run.py selfcheck --sync     # fast-forward to the published branch
 ```
 
-- `welcome` runs the check at session start and prints a line **only if behind**,
-  so a current checkout stays quiet. The remote is polled at most once every
-  `selfcheck.TTL_HOURS` (4h); in between the cached answer is reused and
-  labelled `(cached)`.
-- **Publishing re-checks unthrottled**, because "am I behind?" is a correctness
-  question there, not a cadence one.
+**The check runs on EVERY command, from one place.** `multitool.main()` is the
+single automatic trigger — not `welcome`, which used to run its own copy and
+meant two call sites could disagree about when a check had happened. A notice
+prints **only if behind**, to stderr (so it can never corrupt parseable stdout);
+a current checkout stays completely silent.
+
+It is affordable because it does no work inline:
+
+- **Hot path = one small JSON read, no git subprocess at all** (~0.2 ms).
+- When the cache is older than **1 hour** (`CXONE_UPDATE_TTL_HOURS` to change),
+  the refresh runs on a **background daemon thread**, so the command never waits
+  on git. The consequence to know: a freshly-expired cache means the notice
+  appears on the **next** command, not the current one — seconds later in
+  practice. `selfcheck --force` is the synchronous answer when you want
+  certainty now.
+- `CXONE_NO_UPDATE_CHECK=1` disables it entirely (CI, scripted runs).
+- A standalone install records that fact once and then stays quiet forever,
+  rather than forking git on every command to rediscover there is no repo.
+
+Two **deliberate, non-automatic** uses call the same `selfcheck.check()` with a
+different policy — one implementation, not scattered triggers:
+
+- The **`selfcheck` verb** — explicit, synchronous, and owner of `--sync`. The
+  ambient notice is suppressed for it, since it prints its own fuller report.
+- **Publishing re-checks unthrottled and BLOCKS**, because "am I behind?" is a
+  correctness question there, not a cadence one. Its preflight also donates the
+  fresh result back into the cache, so publishing keeps the ambient check warm.
 - `--sync` is **fast-forward only**. It refuses to pull over uncommitted tracked
   changes, refuses when you are on a feature branch rather than the published
   one, and refuses a diverged history — each with the specific next step. It
