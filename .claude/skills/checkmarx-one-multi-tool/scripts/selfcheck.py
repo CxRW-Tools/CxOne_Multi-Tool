@@ -251,6 +251,7 @@ def _ttl_expired(state: dict, ttl_hours: float | None = None) -> bool:
 
 _ENV_DISABLE = "CXONE_NO_UPDATE_CHECK"
 _refresh_started = False        # at most one refresh per process
+_notice_emitted = False         # at most one printed notice per process
 
 
 def _remember_mode(mode: str) -> None:
@@ -294,6 +295,35 @@ def ambient_notice() -> str | None:
         remote_checked=False,            # always cached on this path
     )
     return st.summary_line()
+
+
+def emit_notice_once(stream=None) -> bool:
+    """Print the update notice at most once per process, from ANY entry point.
+
+    ``multitool.main()`` is not the only way this tool gets used: analysis and
+    one-off scripts do ``from cxone import ApiClient`` and never touch the CLI
+    dispatcher, so tying the check to the CLI left every programmatic caller
+    unchecked. That gap is not hypothetical — a whole afternoon of live tenant
+    queries ran through direct imports while the checkout sat several versions
+    behind, with the "runs on every command" machinery structurally unreachable.
+
+    ``ApiClient.__init__`` therefore calls this too. The once-per-process guard
+    is what makes that safe: a run builds one client per identity and more
+    inside worker threads, and nobody needs the same notice ten times.
+    """
+    global _notice_emitted
+    if _notice_emitted:
+        return False
+    _notice_emitted = True                # set FIRST: a failure below must not
+    try:                                  # leave the door open to retry-spam
+        line = ambient_notice()
+    except Exception:                                     # noqa: BLE001
+        return False
+    if not line:
+        return False
+    import sys as _sys
+    print(line, file=stream or _sys.stderr)
+    return True
 
 
 def _refresh_async() -> None:

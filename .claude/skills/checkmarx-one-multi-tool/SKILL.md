@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.46.1
+  version: 3.46.2
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -1140,9 +1140,13 @@ python run.py selfcheck --force    # check the remote right now
 python run.py selfcheck --sync     # fast-forward to the published branch
 ```
 
-**The check runs on EVERY command, from one place.** `multitool.main()` is the
-single automatic trigger — not `welcome`, which used to run its own copy and
-meant two call sites could disagree about when a check had happened. A notice
+**The check runs on every command AND on any programmatic use.** Two entry
+points share ONE once-per-process guard: `multitool.main()` for CLI commands,
+and `ApiClient.__init__` for everything that imports the library directly. The
+CLI hook alone was not enough — analysis scripts and one-offs do
+`from cxone import ApiClient` and never reach the dispatcher, so they ran
+entirely unchecked (that gap once let a whole session query a live tenant while
+several versions behind). `welcome` no longer runs its own copy. A notice
 prints **only if behind**, to stderr (so it can never corrupt parseable stdout);
 a current checkout stays completely silent.
 
