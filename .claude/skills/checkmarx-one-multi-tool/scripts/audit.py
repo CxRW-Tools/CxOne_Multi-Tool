@@ -26,8 +26,10 @@ from __future__ import annotations
 import re
 import sys
 import json
+import difflib
 import logging
 import argparse
+from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -155,6 +157,7 @@ class AuditManager:
         search: str | None = None,
         limit: int | None = None,
         human_readable: bool = False,
+        context: dict | None = None,
     ) -> list[dict]:
         today = date.today()
         if end > today:
@@ -175,6 +178,23 @@ class AuditManager:
             params={"startDate": start_s, "endDate": end_s},
             extra_headers=_AUDIT_HEADERS,
         )
+
+        # Snapshot what the RANGE contains before any filter narrows it. On an
+        # audit trail, "your filter matched nothing" and "nothing happened" are
+        # opposite conclusions, and the caller cannot tell them apart from an
+        # empty list alone. Cheap: the unfiltered set is already in memory.
+        if context is not None:
+            context["total_unfiltered"] = len(events)
+            context["range"] = f"{start.isoformat()}..{end.isoformat()}"
+            context["resources"] = Counter(
+                (e.get("auditResource") or "").strip() for e in events
+                if (e.get("auditResource") or "").strip())
+            context["types"] = Counter(
+                (e.get("eventType") or "").strip() for e in events
+                if (e.get("eventType") or "").strip())
+            context["actors"] = Counter(
+                (e.get("actionUserId") or "").strip() for e in events
+                if (e.get("actionUserId") or "").strip())
 
         if user:
             uid = user if _is_uuid(user) else self._resolve_user_id(user)
@@ -226,9 +246,82 @@ def _summarize_data(data: dict | None, width: int = 80) -> str:
     return s if len(s) <= width else s[: width - 1] + "…"
 
 
-def print_table(events: list[dict]) -> None:
+_MAX_LISTED_VALUES = 12
+
+
+def _render_values(counter: "Counter[str]") -> str:
+    top = counter.most_common(_MAX_LISTED_VALUES)
+    rendered = ", ".join(f"{name} ({n})" for name, n in top)
+    remaining = len(counter) - len(top)
+    return rendered + (f", +{remaining} more" if remaining > 0 else "")
+
+
+def explain_empty(context: dict, filters: dict) -> list[str]:
+    """Why zero rows came back — the distinction an audit trail must not blur.
+
+    `--resource project` (singular) matches nothing, and the resulting silence
+    is byte-identical to "nobody created a project today". One of those is a
+    typo and the other is a security-relevant finding, so an empty result has
+    to say which it is.
+
+    Enum-validating the flags is the wrong fix: the valid set is whatever the
+    tenant's event stream contains, and platform coverage is still expanding
+    engine by engine, so a hardcoded `choices=` would start rejecting values
+    that became legitimate after this was written. The live events answer it
+    for free.
+    """
+    total = context.get("total_unfiltered", 0)
+    rng = context.get("range", "the requested range")
+    if not total:
+        # Genuinely nothing recorded. Keep this plain: it is the one case where
+        # "no events" is the actual answer rather than a hint to act on.
+        return [f"No audit events in {rng}."]
+
+    lines = [f"No events matched your filters, but {total} event(s) exist in {rng}."]
+    dimensions = [
+        ("--resource", filters.get("resource"), context.get("resources"), "Resources"),
+        ("--type", filters.get("event_type"), context.get("types"), "Event types"),
+    ]
+    unmatched_named = False
+    for flag, value, counter, label in dimensions:
+        if not value or not counter:
+            continue
+        present = {k.lower(): k for k in counter}
+        if value.lower() in present:
+            continue
+        unmatched_named = True
+        near = difflib.get_close_matches(value.lower(), list(present), n=3, cutoff=0.6)
+        line = f'  {flag} "{value}" matched nothing.'
+        if near:
+            suggestion = ", ".join(present[n] for n in near)
+            line += f" Closest present value(s): {suggestion}"
+        lines.append(line)
+        lines.append(f"  {label} present: {_render_values(counter)}")
+
+    if filters.get("user") and context.get("actors"):
+        # Actor ids are UUIDs; listing them would be noise. The count is the
+        # useful signal, and _resolve_user_id already warns on a bad username.
+        lines.append(f"  --user matched no events ({len(context['actors'])} "
+                     f"distinct actor(s) active in this range).")
+        unmatched_named = True
+
+    if not unmatched_named:
+        applied = [f"{k}={v!r}" for k, v in filters.items() if v]
+        lines.append("  Each filter value exists in this range, but their "
+                     "combination excludes every event.")
+        if applied:
+            lines.append(f"  Applied: {', '.join(applied)}")
+    return lines
+
+
+def print_table(events: list[dict], context: dict | None = None,
+                filters: dict | None = None) -> None:
     if not events:
-        print("No audit events matched.")
+        if context is not None and filters is not None:
+            for line in explain_empty(context, filters):
+                print(line)
+        else:
+            print("No audit events matched.")
         return
     print(f"{'eventDate':<26} {'actor':<32} {'eventType':<24} {'resource':<16} {'action':<10} data")
     print("-" * 140)
@@ -255,6 +348,16 @@ def event_to_csv_row(event: dict) -> dict:
         "actionUserId": str(event.get("actionUserId") or ""),
         "ipAddress": str(event.get("ipAddress") or ""),
         "data": json.dumps(data, ensure_ascii=False, default=str) if data is not None else "",
+    }
+
+
+def _filters_of(args) -> dict:
+    """The filter values the user actually supplied, for the empty-result hint."""
+    return {
+        "resource": args.resource,
+        "event_type": args.event_type,
+        "user": args.user,
+        "search": args.search,
     }
 
 
@@ -306,12 +409,13 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as e:
             print(f"Error: {e}")
             return 2
+        context: dict = {}
         try:
             events = mgr.list_events(
                 start=start, end=end,
                 event_type=args.event_type, resource=args.resource,
                 user=args.user, search=args.search, limit=args.limit,
-                human_readable=args.human_readable,
+                human_readable=args.human_readable, context=context,
             )
         except ValueError as e:
             print(f"Error: {e}")
@@ -322,9 +426,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"CSV export: {n} rows written to {args.csv_path}")
 
         if args.raw:
+            # --raw is a machine-readable contract; keep it pure JSON. The
+            # diagnostic goes to stderr so a piped consumer is unaffected but a
+            # human watching the terminal still learns why it was empty.
             print(json.dumps(events, indent=2, ensure_ascii=False, default=str))
+            if not events:
+                for line in explain_empty(context, _filters_of(args)):
+                    print(line, file=sys.stderr)
         else:
-            print_table(events)
+            print_table(events, context, _filters_of(args))
 
     return 0
 
