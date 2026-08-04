@@ -70,8 +70,8 @@ against the repo's published branch — merged work only, so an unmerged branch
 someone pushed for review never counts as an update. `selfcheck --sync`
 fast-forwards to it. Running from a git clone, that's the whole update path; a
 standalone `.skill` install can't self-update and is told to reinstall instead.
-**Every command checks automatically** and prints a one-line notice to stderr
-only when you're behind — the hot path is a single cached file read (no git, no
+**Every command — and any script that builds an API client — checks
+automatically** and prints a one-line notice to stderr only when you're behind — the hot path is a single cached file read (no git, no
 network), and the actual refresh runs on a background thread at most once an
 hour (`CXONE_UPDATE_TTL_HOURS` to tune, `CXONE_NO_UPDATE_CHECK=1` to disable).
 

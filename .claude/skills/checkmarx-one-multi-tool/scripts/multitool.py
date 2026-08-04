@@ -90,9 +90,11 @@ def _emit_update_notice() -> None:
     """
     try:
         import selfcheck
-        line = selfcheck.ambient_notice()
-        if line:
-            print(line, file=sys.stderr)
+        # emit_notice_once (not ambient_notice) so this shares ONE
+        # once-per-process guard with ApiClient's hook. Calling the raw
+        # ambient_notice here left the guard unset and printed the notice twice
+        # on any command that also builds a client — i.e. nearly all of them.
+        selfcheck.emit_notice_once()
     except Exception:                                     # noqa: BLE001
         pass
 

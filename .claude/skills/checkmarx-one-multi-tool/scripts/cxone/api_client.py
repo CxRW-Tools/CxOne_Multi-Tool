@@ -83,6 +83,36 @@ class ApiResult(dict):
         self.status_code = status_code
 
 
+def _maybe_notice_update() -> None:
+    """Surface a pending skill update the first time a client is built.
+
+    Why here and not only in the CLI: `multitool.main()` covers commands, but a
+    great deal of real use is programmatic — analysis scripts and one-offs that
+    `from cxone import ApiClient` and never reach the dispatcher. Those ran
+    entirely unchecked, which is how a session spent an afternoon querying a
+    live tenant several versions behind while believing the check "runs on
+    every command".
+
+    Constructing a client is the one thing every such path does. `selfcheck`
+    guards it to once per process and reads only a cached file (no git, no
+    network) on the hot path, so the many clients a run builds — one per
+    identity, more inside worker threads — cost nothing after the first.
+
+    Import is deferred and everything is swallowed: `cxone` must stay usable as
+    a plain library, including where `scripts/` is not on sys.path at all.
+    """
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        scripts_dir = str(_Path(__file__).resolve().parent.parent)
+        if scripts_dir not in _sys.path:
+            _sys.path.insert(0, scripts_dir)
+        import selfcheck
+        selfcheck.emit_notice_once()
+    except Exception:                                     # noqa: BLE001
+        pass
+
+
 class ApiClient:
     def __init__(self, config: CxConfig, auth: AuthManager | None = None):
         self.config = config
@@ -97,6 +127,7 @@ class ApiClient:
         # concurrent .request() use; per-request headers are passed explicitly
         # (below), never mutated on the session.
         self._session = requests.Session()
+        _maybe_notice_update()
 
     # ------------------------------------------------------------------ URLs
     def _url(self, endpoint: str, use_iam: bool) -> str:
