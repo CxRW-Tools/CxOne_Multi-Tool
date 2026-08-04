@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.44.0
+  version: 3.45.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -367,6 +367,38 @@ that returns the current state plus the full comment+user history
 is the wrong tool for that question in three ways: it carries no comment text
 for most engines, its result ids go stale on the next scan, and rebuilding
 "current state" from an append-only stream doesn't reconcile (see below).
+
+## "How many results?" is ambiguous — say which branch you mean
+
+Checkmarx One answers this question differently depending on the view, and the
+tool now makes the choice explicit instead of picking one silently:
+
+| Scope | Resolves to | Matches |
+|---|---|---|
+| `primary` **(default)** | project primary branch -> protected default -> conventional name -> latest-scan branch | the **UI project view** |
+| `production` | primary + protected + `main`/`master`/`dev`/`develop`/`development`/`merge` | **analytics / KPIs / reports** |
+| `latest` | newest scan on ANY branch | nothing in the UI — includes feature and agent branches |
+| `all` | every branch | forensics |
+
+`results summary` and `results show` take `--scope` and `--branch <name>`;
+`results kpi` is always production-scope, server-side, and labels itself so.
+
+**Rules when reporting counts to a user:**
+
+1. **Name the scope and branch.** Both commands print
+   `<project> — branch '<b>', scan <id>  [scope=…]`; carry that into your answer
+   rather than quoting a bare number.
+2. **Never quote `--scope latest` as "the" count.** It can include throwaway
+   branches the user cannot see in the UI. This is not hypothetical: a
+   `cx-ai-agent-main-…` branch scan once made one project report 18 Critical
+   "To Verify" that the UI showed none of.
+3. **When scopes disagree materially, give both** and say which view each
+   corresponds to. Do not silently pick the one that happens to be handy — the
+   user asking "how many Criticals" usually means the UI, but someone
+   reconciling a report means analytics.
+4. **A count that disagrees with the user's screen is a signal, not an argument.**
+   Check scope, branch, and whether the project was re-created (ids change)
+   before defending the number.
 
 **Audit is for "who did what, when" — never for "what does X look like right
 now."** It's an append-only event stream, not reconciled against live state:
