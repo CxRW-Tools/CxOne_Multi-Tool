@@ -86,6 +86,10 @@ class ActivityModel:
         self.triage_cfg = dict(cfg["triage"])
         self.onboard_cfg = dict(cfg["onboard"])
         self.caps = dict(cfg["caps"])
+        # Set by a per-run --scans-per-hour override (ops/agent_behavior.py) to
+        # request more scans/day than the cohort's default cadence can supply.
+        # None = leave the configured per-project intervals alone.
+        self.scan_target_per_day: float | None = None
 
     # ----------------------------------------------------- rate shaping
     def hour_weight(self, hour: int) -> float:
@@ -128,7 +132,34 @@ class ActivityModel:
             r = (i + 0.5) / n if n else 0.5        # percentile in (0,1); 0=busiest
             t = r ** (1.0 / max(skew, 1e-6))        # skew>1 biases toward longer
             out[key] = math.exp(ln_lo + (ln_hi - ln_lo) * t)
+        if kind == "scan":
+            out = self._fit_scan_capacity(out, cfg)
         return out
+
+    def _fit_scan_capacity(self, intervals: dict[str, float], cfg: dict) -> dict[str, float]:
+        """Compress per-project scan intervals until the cohort can actually
+        supply `scan_target_per_day` scans.
+
+        Per-project spacing is a CEILING on how much scanning can happen: with
+        19 projects whose intervals run out to 13 days, the schedule runs out of
+        eligible projects long before it runs out of planned events, and a
+        raised arrival rate produces nothing extra. Scaling the whole range
+        preserves the busy/legacy SHAPE (project ranking and relative spacing
+        are untouched) — every project simply scans proportionally more often.
+        """
+        target = getattr(self, "scan_target_per_day", None)
+        if not target or not intervals:
+            return intervals
+        per_project_cap = int(cfg.get("max_per_project_per_day", 3))
+        # Headroom: capacity is an upper bound that jitter and the arrival
+        # process never fully realize, so aim above the target rather than at it.
+        need = float(target) * 1.5
+        capacity = sum(min(24.0 / v, per_project_cap) for v in intervals.values() if v > 0)
+        if capacity <= 0 or capacity >= need:
+            return intervals
+        shrink = need / capacity
+        # 1h floor: below that "cadence" stops being a plausible human rhythm.
+        return {k: max(v / shrink, 1.0) for k, v in intervals.items()}
 
     def triage_fractions(self, rng: random.Random) -> dict[str, float]:
         """Per-engine fraction of currently-untriaged results a single triage pass

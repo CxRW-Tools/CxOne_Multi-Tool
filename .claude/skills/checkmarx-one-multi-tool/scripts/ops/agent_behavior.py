@@ -23,6 +23,7 @@ per-run act rather than a config edit someone inherits.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 # Used when triage is switched on but the config carries no usable weight (the
@@ -63,6 +64,7 @@ class AgentBehavior:
     triage_weight: float | None = None    # explicit event-mix weight
     include_primary: bool | None = None   # may the admin key act?
     affinity: float | None = None         # per-project owner stickiness 0..1
+    scans_per_hour: float | None = None   # target scans per BUSINESS hour
 
     # ------------------------------------------------------------- resolution
     @classmethod
@@ -97,13 +99,21 @@ class AgentBehavior:
         if affinity is not None:
             affinity = min(1.0, max(0.0, affinity))
 
+        sph = _as_float(cli.get("scans_per_hour"))
+        if sph is None:
+            sph = _as_float(env.get("CXONE_AGENT_SCANS_PER_HOUR"))
+        if sph is not None:
+            sph = max(0.0, sph)
+
         return cls(triage=triage, triage_weight=weight,
-                   include_primary=include_primary, affinity=affinity)
+                   include_primary=include_primary, affinity=affinity,
+                   scans_per_hour=sph)
 
     @property
     def active(self) -> bool:
         return any(v is not None for v in
-                   (self.triage, self.triage_weight, self.include_primary, self.affinity))
+                   (self.triage, self.triage_weight, self.include_primary,
+                    self.affinity, self.scans_per_hour))
 
     # ---------------------------------------------------------------- applying
     def apply_to_model(self, model) -> None:
@@ -113,18 +123,55 @@ class AgentBehavior:
         setting triage to 0 does not reduce total activity — the other event
         types simply take its share.
         """
-        if self.triage is None and self.triage_weight is None:
+        if self.triage is not None or self.triage_weight is not None:
+            mix = dict(model.event_mix)
+            if self.triage is False:
+                mix["triage"] = 0.0
+            else:
+                weight = self.triage_weight
+                if weight is None or weight <= 0:
+                    current = float(mix.get("triage") or 0.0)
+                    weight = current if current > 0 else DEFAULT_TRIAGE_WEIGHT
+                mix["triage"] = float(weight)
+            model.event_mix = mix
+        # Rate is applied AFTER the mix, because the arrival rate needed to hit a
+        # scan target depends on what share of events are scans.
+        self._apply_rate(model)
+
+    def _apply_rate(self, model) -> None:
+        """Raise the model's arrival rate and caps to hit `scans_per_hour`.
+
+        Three things independently throttle scanning, and moving only the first
+        silently fails to change anything:
+
+        1. the Poisson arrival rate (`events_per_business_hour`), of which only
+           the scan share becomes a scan;
+        2. the tenant-wide caps (`max_events_per_hour`, `max_scans_per_day`),
+           which quietly truncate a raised rate;
+        3. per-project scan cadence, which can starve the schedule of eligible
+           projects no matter how often the planner asks — handled in
+           ActivityModel.interval_map via `scan_target_per_day`.
+        """
+        if self.scans_per_hour is None or self.scans_per_hour <= 0:
             return
-        mix = dict(model.event_mix)
-        if self.triage is False:
-            mix["triage"] = 0.0
-        else:
-            weight = self.triage_weight
-            if weight is None or weight <= 0:
-                current = float(mix.get("triage") or 0.0)
-                weight = current if current > 0 else DEFAULT_TRIAGE_WEIGHT
-            mix["triage"] = float(weight)
-        model.event_mix = mix
+        mix = model.event_mix or {}
+        total = sum(float(w) for w in mix.values() if float(w or 0) > 0)
+        share = (float(mix.get("scan") or 0.0) / total) if total > 0 else 1.0
+        if share <= 0:
+            return
+        model.peak_rate_per_hour = self.scans_per_hour / share
+
+        span = max(1, int(model.bh_end) - int(model.bh_start))
+        target_day = self.scans_per_hour * span
+        caps = dict(model.caps)
+        # Poisson arrivals are bursty: an hour cap set at the mean would clip
+        # roughly half the hours, so allow headroom over the expected rate.
+        caps["max_events_per_hour"] = max(int(caps.get("max_events_per_hour", 6)),
+                                          int(math.ceil(model.peak_rate_per_hour * 2.5)))
+        caps["max_scans_per_day"] = max(int(caps.get("max_scans_per_day", 20)),
+                                        int(math.ceil(target_day * 1.3)))
+        model.caps = caps
+        model.scan_target_per_day = target_day
 
     def effective_affinity(self, config_value: float) -> float:
         return config_value if self.affinity is None else self.affinity
@@ -158,6 +205,8 @@ class AgentBehavior:
         if affinity is not None:
             src = "overridden" if self.affinity is not None else "config"
             bits.append(f"owner affinity: {affinity:g} ({src})")
+        if self.scans_per_hour is not None:
+            bits.append(f"scan rate: ~{self.scans_per_hour:g}/business-hour (overridden)")
         return "; ".join(bits)
 
     # --------------------------------------------------------------- container
@@ -179,4 +228,6 @@ class AgentBehavior:
             args += ["--identities", "all" if self.include_primary else "secondaries"]
         if self.affinity is not None:
             args += ["--affinity", str(self.affinity)]
+        if self.scans_per_hour is not None:
+            args += ["--scans-per-hour", str(self.scans_per_hour)]
         return args

@@ -315,6 +315,19 @@ class IdentityPool:
             return IdentitySelector(self, as_spec, kind, seed)
         return None
 
+    def to_json(self) -> str:
+        """Serialize the secondaries for container delivery.
+
+        Lives on the POOL because the pool is what owns `_identities`. It sat on
+        IdentitySelector previously, where the attribute does not exist — so the
+        agent's call raised AttributeError, got swallowed by the surrounding
+        `except Exception`, and every containerized run silently degraded to the
+        primary/admin key while reporting only a warning.
+        """
+        return json.dumps({"identities": [
+            {"name": i.name, "api_key": i.api_key}
+            for i in self._identities.values()]})
+
 
 class IdentitySelector:
     """Resolves an automatic `--as` spec to an identity PER PROJECT.
@@ -362,12 +375,6 @@ class IdentitySelector:
                 hit = (self._pool.client_for(name), name)
                 self._cache[key] = hit
             return hit
-
-    def to_json(self) -> str:
-        """Serialize for container delivery (CXONE_IDENTITIES_JSON)."""
-        return json.dumps({"identities": [
-            {"name": i.name, "api_key": i.api_key}
-            for i in self._identities.values()]})
 
 
 # --------------------------------------------------------------------------
