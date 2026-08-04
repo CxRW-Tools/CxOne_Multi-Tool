@@ -227,6 +227,14 @@ triage_rules:
   # SCA — Management of Risks (vulnerability-level triage)
   # POST /api/sca/management-of-risk/package-vulnerabilities
   # States use PascalCase as required by the SCA API.
+  #
+  # NOTE: this table feeds BOTH regular CVEs and supply-chain risks (malicious /
+  # typosquatted packages). "Not Exploitable" below is deliberate and correct for
+  # a regular CVE — an unreachable one genuinely is not exploitable. It is NEVER
+  # correct for a supply-chain risk, so that case is clamped in code rather than
+  # here: see _DISMISSIVE_STATES in ops/triage/sca_handler.py, which rewrites any
+  # dismissive outcome to Confirmed for supply-chain risks only. Editing the
+  # percentages below cannot re-open that hole.
   # --------------------------------------------------------------------------
   sca_risks:
     - severity: Critical
