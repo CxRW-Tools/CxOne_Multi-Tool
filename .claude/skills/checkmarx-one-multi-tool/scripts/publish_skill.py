@@ -186,6 +186,39 @@ def _preflight(repo_root: Path, default_branch: str) -> None:
             f"Run `selfcheck --sync` first, re-check that your change still "
             f"applies and that the version number is still free, then publish."
         )
+    _capability_preflight()
+
+
+def _capability_preflight() -> None:
+    """Stop a publish that cannot possibly succeed, and say what to do instead.
+
+    Without this, a user with no write access gets all the way through branch,
+    commit and push before git rejects them — leaving tested work stranded on a
+    local branch and a raw permission error as the only explanation. Checking
+    first turns that into an actionable message. Only a CONFIRMED denial stops
+    the run: an inconclusive probe (offline, unrecognized failure) falls
+    through to the real push, which is the honest arbiter.
+    """
+    try:
+        sys.path.insert(0, str(SKILL_DIR / "scripts"))
+        import selfcheck
+        st = selfcheck.check()
+        selfcheck.probe_capability(st)
+    except Exception:                                     # noqa: BLE001
+        return
+    if st.capability != "local-only":
+        return
+    sys.exit(
+        "publish aborted: this checkout has no write access to origin "
+        f"({st.capability_reason}).\n"
+        "Nothing was committed, so no work is stranded.\n\n"
+        "Hand the change off instead — this writes a bundle a developer with "
+        "write access can apply directly:\n"
+        "  python run.py feature-request new --title \"<one line>\" \\\n"
+        "      --use-case \"<what you were trying to do>\" \\\n"
+        "      --gap \"<what the tool can't do today>\"\n\n"
+        "Your local changes are picked up as change.patch automatically."
+    )
 
 
 def _tag_and_push(repo_root: Path, version: str, commit_msg: str) -> None:

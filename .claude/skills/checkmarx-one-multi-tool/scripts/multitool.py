@@ -355,7 +355,7 @@ lived-in\", or \"scan a few projects and triage some results over the next hour.
 
 
 def _dispatch():
-    import iam, applications, onboard, scanconfig, purge, provision, export_blueprint, identities, ui, agent, envmgr, results, reports, workflows, ai_assist, triage_real, audit, selfcheck
+    import iam, applications, onboard, scanconfig, purge, provision, export_blueprint, identities, ui, agent, envmgr, results, reports, workflows, ai_assist, triage_real, audit, selfcheck, feature_request
     return {
         "iam": iam.main,
         "app": applications.main,
@@ -387,6 +387,7 @@ def _dispatch():
         "start": _welcome_entry,
         "version": _version_entry,
         "selfcheck": selfcheck.main,
+        "feature-request": feature_request.main,
     }
 
 
@@ -423,6 +424,7 @@ Verbs:
   welcome     concise overview, best practices, and credential status
   version     print the installed skill version
   selfcheck   is this checkout current with the published branch? (--sync to update)
+  feature-request  capture a gap as a shareable bundle when you can't publish
 """
 
 
