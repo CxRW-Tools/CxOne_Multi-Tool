@@ -55,11 +55,24 @@ def _is_uuid(value: Any) -> bool:
     return bool(value) and bool(_UUID_RE.match(str(value)))
 
 
-def _rfc3339_utc_bounds(start: date, end: date) -> tuple[str, str]:
-    start_dt = datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc)
-    end_dt = datetime.combine(
-        end, datetime.max.time().replace(microsecond=999999), tzinfo=timezone.utc
-    )
+def _rfc3339_utc_bounds(start: date | datetime, end: date | datetime) -> tuple[str, str]:
+    """RFC3339 bounds for the API. A plain `date` still means the whole day
+    (00:00:00 .. 23:59:59.999999); a `datetime` is used as-is, to the second.
+
+    The audit API honors time-of-day on both bounds — verified against the live
+    endpoint — so a sub-day window is a real server-side narrowing, not a wide
+    fetch that the client trims afterwards.
+    """
+    if isinstance(start, datetime):
+        start_dt = start.astimezone(timezone.utc)
+    else:
+        start_dt = datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc)
+    if isinstance(end, datetime):
+        end_dt = end.astimezone(timezone.utc)
+    else:
+        end_dt = datetime.combine(
+            end, datetime.max.time().replace(microsecond=999999), tzinfo=timezone.utc
+        )
 
     def to_z(dt: datetime) -> str:
         s = dt.isoformat()
@@ -68,20 +81,43 @@ def _rfc3339_utc_bounds(start: date, end: date) -> tuple[str, str]:
     return to_z(start_dt), to_z(end_dt)
 
 
-def parse_flex_date(text: str, *, today: date | None = None) -> date:
-    """'30d' / '7d' / '24h' (relative, rounded up to a whole day) or an
-    absolute YYYY-MM-DD."""
-    today = today or date.today()
+# Relative-offset units accepted by --from/--to, in seconds.
+_REL_UNITS = {"m": 60, "h": 3600, "d": 86400, "w": 604800}
+
+
+def parse_flex_moment(text: str, *, now: datetime | None = None) -> datetime | date:
+    """Parse '90m' / '6h' / '30d' / '2w' (relative to NOW, exact) or an absolute
+    YYYY-MM-DD (which stays a `date`, i.e. a whole-day boundary).
+
+    Relative offsets are exact to the second. They used to be rounded UP to a
+    whole day and then floored to midnight, which made every sub-day window
+    silently far wider than asked: `--from 6h` resolved to midnight *yesterday*
+    — up to 48h of events, not 6. A range that quietly over-reports is worse on
+    an audit trail than one that errors, because the extra events look like
+    findings rather than like a bug.
+
+    Returning `date` for absolute input and `datetime` for relative input is
+    deliberate: '2026-08-04' means that whole day, while '6h' means a moment.
+    """
+    now = now or datetime.now(timezone.utc)
     t = (text or "").strip().lower()
-    if t.endswith("d") and t[:-1].isdigit():
-        return today - timedelta(days=int(t[:-1]))
-    if t.endswith("h") and t[:-1].isdigit():
-        hours = int(t[:-1])
-        return today - timedelta(days=(hours + 23) // 24)
+    if len(t) > 1 and t[-1] in _REL_UNITS and t[:-1].isdigit():
+        return now - timedelta(seconds=int(t[:-1]) * _REL_UNITS[t[-1]])
     try:
         return datetime.strptime(t, "%Y-%m-%d").date()
     except ValueError:
-        raise ValueError(f"Unrecognized date '{text}' — use YYYY-MM-DD, '30d', or '24h'.")
+        raise ValueError(
+            f"Unrecognized date '{text}' — use YYYY-MM-DD or a relative offset "
+            "like '90m', '6h', '7d', '2w'.")
+
+
+def parse_flex_date(text: str, *, today: date | None = None) -> date:
+    """Back-compat shim: the day a moment falls on. Prefer parse_flex_moment,
+    which does not throw away the time of day."""
+    moment = parse_flex_moment(
+        text, now=datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
+        if today else None)
+    return moment.date() if isinstance(moment, datetime) else moment
 
 
 class _UuidResolver:
@@ -149,8 +185,8 @@ class AuditManager:
     def list_events(
         self,
         *,
-        start: date,
-        end: date,
+        start: date | datetime,
+        end: date | datetime,
         event_type: str | None = None,
         resource: str | None = None,
         user: str | None = None,
@@ -159,17 +195,30 @@ class AuditManager:
         human_readable: bool = False,
         context: dict | None = None,
     ) -> list[dict]:
-        today = date.today()
-        if end > today:
-            end = today
-        earliest = today - timedelta(days=_MAX_LOOKBACK_DAYS)
-        if start < earliest:
+        # Compare on a single scale. `start`/`end` may be a whole-day `date` or
+        # an exact `datetime`; mixing the two in a comparison raises TypeError,
+        # and silently coercing datetimes to dates would reintroduce the very
+        # precision loss this method now exists to avoid.
+        now = datetime.now(timezone.utc)
+
+        def as_dt(v, *, day_end: bool) -> datetime:
+            if isinstance(v, datetime):
+                return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+            t = (datetime.max.time().replace(microsecond=999999) if day_end
+                 else datetime.min.time())
+            return datetime.combine(v, t, tzinfo=timezone.utc)
+
+        start_dt, end_dt = as_dt(start, day_end=False), as_dt(end, day_end=True)
+        if end_dt > now:
+            end_dt, end = now, now
+        earliest = now - timedelta(days=_MAX_LOOKBACK_DAYS)
+        if start_dt < earliest:
             raise ValueError(
                 f"Audit events are only retained for the previous {_MAX_LOOKBACK_DAYS} days; "
-                f"earliest allowed start date is {earliest.isoformat()}."
+                f"earliest allowed start is {earliest.date().isoformat()}."
             )
-        if start > end:
-            raise ValueError("start date is after end date")
+        if start_dt > end_dt:
+            raise ValueError("start of range is after end of range")
 
         start_s, end_s = _rfc3339_utc_bounds(start, end)
         events = self.api.paginate(
@@ -185,7 +234,12 @@ class AuditManager:
         # empty list alone. Cheap: the unfiltered set is already in memory.
         if context is not None:
             context["total_unfiltered"] = len(events)
-            context["range"] = f"{start.isoformat()}..{end.isoformat()}"
+            # Show the range at the precision actually used, so a sub-day window
+            # is visibly a sub-day window in the output header.
+            def _fmt(v, dt):
+                return dt.strftime("%Y-%m-%d %H:%M:%SZ") if isinstance(v, datetime) \
+                    else v.isoformat()
+            context["range"] = f"{_fmt(start, start_dt)}..{_fmt(end, end_dt)}"
             context["resources"] = Counter(
                 (e.get("auditResource") or "").strip() for e in events
                 if (e.get("auditResource") or "").strip())
@@ -380,9 +434,12 @@ def main(argv: list[str] | None = None) -> int:
 
     ls = sub.add_parser("list", help="list/search audit events for a date range")
     ls.add_argument("--from", dest="from_", default="30d",
-                     help="start of range: YYYY-MM-DD, '30d', or '24h' (default: 30d)")
+                     help="start of range: YYYY-MM-DD (whole day) or a relative "
+                          "offset from now — '90m', '6h', '7d', '2w'. Relative "
+                          "offsets are exact, not rounded to a day (default: 30d)")
     ls.add_argument("--to", dest="to_", default=None,
-                     help="end of range: YYYY-MM-DD (default: today)")
+                     help="end of range: YYYY-MM-DD (through end of that day) or a "
+                          "relative offset like '2h' (default: now)")
     ls.add_argument("--type", dest="event_type", default=None, help="filter by eventType")
     ls.add_argument("--resource", default=None, help="filter by auditResource")
     ls.add_argument("--user", default=None, help="filter by username/email or actionUserId")
@@ -404,8 +461,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "list":
         try:
-            start = parse_flex_date(args.from_)
-            end = parse_flex_date(args.to_) if args.to_ else date.today()
+            start = parse_flex_moment(args.from_)
+            end = parse_flex_moment(args.to_) if args.to_ else datetime.now(timezone.utc)
         except ValueError as e:
             print(f"Error: {e}")
             return 2
