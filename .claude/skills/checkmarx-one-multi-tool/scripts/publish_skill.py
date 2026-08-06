@@ -186,7 +186,45 @@ def _preflight(repo_root: Path, default_branch: str) -> None:
             f"Run `selfcheck --sync` first, re-check that your change still "
             f"applies and that the version number is still free, then publish."
         )
+    _version_preflight()
     _capability_preflight()
+
+
+_SKILL_VERSION_RE = re.compile(r"^\s{2}version:\s*(\S+)\s*$", re.M)
+
+
+def _skill_md_version(text: str) -> str | None:
+    """The `metadata.version` value from SKILL.md's YAML frontmatter."""
+    end = text.find("\n---", 3)
+    head = text[:end] if end > 0 else text[:4000]
+    m = _SKILL_VERSION_RE.search(head)
+    return m.group(1).strip() if m else None
+
+
+def _version_preflight() -> None:
+    """VERSION and SKILL.md's metadata.version must agree.
+
+    SKILL.md has documented "bump both" since the beginning, but nothing
+    enforced it and `publish_skill` itself reads only VERSION — so a forgotten
+    frontmatter edit published cleanly and stayed invisible. It drifted four
+    consecutive releases (VERSION 3.49.0 vs SKILL.md 3.46.2) before anyone
+    looked. A rule that is documented but unchecked is a rule that decays; this
+    turns it into a hard stop at the one point every release passes through.
+    """
+    version = (SKILL_DIR / "VERSION").read_text().strip()
+    skill_md = SKILL_DIR / "SKILL.md"
+    declared = _skill_md_version(skill_md.read_text(encoding="utf-8"))
+    if declared is None:
+        sys.exit(
+            "publish aborted: could not find `metadata.version` in SKILL.md "
+            "frontmatter. It must exist and match VERSION "
+            f"({version}) — the frontmatter is the version the skill advertises.")
+    if declared != version:
+        sys.exit(
+            f"publish aborted: version mismatch.\n"
+            f"  VERSION            : {version}\n"
+            f"  SKILL.md metadata  : {declared}\n"
+            f"Set SKILL.md's `metadata.version` to {version} and publish again.")
 
 
 def _capability_preflight() -> None:
