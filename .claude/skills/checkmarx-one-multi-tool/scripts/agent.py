@@ -45,6 +45,7 @@ import signal
 import random
 import logging
 import argparse
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -435,22 +436,41 @@ _CONTAINER = "cxone-agent"
 _STATE_VOLUME = "cxone-agent-state"
 
 
-def _detect_container_runtime() -> str | None:
-    """Return 'docker' or 'podman' if a working container runtime is available."""
+@dataclass
+class ContainerRuntime:
+    """A detected runtime, kept as both forms because they serve different jobs.
+
+    ``name`` ('docker'/'podman') is for human-facing messages. ``exe`` is the
+    absolute path ``shutil.which`` resolved and is what MUST be passed as
+    subprocess argv[0] — passing the bare name instead broke launches on
+    Windows even though `shutil.which` had already found the binary: without
+    an extension, Windows CreateProcess only tries appending '.exe' and never
+    finds a '.cmd'/'.bat' shim (e.g. a `docker -> podman` alias script), so a
+    perfectly working runtime looked absent. The resolved path carries its
+    real extension and sidesteps that lookup entirely — the fix generalizes
+    cleanly to Linux/macOS too, since an absolute path there is just as valid
+    an argv[0] as a bare name.
+    """
+    name: str
+    exe: str
+
+
+def _detect_container_runtime() -> ContainerRuntime | None:
+    """Return the working container runtime, docker preferred over podman."""
     import shutil, subprocess
-    for rt in ("docker", "podman"):
-        exe = shutil.which(rt)
+    for name in ("docker", "podman"):
+        exe = shutil.which(name)
         if not exe:
             continue
         try:
             r = subprocess.run([exe, "info"], capture_output=True, timeout=15)
             if r.returncode == 0:
-                logger.debug("Container runtime detected: %s (%s)", rt, exe)
-                return rt
+                logger.debug("Container runtime detected: %s (%s)", name, exe)
+                return ContainerRuntime(name=name, exe=exe)
             logger.debug("%s present but not usable (info rc=%d): %s",
-                         rt, r.returncode, r.stderr.decode(errors="replace")[:200])
+                         name, r.returncode, r.stderr.decode(errors="replace")[:200])
         except Exception as exc:
-            logger.debug("%s present but check failed: %s", rt, exc)
+            logger.debug("%s present but check failed: %s", name, exc)
     return None
 
 
@@ -527,7 +547,7 @@ def _resolve_timezone() -> tuple[str | None, str]:
     return None, "undetected"
 
 
-def _launch_container(rt: str, cfg: CxConfig, until: str | None,
+def _launch_container(rt: ContainerRuntime, cfg: CxConfig, until: str | None,
                       max_lateness: str, live: bool, scope=None,
                       behavior=None) -> int:
     """Build the agent image if needed and start the containerized run loop.
@@ -536,6 +556,7 @@ def _launch_container(rt: str, cfg: CxConfig, until: str | None,
     container detection). Credentials go in as env vars, never baked in.
     """
     import subprocess
+    exe = rt.exe
     skill_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     def _redacted(cmd: list[str]) -> str:
@@ -564,11 +585,11 @@ def _launch_container(rt: str, cfg: CxConfig, until: str | None,
     # read ('unknown', e.g. a partial copy) to avoid a rebuild loop.
     from cxone import get_version
     want = get_version()
-    have = subprocess.run([rt, "image", "inspect", _IMAGE],
+    have = subprocess.run([exe, "image", "inspect", _IMAGE],
                           capture_output=True).returncode == 0
     if have and want != "unknown":
         r = subprocess.run(
-            [rt, "image", "inspect", "-f",
+            [exe, "image", "inspect", "-f",
              '{{ index .Config.Labels "cxone.multitool.version" }}', _IMAGE],
             capture_output=True, text=True)
         built = (r.stdout or "").strip()
@@ -579,7 +600,7 @@ def _launch_container(rt: str, cfg: CxConfig, until: str | None,
             have = False
     if not have:
         logger.info("Building image '%s' from %s", _IMAGE, skill_root)
-        r = _run([rt, "build", "-t", _IMAGE,
+        r = _run([exe, "build", "-t", _IMAGE,
                   "--label", f"cxone.multitool.version={want}", skill_root])
         if r.returncode != 0:
             logger.error("Image build failed (rc=%d). Falling back is possible with "
@@ -587,12 +608,12 @@ def _launch_container(rt: str, cfg: CxConfig, until: str | None,
             return r.returncode
 
     # State volume for the cadence ledger.
-    subprocess.run([rt, "volume", "create", _STATE_VOLUME], capture_output=True)
+    subprocess.run([exe, "volume", "create", _STATE_VOLUME], capture_output=True)
 
     # Replace any prior container of the same name.
-    subprocess.run([rt, "rm", "-f", _CONTAINER], capture_output=True)
+    subprocess.run([exe, "rm", "-f", _CONTAINER], capture_output=True)
 
-    cmd = [rt, "run", "-d", "--name", _CONTAINER, "--restart=unless-stopped",
+    cmd = [exe, "run", "-d", "--name", _CONTAINER, "--restart=unless-stopped",
            "-e", f"CXONE_BASE_URL={cfg.base_url}",
            "-e", f"CXONE_TENANT={cfg.tenant_name}",
            "-e", f"CXONE_API_KEY={cfg.api_key}",
@@ -687,8 +708,8 @@ def _launch_container(rt: str, cfg: CxConfig, until: str | None,
         return r.returncode
     logger.info("Agent container '%s' started [%s] until=%s.",
                 _CONTAINER, "LIVE" if live else "DRY-RUN", until or "(stopped manually)")
-    logger.info("Follow the activity log with:  %s logs -f %s", rt, _CONTAINER)
-    logger.info("Stop with:                     %s stop %s", rt, _CONTAINER)
+    logger.info("Follow the activity log with:  %s logs -f %s", rt.name, _CONTAINER)
+    logger.info("Stop with:                     %s stop %s", rt.name, _CONTAINER)
     return 0
 
 
@@ -707,14 +728,14 @@ def cmd_run(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
         rt = _detect_container_runtime()
         if rt:
             if sys.stdin.isatty():
-                ans = input(f"{rt} is available. Run in a container (recommended for "
+                ans = input(f"{rt.name} is available. Run in a container (recommended for "
                             f"multi-day runs; survives host sleep) or as a process? "
                             f"[container/process] ").strip().lower()
                 substrate = "container" if ans.startswith("c") else "process"
             else:
-                logger.info("%s is available. Choose how to run:", rt)
+                logger.info("%s is available. Choose how to run:", rt.name)
                 logger.info("  --container   durable %s container (recommended for "
-                            "multi-day runs; survives host sleep/restarts)", rt)
+                            "multi-day runs; survives host sleep/restarts)", rt.name)
                 logger.info("  --process     long-lived process in this session "
                             "(simpler; dies with the host/session)")
                 logger.info("Re-run with one of the flags above.")
