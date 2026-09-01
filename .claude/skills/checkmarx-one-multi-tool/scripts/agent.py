@@ -130,7 +130,7 @@ def _log_behavior(model, behavior=None) -> None:
     """
     from ops.agent_behavior import AgentBehavior
     b = behavior or AgentBehavior()
-    logger.info("Agent behavior — %s",
+    logger.info("Agent behavior - %s",
                 b.describe(model,
                            affinity=_effective_affinity(behavior),
                            include_primary=_effective_include_primary(behavior)))
@@ -224,7 +224,7 @@ def _save_plan(plan: list[Event], plan_end: datetime) -> None:
         }
         _PLAN_STATE.write_text(json.dumps(payload), encoding="utf-8")
     except (OSError, TypeError, ValueError) as exc:
-        logger.warning("Could not persist plan (%s) — a restart will re-plan "
+        logger.warning("Could not persist plan (%s) - a restart will re-plan "
                        "instead of resuming.", exc)
 
 
@@ -329,7 +329,7 @@ def _execute(event: Event, cfg: CxConfig, api: ApiClient,
             event_api = pool.client_for(acting)
         except KeyError:
             logger.warning("Identity '%s' from the plan is no longer registered "
-                           "— executing as primary.", acting)
+                           "- executing as primary.", acting)
             acting = None
     if event.type == "scan":
         names = ",".join(event.detail.get("projects", []))
@@ -385,7 +385,7 @@ def cmd_plan(cfg: CxConfig, model: ActivityModel, seed: int | None,
     projects = (_projects(api, scope) if api
                 else [{"id": f"p{i}", "name": f"demo-project-{i}"} for i in range(12)])
     if not projects:
-        logger.error("No projects in scope — nothing to plan.")
+        logger.error("No projects in scope - nothing to plan.")
         return 2
     rng = random.Random(seed)
     now = datetime.now()
@@ -403,7 +403,7 @@ def cmd_plan(cfg: CxConfig, model: ActivityModel, seed: int | None,
     listed_end = now + timedelta(seconds=listed_window)
     src = "live tenant projects" if api else "placeholder projects"
 
-    print(f"Next {listed_window/3600:.0f}h — {len(plan)} committed event(s) ({src}):\n")
+    print(f"Next {listed_window/3600:.0f}h - {len(plan)} committed event(s) ({src}):\n")
     counts: dict[str, int] = {}
     for e in plan:
         counts[e.type] = counts.get(e.type, 0) + 1
@@ -415,7 +415,7 @@ def cmd_plan(cfg: CxConfig, model: ActivityModel, seed: int | None,
     scans_day = counts.get("scan", 0) * (86400.0 / listed_window)
     triage_day = counts.get("triage", 0) * (86400.0 / listed_window)
     bh_start, bh_end = model.bh_start, model.bh_end
-    print(f"\nBeyond {listed_end:%a %H:%M} — general behavior, not a fixed schedule:")
+    print(f"\nBeyond {listed_end:%a %H:%M} - general behavior, not a fixed schedule:")
     print(f"  The agent re-plans every {_HORIZON_S/3600:.0f}h with fresh timing (jitter),")
     print(f"  so specific times past the horizon aren't decided yet. Expect a similar")
     print(f"  rhythm: roughly {scans_day:.0f} scan(s) and {triage_day:.0f} triage pass(es) "
@@ -424,7 +424,7 @@ def cmd_plan(cfg: CxConfig, model: ActivityModel, seed: int | None,
           f"tapering")
     print(f"  overnight and on weekends, with per-project spacing and daily caps enforced.")
     if until:
-        print(f"  This continues, re-planned each cycle, through {until} — then the agent idles.")
+        print(f"  This continues, re-planned each cycle, through {until} - then the agent idles.")
     else:
         print(f"  This continues, re-planned each cycle, until the agent is stopped.")
     return 0
@@ -536,7 +536,7 @@ def _resolve_timezone() -> tuple[str | None, str]:
             hh, mm = divmod(abs(total_min), 60)
             sign = "-" if total_min >= 0 else "+"   # POSIX inversion
             posix = f"UTC{sign}{hh:02d}:{mm:02d}"
-            why = ("host UTC offset only — NOT DST-aware; "
+            why = ("host UTC offset only - NOT DST-aware; "
                    + ("install tzlocal (pip install -r requirements.txt) for a "
                       "DST-correct zone name" if tzlocal_missing
                       else "set TZ=Area/City for a DST-correct zone"))
@@ -595,7 +595,7 @@ def _launch_container(rt: ContainerRuntime, cfg: CxConfig, until: str | None,
         built = (r.stdout or "").strip()
         if r.returncode != 0 or built != want:
             logger.info("Image '%s' was built from version %s but the installed "
-                        "skill is %s — rebuilding so the container runs current "
+                        "skill is %s - rebuilding so the container runs current "
                         "code.", _IMAGE, built or "pre-3.2 (unlabeled)", want)
             have = False
     if not have:
@@ -648,7 +648,7 @@ def _launch_container(rt: ContainerRuntime, cfg: CxConfig, until: str | None,
     except Exception as exc:
         # ERROR, not warning: this does not merely lose a feature, it silently
         # changes WHO the tenant records as having run every scan for days.
-        logger.error("Could not pass identities into the container (%s) — every "
+        logger.error("Could not pass identities into the container (%s) - every "
                      "event would be attributed to the primary/admin key.", exc)
         raise RuntimeError(
             "Refusing to start: secondary identities are configured but could "
@@ -668,7 +668,7 @@ def _launch_container(rt: ContainerRuntime, cfg: CxConfig, until: str | None,
     tz, tz_src = _resolve_timezone()
     if tz:
         cmd += ["-e", f"TZ={tz}"]
-        logger.info("Timezone: %s (%s) — container clock + business-hours timing "
+        logger.info("Timezone: %s (%s) - container clock + business-hours timing "
                     "will match this.", tz, tz_src)
     else:
         logger.warning("Timezone: could not detect host zone; container runs in UTC. "
@@ -699,7 +699,7 @@ def _launch_container(rt: ContainerRuntime, cfg: CxConfig, until: str | None,
             try:
                 os.unlink(env_file_path)
             except OSError:
-                logger.warning("Could not remove transient env-file %s — it "
+                logger.warning("Could not remove transient env-file %s - it "
                                "contains API keys; delete it manually.",
                                env_file_path)
     if r.returncode != 0:
@@ -741,7 +741,7 @@ def cmd_run(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
                 logger.info("Re-run with one of the flags above.")
                 return 3
         else:
-            logger.info("No container runtime (docker/podman) found — running as a "
+            logger.info("No container runtime (docker/podman) found - running as a "
                         "long-lived process. For multi-day runs, a container is "
                         "recommended if you can install one.")
             substrate = "process"
@@ -823,7 +823,7 @@ def _run_loop(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
             now = datetime.now()
 
             if until and now.strftime("%Y-%m-%d") > until:
-                logger.info("Past until-date %s — idling (no activity). Extend --until "
+                logger.info("Past until-date %s - idling (no activity). Extend --until "
                             "or stop the container to finish.", until)
                 time.sleep(6 * 3600)
                 continue
@@ -843,7 +843,7 @@ def _run_loop(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
                         # problem (scope.apply already logged the counts).
                         logger.error(
                             "No projects match the configured scope (%s); nothing to "
-                            "plan. Fix the scope and restart — retrying in %ds.",
+                            "plan. Fix the scope and restart - retrying in %ds.",
                             scope.describe(), _RETRY)
                     else:
                         logger.info("No projects in tenant yet; checking again in %ds.", _RETRY)
@@ -862,7 +862,7 @@ def _run_loop(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
                 for e in plan:
                     logger.info("  planned %s  %s", e.at.strftime("%a %H:%M:%S"), e.describe())
                 if not plan:
-                    logger.info("  (no events this window — quiet period)")
+                    logger.info("  (no events this window - quiet period)")
 
             if not plan:
                 remaining = (plan_end - datetime.now()).total_seconds()
@@ -882,7 +882,7 @@ def _run_loop(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
                 _save_plan(plan, plan_end)
             late = (datetime.now() - e.at).total_seconds()
             if late > max_lateness_s:
-                logger.info("Dropped stale %s event scheduled %s (%.0f min late — host "
+                logger.info("Dropped stale %s event scheduled %s (%.0f min late - host "
                             "asleep/down); resuming forward.", e.type,
                             e.at.strftime("%a %H:%M"), late / 60)
                 continue
@@ -896,7 +896,7 @@ def _run_loop(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
                 did_work = _execute(e, cfg, api, pool=pool)
                 logger.info("  done %s in %.1fs%s", e.type,
                             time.monotonic() - t_start,
-                            "" if did_work else " (NO-OP — nothing resolved)")
+                            "" if did_work else " (NO-OP - nothing resolved)")
                 # Only real work updates cadence memory. Recording a no-op
                 # would tell the planner these projects were just handled and
                 # suppress them for a full interval — turning a transient
@@ -907,7 +907,7 @@ def _run_loop(cfg: CxConfig, model: ActivityModel, api: ApiClient, live: bool,
                     logger.debug("  ledger updated + saved (%s)", _STATE)
                 elif live:
                     logger.info(
-                        "  not recorded in the cadence ledger — this event "
+                        "  not recorded in the cadence ledger - this event "
                         "resolved nothing, so the project(s) stay due and the "
                         "next re-plan can pick them up again.")
             except Exception as exc:
@@ -1037,7 +1037,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             api = ApiClient(cfg); api.auth.token()
         except Exception:
-            logger.info("Not authenticated — planning with placeholder projects.")
+            logger.info("Not authenticated - planning with placeholder projects.")
             api = None
         if api is None and scope.active:
             logger.warning("Project scope is set (%s) but planning is using "
