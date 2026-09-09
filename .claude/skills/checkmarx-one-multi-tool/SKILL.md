@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.49.3
+  version: 3.50.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -340,7 +340,8 @@ unimplemented things → Keep the package current**. Don't leave the installed
 |---|---|---|---|
 | Identity & access | `iam.py` | `iam` | users, groups, roles (realm + ast-app client roles), membership; `assign-role`/`list-roles`; `create-user --roles`; `set-password` (deliberate reset — create-user never resets an existing user's password) |
 | Applications | `applications.py` | `app` | create/list/delete; tag-rule project association |
-| Projects & onboarding | `onboard.py` | `project` | manual projects; one-shot `create` (repo+preset+groups+app-tag); batch `onboard` (many repos, one call); GitHub bulk import (async); GitLab/Azure/Bitbucket extension points |
+| Projects & onboarding | `onboard.py` | `project` | manual projects; one-shot `create` (repo+preset+groups+app-tag); batch `onboard` (many repos, one call); GitHub bulk import (async); GitLab/Azure/Bitbucket extension points. `list` takes the shared selector (`--tag`/`--name-filter`/`--owner`/`--stale-days`/`--no-scans`/`--created-before`) plus `--columns`/`--json`/`--csv`; `delete` accepts many names OR a selector, with `--dry-run` and a `--yes` gate |
+| Tenant hygiene | `ops/project_inventory.py` + `ops/project_provenance.py` | `project inventory` | "what is in this tenant that shouldn't be": scratch-tagged, stale (`--stale-days`), never-scanned (`--no-scans`), by owner. Joins project tags + creator + scan history in one pass. **Creator attribution is labelled**: `audit` (a real `projects.create` event) or `(first scan)` (INFERRED — no create event survives the 365-day window). Never present an inferred creator as a record |
 | Scan configuration | `scanconfig.py` | `scanconfig` | per-project SAST preset / incremental |
 | Scans | `ops/scans.py` + `ops/scan_status.py` | `scan` | trigger by name/id or random %, with weighted config rolls; duplicate-scan guard (`--force`); on-demand `scan status` / `history` (scans are fire-and-forget — no blocking wait) |
 | Results | `results.py` | `results` | `summary` by engine×severity (per project or per-application rollup), `show` finding drill-down (SCA rows labelled `<CVE> — <package>`; filter by engine/severity/state/`--match`, which also matches CVE ids, with `--ids`/`--json` exposing the scan/result/group ids the APIs need, and `--history`/`--full-history` showing WHO triaged each finding, when, and their comment), `kpi` — tenant-wide server-aggregated KPIs (severity×state, aging, most-common, etc.) via the Analytics API in one call |
