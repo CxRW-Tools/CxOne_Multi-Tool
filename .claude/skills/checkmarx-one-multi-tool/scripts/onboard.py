@@ -428,12 +428,191 @@ class OnboardManager:
         raise NotImplementedError("Bitbucket onboarding not implemented — see references/extending.md")
 
 
+def _selector_from(args):
+    """Build an inventory Selector from the shared selector flags."""
+    from ops.project_inventory import Selector
+    return Selector(
+        tags=list(getattr(args, "tag", []) or []),
+        names=list(getattr(args, "name_filter", []) or []),
+        exclude_names=list(getattr(args, "exclude_name", []) or []),
+        owner=getattr(args, "owner", None),
+        stale_days=getattr(args, "stale_days", None),
+        no_scans=bool(getattr(args, "no_scans", False)),
+        created_before=getattr(args, "created_before", None),
+    )
+
+
+# Columns that require an extra API call per project, or the tenant-wide audit
+# sweep. Naming them keeps `project list` as cheap as it has always been unless
+# the caller actually asked for something that costs more.
+_SCAN_COLUMNS = {"last-scan", "scans", "stale"}
+_CREATOR_COLUMNS = {"creator", "created"}
+
+
+def _cmd_inventory(mgr, args) -> int:
+    from ops import project_inventory as inv
+
+    is_inventory = args.cmd == "inventory"
+    default_cols = ("name,creator,last-scan,scans,tags" if is_inventory else "id,name")
+    columns = [c.strip() for c in (args.columns or default_cols).split(",") if c.strip()]
+
+    selector = _selector_from(args)
+    wanted = set(columns)
+    # Enrich only when a requested column or an active filter needs it.
+    need_scans = bool(wanted & _SCAN_COLUMNS) or selector.no_scans \
+        or selector.stale_days is not None
+    need_creator = (bool(wanted & _CREATOR_COLUMNS) or bool(selector.owner)
+                    or bool(selector.created_before))
+    if getattr(args, "no_creator", False):
+        need_creator = False
+        columns = [c for c in columns if c not in _CREATOR_COLUMNS]
+
+    builder = inv.InventoryBuilder(mgr.api)
+    rows = builder.build(selector, enrich_scans=need_scans,
+                         enrich_creator=need_creator)
+    rows.sort(key=lambda r: (r.name or "").lower())
+
+    if args.csv:
+        n = inv.render_csv(rows, args.csv)
+        print(f"CSV export: {n} row(s) written to {args.csv}")
+        return 0
+    if args.as_json:
+        inv.render_json(rows)
+        return 0
+    if not rows:
+        scope = selector.describe() if hasattr(selector, "describe") else ""
+        print("No projects matched." + (f" ({scope})" if scope else ""))
+        return 0
+    inv.render_table(rows, columns)
+    if is_inventory:
+        proxies = sum(1 for r in rows if r.creator_source == "first-scan")
+        print(f"\n{len(rows)} project(s).")
+        if proxies:
+            # Say it once, plainly: some of these creators are inferred.
+            print(f"{proxies} creator(s) marked '(first scan)' are INFERRED from "
+                  f"whoever ran the earliest scan — no create event survives the "
+                  f"365-day audit window. Treat as a lead, not a record.")
+    return 0
+
+
+def _cmd_delete(mgr, args) -> int:
+    """Delete by explicit name(s), or by selector.
+
+    A selector-based delete resolves to a concrete list and shows it before
+    acting, because "--tag tmp" is a claim about the tenant's current state, not
+    a list the caller has actually read.
+    """
+    from ops import project_inventory as inv
+
+    dry = bool(getattr(args, "sub_dry_run", False)) or mgr.cfg.dry_run
+    names = list(args.name or [])
+    selector = _selector_from(args)
+
+    if not names and not selector.active:
+        print("Nothing selected: pass project name(s) or a selector "
+              "(--tag/--name-filter/--stale-days/--no-scans/--owner).")
+        return 2
+
+    targets: list[tuple[str, str]] = []          # (name, project_id)
+    if names:
+        for n in names:
+            found = mgr.find(n)
+            if not found:
+                logger.warning("Project '%s' not found", n)
+                continue
+            targets.append((found.get("name") or n, found.get("id")))
+    if selector.active:
+        builder = inv.InventoryBuilder(mgr.api)
+        need_scans = selector.no_scans or selector.stale_days is not None
+        need_creator = bool(selector.owner or selector.created_before)
+        for row in builder.build(selector, enrich_scans=need_scans,
+                                 enrich_creator=need_creator):
+            if row.project_id not in {t[1] for t in targets}:
+                targets.append((row.name, row.project_id))
+
+    if not targets:
+        print("No projects matched — nothing to delete.")
+        return 0
+
+    print(f"{len(targets)} project(s) selected for deletion:")
+    for name, pid in targets:
+        print(f"  {name}  ({pid})")
+
+    if dry:
+        print("\n[dry-run] nothing was deleted.")
+        return 0
+
+    # A selector can match more than the caller pictured; an explicit name list
+    # cannot. So confirmation is required for selectors unless --yes is given.
+    if selector.active and not args.yes:
+        if not sys.stdin.isatty():
+            print("\nRefusing a selector-based delete without confirmation. "
+                  "Re-run with --dry-run to review, then --yes to proceed.")
+            return 2
+        reply = input(f"\nPermanently delete these {len(targets)} project(s) "
+                      f"and all their scan history? [y/N] ").strip().lower()
+        if reply not in ("y", "yes"):
+            print("Aborted.")
+            return 1
+
+    deleted = 0
+    for name, pid in targets:
+        try:
+            mgr.api.delete(f"projects/{pid}")
+            logger.info("Deleted project '%s'", name)
+            deleted += 1
+        except Exception as exc:                                   # noqa: BLE001
+            logger.error("Failed to delete '%s' (%s): %s", name, pid, exc)
+    print(f"\nDeleted {deleted} of {len(targets)} project(s).")
+    return 0 if deleted == len(targets) else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="onboard")
     p.add_argument("--env", default=None); p.add_argument("--dry-run", action="store_true")
     p.add_argument("--debug", action="store_true")
     sub = p.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("list")
+    def _add_selector(sp):
+        """Shared selector vocabulary, so `inventory` and `delete` agree on what
+        a given set of flags means. Anything inventory lists, delete removes."""
+        g = sp.add_argument_group("selection")
+        g.add_argument("--tag", action="append", default=[], metavar="TAG",
+                       help="tag filter: 'tmp' (key present) or 'Demo:T&R' "
+                            "(key:value). Repeatable; a project matching ANY wins")
+        g.add_argument("--name-filter", action="append", default=[], metavar="PATTERN",
+                       dest="name_filter",
+                       help="name substring, or glob if it contains * ? [ . Repeatable")
+        g.add_argument("--exclude-name", action="append", default=[], metavar="PATTERN",
+                       help="name pattern to exclude (wins over --name-filter)")
+        g.add_argument("--owner", default=None, metavar="WHO",
+                       help="creator username/email substring")
+        g.add_argument("--stale-days", type=int, default=None, metavar="N",
+                       help="only projects with no scan in the last N days "
+                            "(never-scanned projects always qualify)")
+        g.add_argument("--no-scans", action="store_true",
+                       help="only projects that have never been scanned")
+        g.add_argument("--created-before", default=None, metavar="YYYY-MM-DD",
+                       help="only projects created before this date")
+
+    ls = sub.add_parser("list", help="list projects, with optional filters and columns")
+    _add_selector(ls)
+    ls.add_argument("--columns", default=None,
+                    help="comma-separated: id,name,tags,creator,created,last-scan,"
+                         "scans,stale (default: id,name)")
+    ls.add_argument("--json", action="store_true", dest="as_json")
+    ls.add_argument("--csv", default=None, metavar="PATH")
+
+    inv = sub.add_parser("inventory",
+                         help="tenant hygiene: what is here that shouldn't be "
+                              "(stale, untouched, scratch-tagged, by owner)")
+    _add_selector(inv)
+    inv.add_argument("--columns", default=None,
+                     help="comma-separated columns (default: name,creator,"
+                          "last-scan,scans,tags)")
+    inv.add_argument("--json", action="store_true", dest="as_json")
+    inv.add_argument("--csv", default=None, metavar="PATH")
+    inv.add_argument("--no-creator", action="store_true",
+                     help="skip creator attribution (faster; no audit sweep)")
     m = sub.add_parser("create-manual")
     m.add_argument("--name", required=True); m.add_argument("--groups", default="")
     m.add_argument("--tags", default=""); m.add_argument("--criticality", type=int, default=3)
@@ -471,7 +650,15 @@ def main(argv: list[str] | None = None) -> int:
     at = sub.add_parser("add-tags", help="add tag(s) to a project (key or key:value, comma-separated)")
     at.add_argument("--name", required=True)
     at.add_argument("--tags", required=True, help="comma-separated tag keys")
-    d = sub.add_parser("delete"); d.add_argument("name")
+    d = sub.add_parser("delete", help="delete projects by name or selector")
+    d.add_argument("name", nargs="*", help="project name(s); or use the selector flags")
+    _add_selector(d)
+    d.add_argument("--dry-run", action="store_true", dest="sub_dry_run",
+                   help="list what would be deleted, change nothing. Also accepted "
+                        "before the subcommand (`project --dry-run delete`)")
+    d.add_argument("--yes", action="store_true",
+                   help="skip the confirmation prompt (required for a selector-based "
+                        "delete in a non-interactive shell)")
     args = p.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
@@ -479,9 +666,8 @@ def main(argv: list[str] | None = None) -> int:
     cfg = CxConfig.from_env(args.env)
     cfg.dry_run = cfg.dry_run or args.dry_run
     mgr = OnboardManager(ApiClient(cfg))
-    if args.cmd == "list":
-        for pr in mgr.list_projects():
-            print(f"{pr.get('id')}  {pr.get('name')}")
+    if args.cmd in ("list", "inventory"):
+        return _cmd_inventory(mgr, args)
     elif args.cmd == "create-manual":
         mgr.create_manual_project({
             "name": args.name,
@@ -533,7 +719,7 @@ def main(argv: list[str] | None = None) -> int:
         ok = mgr.update_project(args.name, add_tags=tags)
         return 0 if ok else 1
     elif args.cmd == "delete":
-        mgr.delete_project(args.name)
+        return _cmd_delete(mgr, args)
     return 0
 
 

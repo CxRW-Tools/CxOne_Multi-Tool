@@ -34,6 +34,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from cxone import CxConfig, ApiClient
+from ops.principal_resolve import PrincipalResolver, is_uuid as _is_uuid_shared
 
 logger = logging.getLogger("cxone.audit")
 
@@ -52,7 +53,8 @@ CSV_HEADER = [
 
 
 def _is_uuid(value: Any) -> bool:
-    return bool(value) and bool(_UUID_RE.match(str(value)))
+    # Delegates to the shared implementation so the two cannot drift.
+    return _is_uuid_shared(value)
 
 
 def _rfc3339_utc_bounds(start: date | datetime, end: date | datetime) -> tuple[str, str]:
@@ -120,61 +122,12 @@ def parse_flex_date(text: str, *, today: date | None = None) -> date:
     return moment.date() if isinstance(moment, datetime) else moment
 
 
-class _UuidResolver:
-    """Best-effort UUID -> human-readable name via IAM admin lookups. A miss
-    (deleted principal, permission gap) falls back to the raw UUID rather than
-    raising — resolution is a display nicety, not something an audit query
-    should fail over."""
-
-    def __init__(self, api: ApiClient):
-        self.api = api
-        self._cache: dict[str, str] = {}
-        self._groups_by_id: dict[str, str] | None = None
-
-    def _load_groups(self) -> dict[str, str]:
-        if self._groups_by_id is None:
-            try:
-                groups = self.api.get("groups", use_iam=True) or []
-            except Exception:
-                groups = []
-            self._groups_by_id = {g["id"]: g.get("name", g["id"]) for g in groups if g.get("id")}
-        return self._groups_by_id
-
-    def resolve(self, uid: str, kind: str) -> str:
-        if uid in self._cache:
-            return self._cache[uid]
-        name = uid
-        try:
-            if kind in ("actionUserId", "userId"):
-                data = self.api.get(f"users/{uid}", use_iam=True)
-                if data:
-                    full = f"{data.get('firstName', '')} {data.get('lastName', '')}".strip()
-                    username = data.get("username", uid)
-                    name = f"{full} ({username})" if full else username
-            elif kind in ("roleId", "assignedRoles", "unassignedRoles"):
-                data = self.api.get(f"roles-by-id/{uid}", use_iam=True)
-                if data:
-                    name = data.get("name", uid)
-            elif kind == "groupId":
-                name = self._load_groups().get(uid, uid)
-        except Exception as e:
-            logger.debug("UUID resolution failed for %s (%s): %s", uid, kind, e)
-        self._cache[uid] = name
-        return name
-
-    def resolve_in_place(self, obj: Any) -> None:
-        if isinstance(obj, dict):
-            for key, value in list(obj.items()):
-                if isinstance(value, (dict, list)):
-                    self.resolve_in_place(value)
-                elif isinstance(value, str) and _is_uuid(value):
-                    obj[key] = self.resolve(value, key)
-        elif isinstance(obj, list):
-            for i, item in enumerate(obj):
-                if isinstance(item, (dict, list)):
-                    self.resolve_in_place(item)
-                elif _is_uuid(item):
-                    obj[i] = self.resolve(str(item), "roleId")
+# The resolver now lives in ops/principal_resolve.py so other verbs (project
+# provenance, inventory) can use it instead of re-deriving the IAM URL — which
+# is the exact mistake that produced 404s when it was private to this module.
+# The old name is kept as an alias: it is referenced elsewhere in this file and
+# in anything that imported it.
+_UuidResolver = PrincipalResolver
 
 
 class AuditManager:
@@ -211,12 +164,23 @@ class AuditManager:
         start_dt, end_dt = as_dt(start, day_end=False), as_dt(end, day_end=True)
         if end_dt > now:
             end_dt, end = now, now
+        # Retention boundary. A whole-day `date` normalizes to MIDNIGHT, which is
+        # always earlier than `now - 365d` — so the documented maximum (`365d`,
+        # or an absolute date exactly 365 days back) was itself rejected and the
+        # real usable limit was 364. Clamp to the boundary instead of raising:
+        # asking for "everything retained" is a reasonable request, and erroring
+        # on it taught callers to guess a smaller number.
         earliest = now - timedelta(days=_MAX_LOOKBACK_DAYS)
-        if start_dt < earliest:
+        earliest_day = datetime.combine(earliest.date(), datetime.min.time(),
+                                        tzinfo=timezone.utc)
+        if start_dt < earliest_day:
             raise ValueError(
                 f"Audit events are only retained for the previous {_MAX_LOOKBACK_DAYS} days; "
                 f"earliest allowed start is {earliest.date().isoformat()}."
             )
+        if start_dt < earliest:
+            # Within the retained DAY but before the retained MOMENT: clamp.
+            start_dt, start = earliest, earliest
         if start_dt > end_dt:
             raise ValueError("start of range is after end of range")
 
