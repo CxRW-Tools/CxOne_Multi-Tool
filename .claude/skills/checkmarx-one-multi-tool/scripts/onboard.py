@@ -537,6 +537,12 @@ def _cmd_delete(mgr, args) -> int:
     print(f"{len(targets)} project(s) selected for deletion:")
     for name, pid in targets:
         print(f"  {name}  ({pid})")
+    # This listing goes to STDOUT while progress below goes to the logger on
+    # STDERR. Piped stdout is block-buffered and stderr is not, so without an
+    # explicit flush the "Deleted ..." lines surface BEFORE the list of what is
+    # being deleted — output that reads as if the tool acted before it decided.
+    # Flush at every handoff between the two streams.
+    sys.stdout.flush()
 
     if dry:
         print("\n[dry-run] nothing was deleted.")
@@ -549,6 +555,7 @@ def _cmd_delete(mgr, args) -> int:
             print("\nRefusing a selector-based delete without confirmation. "
                   "Re-run with --dry-run to review, then --yes to proceed.")
             return 2
+        sys.stdout.flush()
         reply = input(f"\nPermanently delete these {len(targets)} project(s) "
                       f"and all their scan history? [y/N] ").strip().lower()
         if reply not in ("y", "yes"):
@@ -563,7 +570,9 @@ def _cmd_delete(mgr, args) -> int:
             deleted += 1
         except Exception as exc:                                   # noqa: BLE001
             logger.error("Failed to delete '%s' (%s): %s", name, pid, exc)
+    sys.stderr.flush()          # the summary must land after the per-item log
     print(f"\nDeleted {deleted} of {len(targets)} project(s).")
+    sys.stdout.flush()
     return 0 if deleted == len(targets) else 1
 
 
