@@ -455,9 +455,34 @@ class ContainerRuntime:
     exe: str
 
 
+# Extensions Windows can only run by handing off to a shell (cmd.exe), which then
+# re-tokenizes the command line using its OWN metacharacter rules (&, |, ^, <, >,
+# ...). A real .exe/.com never takes this detour — argv reaches it unmangled. Empty
+# on POSIX, where "docker"/"podman" are always native binaries, so this filter is a
+# no-op there and the preference logic below only ever activates on Windows.
+_SHELL_SCRIPT_EXTENSIONS = {".cmd", ".bat", ".ps1"}
+
+
+def _is_shell_script(exe: str) -> bool:
+    return Path(exe).suffix.lower() in _SHELL_SCRIPT_EXTENSIONS
+
+
 def _detect_container_runtime() -> ContainerRuntime | None:
-    """Return the working container runtime, docker preferred over podman."""
+    """Return the working container runtime: a native binary, if one is available,
+    else whichever script-based one works; docker preferred over podman within
+    each tier.
+
+    A `docker` found on PATH is sometimes a `.cmd`/`.bat` alias that just calls
+    `podman` (as this project's own dev machines do) — plausible on any Windows
+    box with both installed. Picking that over a genuine `podman.exe` looks
+    identical right up until an argument contains a shell metacharacter: a tag
+    filter like `T&R` silently splits into two commands under cmd.exe, launching
+    with a truncated/wrong command line instead of failing loudly. Preferring a
+    native binary whenever one exists closes that trap entirely, without giving
+    up on a script-only install (better a working shim than no runtime).
+    """
     import shutil, subprocess
+    candidates = []
     for name in ("docker", "podman"):
         exe = shutil.which(name)
         if not exe:
@@ -465,13 +490,24 @@ def _detect_container_runtime() -> ContainerRuntime | None:
         try:
             r = subprocess.run([exe, "info"], capture_output=True, timeout=15)
             if r.returncode == 0:
-                logger.debug("Container runtime detected: %s (%s)", name, exe)
-                return ContainerRuntime(name=name, exe=exe)
-            logger.debug("%s present but not usable (info rc=%d): %s",
-                         name, r.returncode, r.stderr.decode(errors="replace")[:200])
+                candidates.append(ContainerRuntime(name=name, exe=exe))
+            else:
+                logger.debug("%s present but not usable (info rc=%d): %s",
+                             name, r.returncode, r.stderr.decode(errors="replace")[:200])
         except Exception as exc:
             logger.debug("%s present but check failed: %s", name, exc)
-    return None
+    if not candidates:
+        return None
+    native = [c for c in candidates if not _is_shell_script(c.exe)]
+    chosen = native[0] if native else candidates[0]
+    if _is_shell_script(chosen.exe):
+        logger.warning(
+            "Only a script-based container runtime was found (%s, %s) - arguments "
+            "containing shell metacharacters (&, |, ^, <, >) may be silently "
+            "corrupted when launched. Install a native %s binary to avoid this.",
+            chosen.name, chosen.exe, chosen.name)
+    logger.debug("Container runtime detected: %s (%s)", chosen.name, chosen.exe)
+    return chosen
 
 
 def _resolve_timezone() -> tuple[str | None, str]:
