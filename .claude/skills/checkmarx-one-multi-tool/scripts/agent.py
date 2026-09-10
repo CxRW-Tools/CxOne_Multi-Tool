@@ -431,7 +431,10 @@ def cmd_plan(cfg: CxConfig, model: ActivityModel, seed: int | None,
 
 
 _HORIZON_S = 24 * 3600   # internal rolling plan horizon; not user-configurable
-_IMAGE = "cxone-agent"
+# Repo name only, no tag: this is never pulled from a registry, only built locally,
+# so the tag is always the skill version that produced it (see _launch_container) —
+# never ':latest', which would say nothing about which version is actually running.
+_IMAGE_REPO = "cxone-agent"
 _CONTAINER = "cxone-agent"
 _STATE_VOLUME = "cxone-agent-state"
 
@@ -583,6 +586,28 @@ def _resolve_timezone() -> tuple[str | None, str]:
     return None, "undetected"
 
 
+def _prune_old_images(exe: str, keep_tag: str) -> None:
+    """Remove every `cxone-agent` tag except `keep_tag`, after a fresh build.
+
+    Tagging by version makes "what's running" self-describing, but without this
+    every version bump would leave the previous tag (and its layers, until
+    nothing references them) sitting around forever — a rebuild-per-publish
+    tool would accumulate one stale image per release indefinitely. Best-effort:
+    failures here (a tag in use elsewhere, a runtime quirk) never block the launch
+    that triggered the rebuild.
+    """
+    import subprocess
+    r = subprocess.run([exe, "images", "--format", "{{.Repository}}:{{.Tag}}",
+                       _IMAGE_REPO], capture_output=True, text=True)
+    if r.returncode != 0:
+        return
+    for ref in (r.stdout or "").splitlines():
+        ref = ref.strip()
+        if not ref or ref.endswith(f":{keep_tag}") or "<none>" in ref:
+            continue
+        subprocess.run([exe, "rmi", ref], capture_output=True)
+
+
 def _launch_container(rt: ContainerRuntime, cfg: CxConfig, until: str | None,
                       max_lateness: str, live: bool, scope=None,
                       behavior=None) -> int:
@@ -613,35 +638,26 @@ def _launch_container(rt: ContainerRuntime, cfg: CxConfig, until: str | None,
         logger.info("$ %s", _redacted(cmd))
         return subprocess.run(cmd, **kw)
 
-    # Image present AND current? The image is labeled with the skill version at
-    # build time; a mismatch (or a pre-label image, like 3.1.x) means the image
-    # is frozen older code — installing a new skill version does nothing for the
-    # container until the image is rebuilt, so do that here rather than letting
-    # a stale build linger silently. Skipped when the installed version can't be
-    # read ('unknown', e.g. a partial copy) to avoid a rebuild loop.
+    # The tag itself IS the version check: build once per skill version, tagged
+    # with that version, and re-tagging on any bump falls straight out of "does
+    # <repo>:<version> already exist" — no separate label read-and-compare needed.
+    # 'unknown' (e.g. a partial copy where VERSION can't be read) gets its own
+    # literal tag rather than forcing a rebuild every launch.
     from cxone import get_version
     want = get_version()
-    have = subprocess.run([exe, "image", "inspect", _IMAGE],
+    tag = want if want and want != "unknown" else "unknown"
+    image_ref = f"{_IMAGE_REPO}:{tag}"
+    have = subprocess.run([exe, "image", "inspect", image_ref],
                           capture_output=True).returncode == 0
-    if have and want != "unknown":
-        r = subprocess.run(
-            [exe, "image", "inspect", "-f",
-             '{{ index .Config.Labels "cxone.multitool.version" }}', _IMAGE],
-            capture_output=True, text=True)
-        built = (r.stdout or "").strip()
-        if r.returncode != 0 or built != want:
-            logger.info("Image '%s' was built from version %s but the installed "
-                        "skill is %s - rebuilding so the container runs current "
-                        "code.", _IMAGE, built or "pre-3.2 (unlabeled)", want)
-            have = False
     if not have:
-        logger.info("Building image '%s' from %s", _IMAGE, skill_root)
-        r = _run([exe, "build", "-t", _IMAGE,
+        logger.info("Building image '%s' from %s", image_ref, skill_root)
+        r = _run([exe, "build", "-t", image_ref,
                   "--label", f"cxone.multitool.version={want}", skill_root])
         if r.returncode != 0:
             logger.error("Image build failed (rc=%d). Falling back is possible with "
                          "--process.", r.returncode)
             return r.returncode
+        _prune_old_images(exe, keep_tag=tag)
 
     # State volume for the cadence ledger.
     subprocess.run([exe, "volume", "create", _STATE_VOLUME], capture_output=True)
@@ -710,7 +726,7 @@ def _launch_container(rt: ContainerRuntime, cfg: CxConfig, until: str | None,
         logger.warning("Timezone: could not detect host zone; container runs in UTC. "
                        "Logs and business-hours activity may not match your clock. "
                        "Set TZ=Area/City (e.g. America/Chicago) to fix.")
-    cmd += [_IMAGE, "--max-lateness", max_lateness]
+    cmd += [image_ref, "--max-lateness", max_lateness]
     if live:
         cmd += ["--live"]
     # Forward the resolved scope as flags. The image carries its own baked
