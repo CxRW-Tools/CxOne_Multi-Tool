@@ -105,6 +105,35 @@ Triggering a scan on an already-onboarded SCM project (used by `scan`):
 `PATCH configuration/project?project-id={id}` with changed items, `originLevel:"Project"`.
 Key fields: `scan.config.sast.presetName`, `scan.config.sast.incremental` ("true"/"false").
 
+**`GET configuration/scan?project-id={id}&scan-id={id}` is the authoritative source for
+"what config actually ran on this scan" — use it instead of `configuration/project`
+whenever the question is about a specific scan, not just the tenant's live default.**
+
+- `configuration/project` returns the project's *current* settings — right for "what
+  will the next scan use", wrong for "what did scan X use" once anything has changed
+  since. `configuration/scan` returns the fully-resolved list for that one scan, with
+  Tenant → Project → Scan inheritance already merged, and each item's `originLevel`
+  telling you which tier the effective value came from. Live-validated 2026-09-11: a
+  project's `recommendedExclusions` was toggled between two scans 5 minutes apart;
+  `configuration/scan` on the earlier scan correctly reported `true` (resolved from
+  `Tenant`) while the later one reported `false` (resolved from `Project`) — exactly
+  matching each scan's actual SAST-metadata behavior (6,388 vs 259,641 LOC scanned on
+  an identical repo/commit). `configuration/project` alone would have shown only the
+  post-toggle value for both.
+- Same response shape as `configuration/project` (flat `{key,name,category,value,
+  originLevel,...}` list) — same field names, same parsing.
+- Useful keys for a performance/config write-up: `scan.config.sast.recommendedExclusions`,
+  `scan.config.sast.fastScanMode`, `scan.config.sast.findingsAnalysis`,
+  `scan.config.sast.presetName`, `scan.config.sast.extendedAnalysis`,
+  `scan.config.sast.incremental`, `scan.config.sast.languageMode`.
+- **Don't reconstruct this from the audit trail.** It's tempting to answer "what was
+  this scan's config" by searching `project-settings.update` events for the one that
+  landed just before the scan was submitted — but that only sees keys included in that
+  particular PATCH payload, says nothing about keys resolved from Tenant defaults, and
+  breaks the moment two settings updates land close together. `configuration/scan` gets
+  the same answer directly, correctly, in one call. See "check the docs before reaching
+  for `audit`" below.
+
 ---
 
 ## Scans — `ops/scans.py`  (AST plane)
@@ -481,6 +510,23 @@ from an append-only event stream is exactly the mismatch measured above. The
 predicate endpoints return the current state AND the full comment/user
 history from the service that owns the triage, so they are both correct and
 simpler. `ops/triage_history.py` wraps all five engines.
+
+**Same trap, different question: "what was the effective config for this past
+scan" is not an audit question either.** Reconstructing a historical setting by
+scanning `project-settings.update` events for whichever one landed just before a
+scan submission is the same mismatch as the triage case above — it only sees
+keys present in that particular PATCH payload, misses anything resolved from a
+Tenant or Project default that was never touched in that window, and silently
+breaks if two updates land close together. `GET configuration/scan?project-id=
+&scan-id=` (see "Scan configuration" above) answers this directly and correctly:
+one call, fully resolved, with `originLevel` naming the tier each value came
+from. **The general rule this generalizes: before reaching for `audit` to
+reconstruct a past state, check whether a purpose-built endpoint already
+returns that state directly** — a resolved-config, current-state, or
+history-with-comments endpoint is almost always more correct and less work than
+replaying events to rebuild the same answer by hand. `references/api-index.md`
+and this file are where to look first; grep the bundled OpenAPI spec
+(`spec/cxone_openapi.json`) for the resource name before assuming nothing exists.
 
 **UUID resolution (`--human-readable`).** `actionUserId`/`userId`,
 `roleId`/`assignedRoles`/`unassignedRoles`, and `groupId` values are Keycloak

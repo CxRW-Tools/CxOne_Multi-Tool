@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.50.4
+  version: 3.50.5
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -412,6 +412,23 @@ query live state (`results`/`project`/`iam`/etc.) — use `audit` only to
 attribute or narrate something you already confirmed live. Details and a
 live-verified example of the count mismatch this causes are in
 `references/cxone-api.md` under "Audit trail".
+
+**Before reconstructing anything from `audit`, check whether a purpose-built
+endpoint already returns that state directly — it usually does.** The audit
+trail is an append-only log of *events*; a surprising number of "what was
+true at some point" questions are actually answered by a resolved/effective
+*state* endpoint instead, which is both more correct and less code. Concrete
+case: "what SAST config actually ran on scan X" looks like an audit
+reconstruction (find the `project-settings.update` event nearest the scan's
+submission) but isn't — `GET configuration/scan?project-id=&scan-id=` returns
+the fully tenant→project→scan-resolved config for that exact scan in one call,
+which the audit-event approach can't do correctly (it only sees keys touched
+in that one PATCH, misses anything resolved from a default that was never
+explicitly set). See `references/cxone-api.md` → "Scan configuration" and
+"Audit trail" (the note after the triage-history caution). The habit to build:
+grep `spec/cxone_openapi.json` and skim `references/cxone-api.md` /
+`api-index.md` for the resource name *before* reaching for `audit` to rebuild
+a historical answer by hand.
 
 ## "Triage" is ambiguous — ALWAYS disambiguate before acting
 
