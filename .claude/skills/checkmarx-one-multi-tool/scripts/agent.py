@@ -649,6 +649,7 @@ def _launch_container(rt: ContainerRuntime, cfg: CxConfig, until: str | None,
     image_ref = f"{_IMAGE_REPO}:{tag}"
     have = subprocess.run([exe, "image", "inspect", image_ref],
                           capture_output=True).returncode == 0
+    just_built = not have
     if not have:
         logger.info("Building image '%s' from %s", image_ref, skill_root)
         r = _run([exe, "build", "-t", image_ref,
@@ -657,13 +658,17 @@ def _launch_container(rt: ContainerRuntime, cfg: CxConfig, until: str | None,
             logger.error("Image build failed (rc=%d). Falling back is possible with "
                          "--process.", r.returncode)
             return r.returncode
-        _prune_old_images(exe, keep_tag=tag)
 
     # State volume for the cadence ledger.
     subprocess.run([exe, "volume", "create", _STATE_VOLUME], capture_output=True)
 
-    # Replace any prior container of the same name.
+    # Replace any prior container of the same name. Pruning old image tags must
+    # wait until AFTER this: the previous container still pins the previous
+    # version's tag, so `rmi` on it fails silently (best-effort) if attempted
+    # any earlier — the old tag would linger looking pruned when it wasn't.
     subprocess.run([exe, "rm", "-f", _CONTAINER], capture_output=True)
+    if just_built:
+        _prune_old_images(exe, keep_tag=tag)
 
     cmd = [exe, "run", "-d", "--name", _CONTAINER, "--restart=unless-stopped",
            "-e", f"CXONE_BASE_URL={cfg.base_url}",
