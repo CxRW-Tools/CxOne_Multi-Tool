@@ -114,9 +114,20 @@ the startup log. Set `TZ=Area/City` explicitly to override.
 > reach your tenant — use it to prepare, then run from Claude Code / Cowork.
 
 ## Manual quick start (running the scripts yourself)
+Use a virtualenv in your project directory so the tool's dependencies don't
+clash with other Python tools. Replace `<skill>` with this folder's path; on
+Windows use `.venv\Scripts\pip` / `.venv\Scripts\python`.
+
 ```bash
-pip install -r requirements.txt
-python run.py env init --api-key <KEY>     # writes credentials to your project dir
+python -m venv .venv
+.venv/bin/pip install -r <skill>/requirements.txt
+.venv/bin/python <skill>/run.py env init --api-key <KEY>   # writes credentials to your project dir
+```
+
+The commands below are shown as `python run.py` for brevity; run them with the
+venv's `python`.
+
+```bash
 python run.py --help
 python run.py identities import --file team-keys.txt   # optional: multi-user attribution
 python run.py iam create-group "Developers" --dry-run

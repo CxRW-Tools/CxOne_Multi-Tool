@@ -80,6 +80,21 @@ def _find_real_python() -> list[str] | None:
     return None
 
 
+def _warn_if_global_python() -> None:
+    """Warn once per run when not inside a virtualenv.
+
+    A shared global Python is where another tool's pinned `requests`/`urllib3`
+    breaks this one. CXONE_ALLOW_GLOBAL_PYTHON=1 silences the warning.
+    """
+    if sys.prefix != sys.base_prefix or os.environ.get("CXONE_ALLOW_GLOBAL_PYTHON"):
+        return
+    sys.stderr.write(
+        "[run] WARNING: not running in a virtualenv. Create one in your project\n"
+        "      directory (python -m venv .venv), install requirements.txt into it,\n"
+        "      and run with its python. Set CXONE_ALLOW_GLOBAL_PYTHON=1 to silence.\n"
+    )
+
+
 def main() -> int:
     if not os.path.isfile(MULTITOOL):
         sys.stderr.write(
@@ -107,6 +122,8 @@ def main() -> int:
             "      interpreter (py -3 / python3) was found on PATH. If this fails to\n"
             "      open files, install python.org CPython or run: py -3 run.py ...\n"
         )
+
+    _warn_if_global_python()
 
     # Make scripts/ importable (cxone, ops, etc. resolve as top-level modules,
     # exactly as when running multitool.py from inside scripts/), then hand off.
