@@ -145,7 +145,7 @@ def _spec_preflight() -> None:
         # Show only the offending lines. The full report is long, and pasting
         # its tail buries the two lines that say what to fix.
         offenders = [ln for ln in (r.stdout or "").splitlines()
-                     if ln.lstrip().startswith(("ABSENT", "METHOD?")) or ln.startswith("SUMMARY")]
+                     if ln.lstrip().startswith(("ABSENT", "METHOD?", "STALE")) or ln.startswith("SUMMARY")]
         sys.exit(
             "publish aborted: the API spec is out of sync with the code or docs.\n"
             + "\n".join(offenders)

@@ -1,0 +1,40 @@
+# Endpoints the Multi-Tool calls on the AST plane (IAM/Keycloak excluded).
+# Input for the docs tool's --used-endpoints. Generated; do not edit:
+#   python validate_spec.py --emit-used spec/used-endpoints.txt
+DELETE /api/applications/{}
+DELETE /api/projects/{}
+GET /api/applications
+GET /api/audit-events
+GET /api/configuration/project
+GET /api/credits/consumption
+GET /api/credits/info
+GET /api/kics-results-predicates/{}
+GET /api/micro-engines/read/predicates/{}
+GET /api/projects
+GET /api/projects/{}
+GET /api/reports/{}
+GET /api/repos-manager/protected-branches
+GET /api/results
+GET /api/sast-configuration
+GET /api/sast-results
+GET /api/sast-results-predicates/{}
+GET /api/sast-results/compare
+GET /api/scans
+GET /api/scans/{}
+POST /api/ai-triage/triage
+POST /api/applications
+POST /api/containers/triage/triage/triage-history/{}/{}
+POST /api/containers/triage/triage/vulnerability-update
+POST /api/kics-results-predicates
+POST /api/micro-engines/write/predicates
+POST /api/projects
+POST /api/remediation/remediate
+POST /api/reports
+POST /api/repos-manager/scm-projects
+POST /api/sast-results-predicates
+POST /api/sast-results-predicates/attack-vector
+POST /api/sast-results/similar-results
+POST /api/sca/graphql/graphql
+POST /api/sca/management-of-risk/packages/bulk
+POST /api/scans
+PUT /api/projects/{}
