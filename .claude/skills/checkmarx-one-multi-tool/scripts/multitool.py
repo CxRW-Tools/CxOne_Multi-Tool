@@ -69,8 +69,13 @@ def _freshness_line(*, indent: str = "") -> str | None:
     line = f"{indent}Reference spec last synced: {date_str} ({days_ago} day{'s' if days_ago != 1 else ''} ago)"
     if days_ago > STALE_REFERENCE_DAYS:
         line += (f"\n{indent}⚠ That's over {STALE_REFERENCE_DAYS} days — the live platform API may have "
-                 f"drifted since. Consider asking to refresh the live-spec sync "
-                 f"(see references/api-index.md \"Where to look\").")
+                 f"drifted since (new endpoints are common)."
+                 f"\n{indent}  Refresh it with the CxOne Docs Mirror tool: "
+                 f"https://github.com/CxRW-Tools/CxOne_Docs_Mirror"
+                 f"\n{indent}  (python cx_docs_mirror.py --stage api-spec --baseline <skill>/spec/cxone_openapi.json "
+                 f"--used-endpoints <skill>/spec/used-endpoints.txt),"
+                 f"\n{indent}  then adopt the result — see spec/CLEANUP_NOTES.md \"Refreshing the spec\". "
+                 f"If you can't publish, send the output to the tool maintainer.")
     return line
 
 

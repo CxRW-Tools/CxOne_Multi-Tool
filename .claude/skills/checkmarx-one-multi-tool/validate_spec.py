@@ -42,15 +42,12 @@ from pathlib import Path
 # to POST /api/sast-results-predicates/attack-vector on 2026-08-03, which had
 # been silently carried while the spec stayed incomplete.
 KNOWN_SPEC_OMISSIONS = {
-    ("POST", "/api/repos-manager/scms/{}/orgs/{}/repo/projectScan"),
-    # Attack Vector feature (sast_handler.py), newer than the bundled export.
-    # These were invisible to this scraper until it learned to resolve
-    # endpoint-as-constant calls (`self.api.get(_SAST_CONFIG_ENDPOINT, ...)`) —
-    # once visible, `GET /api/sast-results/` and `GET /api/sast-results/compare`
-    # (also called this way) turned out to already be OK in the bundled spec;
-    # only these two are genuinely absent:
+    # Attack Vector feature (sast_handler.py). Invisible to this scraper until it
+    # learned to resolve endpoint-as-constant calls; of those, only this one is
+    # still absent from every published source (`similar-results` and the
+    # repos-manager `projectScan` are now in the spec, via the live catalog and
+    # the docs-tool overlay respectively):
     ("GET", "/api/sast-configuration"),               # mode read; X-Source gated
-    ("POST", "/api/sast-results/similar-results"),    # hash -> vector-id resolver
     # SCA's GraphQL gateway. The published REST reference exposes NO way to read
     # current SCA triage state, its comments, or its history — this endpoint is
     # the only source, found by observing the UI. Backs ops/sca_live_state.py

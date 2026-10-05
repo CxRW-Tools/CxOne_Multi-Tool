@@ -1,13 +1,70 @@
 # OpenAPI Spec — Cleanup Notes
 
-`cxone_openapi.json` here is a cleaned copy of the Checkmarx One OpenAPI export
-(`openapi: 3.0.3`, 189 paths), generated from Stoplight docs on 2026-06-27,
-plus the per-service additions logged under "Vendor-spec additions" below.
-**Last live-sync check: 2026-07-31** — this line, `spec/LAST_SYNCED`, and the
-file's own `info.x-last-synced`/`info.x-sync-notes` must always agree; update
-all three together (see "spec/LAST_SYNCED" below) whenever a sync pass touches
-this file, and see the "Live sync" sections below for what's been checked so far.
-Changes applied to the raw export:
+`cxone_openapi.json` here is **generated** by the CxOne Docs Mirror tool
+(https://github.com/CxRW-Tools/CxOne_Docs_Mirror, `--stage api-spec`), not
+hand-edited. It merges the live per-tenant catalog (schemas, parameters, enums,
+required-ness) with the Stoplight API reference (prose, examples) and a
+hand-maintained overlay kept in that repo (`api/overlay/`). As of 2026-10-05:
+`openapi: 3.0.3`, 518 paths / 640 operations. Every operation carries
+`x-source` (`live`, `stoplight`, `both`, `overlay`), `x-service`,
+`x-gateway-prefix` and `x-live-verified`.
+**Last live-sync check: 2026-10-05** — this line, `spec/LAST_SYNCED`, and the
+file's own `info.x-last-synced`/`info.x-sync-notes` must always agree. The tool
+writes the last two itself; `spec/LAST_SYNCED` and this line are updated by hand
+(see "Refreshing the spec" and "spec/LAST_SYNCED" below).
+
+The "Changes applied to the raw export" list below, and the 2026-07 "Live sync"
+sections, describe the earlier hand-maintained spec. They are kept as history
+and as the reasoning behind overlay entries; the generator now does that work.
+
+## Refreshing the spec
+
+```bash
+# in a CxOne_Docs_Mirror checkout, from its own venv
+python cx_docs_mirror.py --stage api-spec \
+    --baseline <skill>/spec/cxone_openapi.json \
+    --used-endpoints <skill>/spec/used-endpoints.txt
+```
+
+Read `api/API-SPEC-REPORT.md` first. The tool exits 10 only when an endpoint our
+code calls has *breaking* drift; additive drift never fails the run. If that
+happens, check what our code sends/reads for those endpoints before adopting.
+Then copy `api/cxone_openapi.json` over `spec/cxone_openapi.json`, set
+`spec/LAST_SYNCED` and the date on the line above, re-run
+`python validate_spec.py --strict`, and publish. `--baseline` only affects the
+drift report, never the spec itself. Nothing needs credentials; the optional
+`--auth-token-env VAR` reads a tenant token from the environment to fetch the
+`ai-triage` / `remediation` specs, which otherwise need a login (the overlay
+carries those operations until you do).
+
+### Known limits of the generated spec (2026-10-05)
+
+- **`SAST_QUERIES_AUDIT` (25 ops) is placed at `/api/cx-audit` and flagged
+  `conflict`.** `/queries` is served there, but `GET /sessions` is 404 under
+  `/api/cx-audit` and 405 under `/api/query-editor`. Treat those paths as
+  unconfirmed.
+- **`INTEGRATIONS_REPOS`** declares the unusable prefix `REPOS` and is not placed.
+- **Live schemas can omit real fields.** `GET /api/projects/{id}` returns
+  `repoId`, `privatePackage` and `imported_proj_name` live, but the live schema no
+  longer lists them (our code reads `repoId`). Prefer the live response to the spec.
+- **`name` is not `required`** on `POST/PUT /api/projects` and `/api/applications`
+  in the live schema; not verifiable without creating resources. Our code always sends it.
+- **`POST /api/scans` `config[].type`** no longer lists `apisec` (our
+  `ALL_SCANNER_TYPES` still sends it). Unverified; the live enum may be incomplete.
+- **Stoplight-only operations (64)** are not served by the live catalog. Of the 13
+  safe GETs probed, 11 exist; `GET /api/risks/ai-insights` returns a plain 404
+  and is likely stale.
+- **33 cross-file `$ref`s** in Best Fix Location, Code Repository Management and
+  Container Security MoR could not be resolved (none are operations we call).
+- **Format differences from the old spec:** some paths gain a trailing slash
+  (`/api/apisec/static/api/parameter/`), some parameters were renamed
+  (`{scanId}` to `{scan-id}`, `projectids` to `projectIds`), and Analytics KPI
+  bodies use a discriminator instead of a flat `kpi` enum. `validate_spec.py`
+  matches templates, so these don't affect it; exact-string consumers would.
+- **Enum casing differs from the old spec** (e.g. `severity` upper vs lower case) but
+  `/api/results` and `/api/sast-results` accept either; verified live.
+
+Changes applied to the raw export (the earlier hand-maintained spec):
 
 1. **Removed** `/abc123...` — a placeholder for a presigned upload URL (its own
    description says it's only a placeholder), not a callable API path.
@@ -41,11 +98,11 @@ are documented in `references/cxone-api.md` and implemented in
 
 ## `spec/LAST_SYNCED` — the single-source freshness date
 
-`spec/LAST_SYNCED` holds one ISO date (currently `2026-07-21`), mirroring how
+`spec/LAST_SYNCED` holds one ISO date, mirroring how
 `VERSION` is the single source for the skill version. `cxone/get_reference_freshness()`
 reads it and `welcome` / `version` / `--help` print "Reference spec last synced:
 <date> (N days ago)", with a refresh suggestion once N exceeds
-`cxone.STALE_REFERENCE_DAYS` (90). **Whenever you do a live-spec sync pass like
+`cxone.STALE_REFERENCE_DAYS` (30). **Whenever you do a live-spec sync pass like
 the one below, update this file to today's date** — it's the only thing that
 makes the staleness warning meaningful; forgetting it means the tool keeps
 reporting an old sync as current.
@@ -59,9 +116,14 @@ actual ground truth for schema/enum details, since it's what the platform is
 running right now rather than a point-in-time doc export. See
 `references/api-index.md` "Where to look" for the fetch method.
 
-**Important limitation discovered doing this sync:** the live per-service YAMLs
-are bare, service-relative paths with no `servers:` block — there is no way to
-mechanically derive the public `/api/...` gateway path from a live YAML alone.
+**Important limitation discovered doing this sync** (*correction, 2026-10-05:
+most live YAMLs do declare `servers[0].url`, e.g. `/api/access-management`, and
+the Docs Mirror tool uses it as the gateway prefix; the exceptions are
+`INTEGRATIONS_REPOS` and a few services whose declared prefix disagrees with the
+real route, listed above. The paragraph below is what we believed then*): the live
+per-service YAMLs are bare, service-relative paths with no `servers:` block —
+there is no way to mechanically derive the public `/api/...` gateway path from a
+live YAML alone.
 That mapping (e.g. "Analytics Api" service's `/analyticsAPI/v1` → public
 `/api/data_analytics/analyticsAPI/v1`) has to come from Stoplight docs or
 empirical confirmation, same as how this file's paths were originally sourced.

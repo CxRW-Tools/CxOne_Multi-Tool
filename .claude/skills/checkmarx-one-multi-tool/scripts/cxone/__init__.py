@@ -29,7 +29,7 @@ from .api_client import ApiClient, ApiResult, USER_AGENT
 # live-spec re-sync. The platform's API surface (enums, required fields) drifts
 # between syncs; see spec/CLEANUP_NOTES.md ("spec/LAST_SYNCED") and
 # references/api-index.md ("Where to look").
-STALE_REFERENCE_DAYS = 90
+STALE_REFERENCE_DAYS = 30
 
 # The skill ROOT (this file is scripts/cxone/__init__.py, so root is three
 # levels up) — where VERSION and spec/LAST_SYNCED live.
