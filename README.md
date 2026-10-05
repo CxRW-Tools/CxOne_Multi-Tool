@@ -23,8 +23,14 @@ has to be installed into Claude — point Claude Code at the clone and it reads
 ```bash
 git clone https://github.com/CxRW-Tools/CxOne_Multi-Tool.git
 cd CxOne_Multi-Tool
-pip install -r .claude/skills/checkmarx-one-multi-tool/requirements.txt
+python -m venv .venv
+.venv/bin/pip install -r .claude/skills/checkmarx-one-multi-tool/requirements.txt
 ```
+
+On Windows, use `.venv\Scripts\pip` instead of `.venv/bin/pip`. Always run the
+tool with the venv's Python so its dependencies stay separate from your other
+Python tools (`.venv` is already git-ignored). Claude Code picks this up from
+`SKILL.md` and uses the venv for you.
 
 Open that directory in Claude Code and say:
 
