@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.51.0
+  version: 3.52.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -240,6 +240,13 @@ discoverable, not things to infer). Load what's relevant to the task at hand:
     (`references/api-index.md` "Where to look"), then either fix the code/doc
     path or fold the correction into `spec/cxone_openapi.json` following the
     live-sync procedure in `spec/CLEANUP_NOTES.md`.
+
+  **`spec/used-endpoints.txt`** lists the AST-plane endpoints the code calls
+  (`METHOD /api/path`, IAM excluded). It is the docs tool's `--used-endpoints`
+  input, so a spec refresh only escalates drift on endpoints we depend on. It is
+  generated: after adding or removing an endpoint call, run
+  `python validate_spec.py --emit-used spec/used-endpoints.txt`. `--strict`
+  (and therefore publish) fails with `STALE` if the file no longer matches.
 
 When the spec is thin on a request *body* (some POST bodies were stripped), don't
 keep guessing — send one minimal probe and read the error: CxOne's 400s enumerate

@@ -179,6 +179,24 @@ def collect_code_endpoints(scripts_dir: Path) -> set[tuple[str, str]]:
     return found
 
 
+USED_HEADER = (
+    "# Endpoints the Multi-Tool calls on the AST plane (IAM/Keycloak excluded).\n"
+    "# Input for the docs tool's --used-endpoints. Generated; do not edit:\n"
+    "#   python validate_spec.py --emit-used spec/used-endpoints.txt\n"
+)
+
+
+def used_endpoint_lines(code) -> list[str]:
+    """Sorted 'METHOD /api/path' lines for the AST-plane endpoints in `code`."""
+    return sorted({f"{method} /api{npath}" for method, npath in code
+                   if npath not in DYNAMIC_PATHS and npath not in IAM_PLANE_PATHS})
+
+
+def _read_used_file(path: Path) -> list[str]:
+    return sorted(ln.strip() for ln in path.read_text(encoding="utf-8").splitlines()
+                  if ln.strip() and not ln.lstrip().startswith("#"))
+
+
 def _looks_like_path(s: str) -> bool:
     # Exclude obvious non-endpoint first args (dict keys, env names, headers).
     if not s or s != s.strip():
@@ -233,7 +251,18 @@ def main(argv=None) -> int:
                     help="exit nonzero if any CODE->SPEC mismatch isn't a known omission")
     ap.add_argument("--show-unused", action="store_true",
                     help="also list spec endpoints the skill doesn't call")
+    ap.add_argument("--emit-used", metavar="PATH",
+                    help="write the endpoints the code calls to PATH (one 'METHOD /api/path' "
+                         "per line) and exit; needs no spec")
     args = ap.parse_args(argv)
+
+    used_file = here / "spec" / "used-endpoints.txt"
+    if args.emit_used:
+        lines = used_endpoint_lines(collect_code_endpoints(Path(args.scripts)))
+        with open(args.emit_used, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(USED_HEADER + "\n".join(lines) + "\n")
+        print(f"Wrote {len(lines)} endpoints to {args.emit_used}")
+        return 0
 
     spec_file = Path(args.spec)
     if not spec_file.is_file():
@@ -318,6 +347,14 @@ def main(argv=None) -> int:
         for method, npath in sorted(carried):
             print(f"    {method:6} /api{npath}")
     print("=" * 70)
+    if args.strict and used_file.is_file():
+        want = used_endpoint_lines(code)
+        have = _read_used_file(used_file)
+        if want != have:
+            print("STALE spec/used-endpoints.txt no longer matches the code: "
+                  f"+{sorted(set(want) - set(have))} -{sorted(set(have) - set(want))}. "
+                  "Regenerate: python validate_spec.py --emit-used spec/used-endpoints.txt")
+            return 1
     if args.strict and code_misses:
         print("STRICT: real drift found (ABSENT/METHOD?) — fix the spec, the code "
               "path, or add a justified KNOWN_SPEC_OMISSIONS entry before publishing.")
