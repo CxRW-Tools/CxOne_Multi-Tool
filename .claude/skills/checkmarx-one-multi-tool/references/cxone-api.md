@@ -739,8 +739,8 @@ live-verified on 2026-07-31**; the bundled spec previously carried three
 
 Both services publish their own OpenAPI — `GET {base_url}/api/ai-triage/openapi.json`
 and `.../api/remediation/openapi.json` (Swagger UI at `/docs`). That is the
-tie-breaker for these two services, ahead of the copies in `spec/AI-Triage.yaml`
-/ `spec/AI-Remediation.yaml`.
+tie-breaker for these two services, ahead of the Stoplight AI-Triage and
+AI-Remediation specs.
 
 **The five gotchas, in the order they bite:**
 
@@ -796,7 +796,7 @@ accepts an optional `projectID`. Remediation still requires `buckets` with at
 least one `resultID`; there is no whole-scan shortcut there.
 
 Conversely the Stoplight YAMLs are *richer* on responses: the live spec types
-`data` and `autoPr` as free-form objects, while `spec/AI-Remediation.yaml` fully
+`data` and `autoPr` as free-form objects, while Stoplight's AI-Remediation spec fully
 documents `data.analysis.what/why/how`, `data.file_changes[].diff`,
 `data.test_creation`, and `autoPr.status/url/error_msg/file_url`. Use both.
 
