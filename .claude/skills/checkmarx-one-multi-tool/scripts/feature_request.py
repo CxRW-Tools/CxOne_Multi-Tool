@@ -37,11 +37,25 @@ import sys
 import argparse
 import datetime as _dt
 import subprocess
+import zipfile
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 
 _GIT_TIMEOUT = 20
+
+def send_instructions(zip_path: Path | None) -> str:
+    what = f"the zip ({zip_path.name})" if zip_path else "this folder"
+    return f"Share {what} with the tool maintainer."
+
+
+def write_zip(bundle: Path) -> Path:
+    """Zip the bundle's files next to the folder, so it is one thing to send."""
+    zip_path = bundle.parent / (bundle.name + ".zip")
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in sorted(p for p in bundle.iterdir() if p.is_file()):
+            zf.write(f, arcname=f"{bundle.name}/{f.name}")
+    return zip_path
 
 
 # --------------------------------------------------------------- redaction
@@ -534,17 +548,24 @@ def cmd_new(args) -> int:
             print(f"  change.patch ({len(patch)} bytes) — {patch_desc}")
         else:
             print(f"  (no patch: {patch_desc})")
+        if not args.no_zip:
+            print(f"  {bundle.name}.zip would also be written next to the folder")
         if kinds:
             print(f"  Redacted: {', '.join(sorted(set(kinds)))}")
+        print()
+        print(send_instructions(None if args.no_zip else bundle.parent / f"{bundle.name}.zip"))
         print("\n--- REQUEST.md ---")
         print(body)
         return 0
 
+    zip_path = None
     try:
         bundle.mkdir(parents=True, exist_ok=True)
         (bundle / "REQUEST.md").write_text(body, encoding="utf-8")
         if patch:
             (bundle / "change.patch").write_text(patch, encoding="utf-8")
+        if not args.no_zip:
+            zip_path = write_zip(bundle)
     except OSError as exc:
         print(f"could not write bundle: {exc}", file=sys.stderr)
         return 1
@@ -555,9 +576,12 @@ def cmd_new(args) -> int:
         print(f"  change.patch  {patch_desc}")
     else:
         print(f"  (no patch — {patch_desc})")
+    if zip_path:
+        print(f"  {zip_path.name}  everything above, ready to send")
     if kinds:
         print(f"  Redacted before writing: {', '.join(sorted(set(kinds)))}")
-    print("\nSend this folder to someone with write access to the repository.")
+    print()
+    print(send_instructions(zip_path))
     return 0
 
 
@@ -590,7 +614,8 @@ def cmd_list(args) -> int:
     print(f"{len(found)} feature request(s) in {root}:")
     for d in found:
         has_patch = "patch" if (d / "change.patch").is_file() else "no patch"
-        print(f"  {d.name}  ({has_patch})")
+        has_zip = "zip" if (root / f"{d.name}.zip").is_file() else "no zip"
+        print(f"  {d.name}  ({has_patch}, {has_zip})")
     return 0
 
 
@@ -623,6 +648,8 @@ def main(argv: list[str] | None = None) -> int:
                         "(default: current directory)")
     n.add_argument("--no-patch", action="store_true",
                    help="describe the gap only; skip the local diff")
+    n.add_argument("--no-zip", action="store_true",
+                   help="write the folder only; skip the .zip")
     n.add_argument("--keep-tenant", action="store_true",
                    help="do not redact the tenant name from the bundle")
     n.add_argument("--allow-unclassified", action="store_true",

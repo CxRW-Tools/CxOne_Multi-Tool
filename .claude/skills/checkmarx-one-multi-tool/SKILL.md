@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.50.5
+  version: 3.51.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -268,9 +268,8 @@ referenced. Most of these are non-obvious and have bitten real runs.
 python multitool.py env derive --api-key <KEY>          # preview tenant + base URL
 python multitool.py env init   --api-key <KEY> --yes    # write .env
 ```
-If the host's `python` is externally-managed (PEP 668) or missing deps, use a
-venv once: `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`,
-then call `.venv/bin/python multitool.py ...`.
+Run these from the project's virtualenv, not the global Python (see "Always run
+in a virtualenv" under Setup): `.venv/bin/python multitool.py ...`.
 
 **2. Credentials live in a project-owned file, named explicitly every call.**
 Treat `CXONE_ENV_FILE="<user-working-dir>/cxone.env"` (or `--env <abs-path>` on
@@ -360,7 +359,7 @@ unimplemented things → Keep the package current**. Don't leave the installed
 | Containers triage | `ops/triage/containers_handler.py` | `triage-simulate` | Container findings via `POST containers/triage/…` (vulnerability/package/image); `packageId` is read from the containers GraphQL service — never reconstructed (see `references/cxone-api.md`) |
 | Local UI | `ui.py` | `ui` | browser panel: authenticate + run common actions with a dry-run toggle |
 | Autonomous activity | `agent.py` + `ops/activity.py` + `Dockerfile` | `agent` | real scans + triage over real time, business-hours-weighted, per-project cadence + private ledger; two verbs: **`run`** (the executor; container via docker/podman when available, else long-lived process) and **`plan`** (committed next-24h preview) |
-| Contribution handoff | `feature_request.py` + `selfcheck.py` | `feature-request` | for users who can't push: capture a gap as a shareable bundle (REQUEST.md + `change.patch`, new files included), with credential redaction as a hard gate. `selfcheck` reports the `Contribution:` level (publish / push-only / local-only / standalone) — check it BEFORE implementing |
+| Contribution handoff | `feature_request.py` + `selfcheck.py` | `feature-request` | for users who can't push: capture a gap as a shareable bundle (REQUEST.md + `change.patch`, new files included, zipped for sharing with the tool maintainer), with credential redaction as a hard gate. Offer it proactively when a session hits a gap. `selfcheck` reports the `Contribution:` level (publish / push-only / local-only / standalone) — check it BEFORE implementing |
 
 **For "who triaged this finding and what did they say", use `results show
 --history` — NEVER `audit`.** Every engine has its own predicate/action store
@@ -878,12 +877,43 @@ never log them, never put them in a URL. `env show` masks them for you.
    (see above; create it with `env init`). Required: `CXONE_BASE_URL`,
    `CXONE_TENANT`, `CXONE_API_KEY` (tenant **admin** key for IAM); optional SCM
    tokens and `CXONE_IAM_BASE_URL`.
-2. `pip install -r requirements.txt`.
-3. Run via `run.py` at the skill root (preferred — it self-locates and, on
+2. Create the virtualenv and install into it (below). Never `pip install` into
+   the global Python.
+3. Run via `run.py` at the skill root, **using the venv's interpreter** (preferred — it self-locates and, on
    Windows, dodges the Store-Python stub; see "How to run a request"). If you call
    `multitool.py` directly instead, cwd must be `scripts/` so `import cxone`/`ops`
    resolve. Always set `CXONE_ENV_FILE` (or pass `--env`) — see **Credentials &
    tenant**; the tool refuses a `.env` inside the skill folder in any case.
+
+### Always run in a virtualenv
+
+Run the tool from a `.venv` in the **user's project directory**, next to
+`cxone.env`, never from the global Python and never inside the skill folder
+(that folder is shared and gets fast-forwarded). The global Python is shared
+with the user's other tools, and another tool pinning an old `requests` or
+`urllib3` is enough to break this one on a newer Python (`No module named
+'urllib3.packages.six.moves'`).
+
+```bash
+# once, from the user's project directory (replace <skill> with the skill folder)
+python -m venv .venv
+.venv/bin/pip install -r <skill>/requirements.txt          # macOS / Linux
+.venv\Scripts\pip install -r <skill>\requirements.txt      # Windows
+
+# every run: use the venv's interpreter
+.venv/bin/python <skill>/run.py welcome                    # macOS / Linux
+.venv\Scripts\python <skill>\run.py welcome                # Windows
+```
+
+- If `<project-dir>/.venv` exists, use its interpreter. If it doesn't, create it
+  before the first command and tell the user you did.
+- After `git pull` or `selfcheck --sync`, re-run the `pip install -r` into the
+  venv (cheap, and picks up any new dependency).
+- A crash like the `urllib3` error above means the wrong interpreter is running:
+  check which `python` you used before touching any package.
+- `run.py` prints a warning when started outside a venv. Set
+  `CXONE_ALLOW_GLOBAL_PYTHON=1` to silence it. The agent's container image is
+  its own isolated environment and doesn't need a venv.
 
 ## How to run a request
 
@@ -1025,7 +1055,13 @@ written to the user's own directory (never inside the skill folder):
 <user-dir>/cxone-feature-requests/<date>-<slug>/
   REQUEST.md      use case, the gap, scenario, proposed CLI, version, capability
   change.patch    the local change, if there is one
+<user-dir>/cxone-feature-requests/<date>-<slug>.zip   the same files, one thing to send
 ```
+
+The command ends by telling the user to share the zip with the tool maintainer.
+There is deliberately no contact address in the repo (it is public); if the user
+doesn't know who the maintainer is, they should ask whoever gave them the tool.
+`--no-zip` skips the zip.
 
 ```bash
 python run.py feature-request new \
@@ -1059,6 +1095,37 @@ Four things worth knowing:
 
 `publish_skill.py` also refuses up front on a confirmed `local-only` checkout
 and points here, so nothing gets committed only to be stranded.
+
+#### Offer a feature request when you hit a gap — don't wait to be asked
+
+Users who can't publish often don't know this mechanism exists, so a gap
+mentioned in passing is lost. When a session shows the tool can't do something
+the user needs, offer a bundle yourself.
+
+Offer when any of these happens:
+
+- The user asks for something no verb or script covers, and you can only do it
+  with a one-off script or a manual workaround.
+- You have to work around a limitation: a missing filter, an endpoint the tool
+  doesn't wrap, output the user had to reshape by hand.
+- You hit a bug or a confusing error in the tool itself (not in the user's
+  tenant or inputs).
+- The user says "it would be nice if", "why can't it", or "can you add".
+
+How to offer:
+
+- **Finish the user's task first.** The offer is a closing line, not an
+  interruption.
+- **One short offer per gap, once.** Say what the gap is and ask, e.g. "The tool
+  can't filter `results kpi` by branch. Want me to write this up as a feature
+  request you can send to the maintainer?" If the user declines, drop it.
+- **Ask before writing anything.** Draft the title, use case and gap from the
+  session, show them, and run `feature-request new` only after a yes.
+- **Don't offer for** a one-time question, a tenant misconfiguration, a
+  limitation the tool already documents as intentional, or a gap you
+  have just built and published yourself.
+- **Check `selfcheck` first.** If the Contribution level is `publish`, build and
+  publish the feature instead of writing a bundle.
 
 ### Keep the skill current (sync in, publish out)
 
