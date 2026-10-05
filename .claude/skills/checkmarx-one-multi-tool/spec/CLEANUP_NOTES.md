@@ -132,9 +132,11 @@ possible without that per-service prefix knowledge — what's practical, and
 what was done here, is: (1) for every endpoint this tool actually calls,
 diff its known `/api/...` path's schema against its live YAML and correct
 drift; (2) keep a raw snapshot of the full live catalog
-(`spec/live_catalog_snapshot.json`, 92 services / 463 path entries) for future
-novel-task discovery of capabilities/fields that might exist but aren't
-documented anywhere yet.
+(92 services / 463 path entries) for future novel-task discovery of
+capabilities/fields that might exist but aren't documented anywhere yet.
+*(The snapshot file was removed on 2026-10-05: the generated spec now merges the
+whole live catalog, and the Docs Mirror tool keeps the raw per-service YAMLs in
+its own `api/raw/live/` cache.)*
 
 **Endpoints corrected on 2026-07-21** (all in `/api/data_analytics/analyticsAPI/v1`,
 tagged `x-live-verified: "2026-07-21"` on the operation):
@@ -185,7 +187,8 @@ Sources: both services publish their own OpenAPI at
 (Swagger UI at `/docs`) — a per-service spec route NOT listed in the
 `/spec/v1` catalog, so it is worth probing `{service}/openapi.json` directly for
 any service missing from that catalog. Cross-checked against the published
-Stoplight YAMLs, kept here as `spec/AI-Triage.yaml` and `spec/AI-Remediation.yaml`.
+Stoplight AI-Triage and AI-Remediation specs (local copies removed 2026-10-05 as
+stale; re-download from Stoplight if needed).
 
 Doc-vs-live deltas found (docs are stricter than the live services):
 1. `TriageRequest` — live requires only `scanID`; Stoplight also marks `buckets`
@@ -196,7 +199,7 @@ Doc-vs-live deltas found (docs are stricter than the live services):
 3. `RemediateRequest` — live accepts an optional `projectID`.
 4. Conversely, Stoplight documents `data` / `autoPr` in full while the live spec
    types them as free-form objects — the YAMLs are the better source there.
-5. `AI-Triage.yaml` has a doc bug worth reporting upstream: under `POST /triage`
+5. The Stoplight AI-Triage spec has a doc bug worth reporting upstream: under `POST /triage`
    the **EU** server is listed as `https://us.ast.checkmarx.net/api/ai-triage`
    (a copy of US2). The GET path's server list has `eu.ast...` correctly.
 

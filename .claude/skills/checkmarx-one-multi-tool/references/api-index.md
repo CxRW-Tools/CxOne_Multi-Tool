@@ -34,10 +34,10 @@ the right endpoint, then implement it following the patterns in `cxone-api.md`.
     declare the public prefix in `servers[0].url` (the Docs Mirror tool reads
     it), but a few are missing or wrong (`INTEGRATIONS_REPOS`,
     `SAST_QUERIES_AUDIT` sessions) — confirm those from Stoplight/`cxone-api.md`/
-    empirical testing. `spec/CLEANUP_NOTES.md` "Known limits" lists them. A full raw snapshot of the live catalog
-    (92 services, 463 path entries, as of 2026-07-21) is kept at
-    `spec/live_catalog_snapshot.json` for browsing what capabilities/fields
-    exist before assuming they don't — read its own `note` field first.
+    empirical testing. `spec/CLEANUP_NOTES.md` "Known limits" lists them. To browse what the live catalog
+    contains before assuming a capability doesn't exist, grep the bundled
+    `spec/cxone_openapi.json` (it merges the whole live catalog), or look at the
+    raw per-service YAMLs the Docs Mirror tool downloads (`api/raw/live/`).
   **This HAS been caught drifting from the bundled `spec/cxone_openapi.json`
   and from the public docs at checkmarx.stoplight.io** — on 2026-07-21 the
   Analytics API endpoint alone had 5 corrections applied from this live check:
