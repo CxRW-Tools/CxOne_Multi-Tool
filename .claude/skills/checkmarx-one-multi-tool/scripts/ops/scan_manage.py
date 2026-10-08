@@ -171,10 +171,12 @@ def find_scans(api, selector: ScanSelector) -> list[dict]:
             params["initiators"] = selector.initiators[0]
         if selector.branch:
             params["branch"] = selector.branch
+        # from-date / to-date reject a bare date (HTTP 400, "Failed to get all
+        # scans") and need a full UTC timestamp. Verified live 2026-10-08.
         if selector.created_after:
-            params["from-date"] = selector.created_after
+            params["from-date"] = f"{selector.created_after}T00:00:00Z"
         if selector.created_before:
-            params["to-date"] = selector.created_before
+            params["to-date"] = f"{selector.created_before}T00:00:00Z"
         if selector.project_names or selector.project_ids:
             targets = _resolve_projects(api, selector)
             if not targets:
