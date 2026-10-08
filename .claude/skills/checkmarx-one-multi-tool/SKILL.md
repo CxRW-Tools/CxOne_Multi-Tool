@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.54.0
+  version: 3.54.1
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -356,7 +356,7 @@ unimplemented things → Keep the package current**. Don't leave the installed
 | Tenant hygiene | `ops/project_inventory.py` + `ops/project_provenance.py` | `project inventory` | "what is in this tenant that shouldn't be": scratch-tagged, stale (`--stale-days`), never-scanned (`--no-scans`), by owner. Joins project tags + creator + scan history in one pass. **Creator attribution is labelled**: `audit` (a real `projects.create` event) or `(first scan)` (INFERRED — no create event survives the 365-day window). Never present an inferred creator as a record |
 | Scan configuration | `scanconfig.py` | `scanconfig` | per-project SAST preset / incremental |
 | Scans | `ops/scans.py` + `ops/scan_status.py` | `scan` | trigger by name/id or random %, with weighted config rolls; duplicate-scan guard (`--force`); on-demand `scan status` / `history` (scans are fire-and-forget — no blocking wait; `history` shows SAST LOC per scan) |
-| Scan info & LOC | `ops/scan_info.py` + `ops/source_loc.py` | `scan info`, `scan loc` | **lines of code and scan statistics.** `info`: one scan in depth (SAST LOC + per-language LOC/files, full vs incremental and why, engine version, effective config, per-engine timing, IaC files/platforms/categories, SCA packages/licenses, containers, findings by engine×severity; `--source-loc` counts the scanned snapshot, the only source of an **IaC line count**). `loc`: per-project rollup for the tenant / `--app` / `--project-names` with a sizing LOC that uses the last FULL scan; `--languages`, `--csv`, `--json`. See "Lines of code" below |
+| Scan info & LOC | `ops/scan_info.py` + `ops/source_loc.py` | `scan info`, `scan loc` | **lines of code and scan statistics.** `info`: one scan in depth (SAST LOC + per-language LOC/files, full vs incremental and why, engine version, effective config, per-engine timing, IaC files/platforms/categories, SCA packages/licenses, containers, findings by engine×severity; `--source-loc` counts the scanned snapshot, the only source of an **IaC line count**). `loc`: per-project rollup for the tenant / `--app` / `--project-names` with a sizing LOC (the scan's own `loc`, which is the whole codebase even when incremental); `--languages`, `--csv`, `--json`. See "Lines of code" below |
 | Results | `results.py` | `results` | `summary` by engine×severity (per project or per-application rollup), `show` finding drill-down (SCA rows labelled `<CVE> — <package>`; filter by engine/severity/state/`--match`, which also matches CVE ids, with `--ids`/`--json` exposing the scan/result/group ids the APIs need, and `--history`/`--full-history` showing WHO triaged each finding, when, and their comment), `kpi` — tenant-wide server-aggregated KPIs (severity×state, aging, most-common, etc.) via the Analytics API in one call |
 | Triage history | `ops/triage_history.py` | (via `results show --history`) | past triage — state, comment, user, timestamp — read from each engine's own predicate/action store (SAST/IaC/Secrets/SCA/Containers). **The only correct source for "who triaged this"; never the audit trail.** See `references/cxone-api.md` "Triage history" |
 | Reports | `reports.py` | `report` | PDF/JSON/CSV scan reports (async poll+download) and CycloneDX/SPDX SBOMs |
@@ -462,10 +462,14 @@ python multitool.py scan history --project "Acme/web"               # LOC per sc
    IaC (KICS) reports *files scanned* only; SCA reports packages; containers
    report images/packages. Never present an IaC "LOC" unless it came from
    `--source-loc`, and then call it a local count of the scanned snapshot.
-2. **An incremental scan's `loc` is not the codebase size.** It covers only
-   re-analysed code. For sizing, quote `scan loc`'s `sizing_loc` (the last FULL
-   scan on the same branch) and say so; if the row says `incr (no full)`, the
-   project has never had a full scan in range and the number is an undercount.
+2. **An incremental scan's `loc` IS the codebase size** (verified live: a full
+   scan of 13,423 LOC became 13,504 after one added file, exactly that file's
+   non-blank lines; a no-change incremental reports its base's LOC; across 26
+   incrementals in one tenant `loc` followed additions and deletions). What is
+   limited to re-analysed files is `metrics.totalScannedLoc` and the
+   per-language table. So quote `loc` / `sizing_loc` for size, and never quote
+   an incremental scan's per-language numbers as the project's languages
+   (`scan loc --languages` uses the last full scan for that).
 3. **`loc` vs `totalScannedLoc`.** `scan info` shows both: `loc` is CxOne's
    figure for the scan; `metrics.totalScannedLoc` is the subset parsed
    successfully. Quote `loc` unless the question is about parse coverage.
@@ -477,7 +481,16 @@ python multitool.py scan history --project "Acme/web"               # LOC per sc
 6. `--source-loc` downloads the scanned source (needs the source-download
    permission; archives age out). Its numbers are a cloc-style estimate and
    will not equal the SAST engine's own count, which applies exclusions and
-   preset language filters. Present it as a cross-check, not as CxOne's number.
+   preset language filters (live: CxOne `loc` 13,423 vs 14,092 non-blank lines
+   in the same snapshot). Present it as a cross-check, not as CxOne's number.
+   Its IaC figure excludes OpenAPI files, because KICS's own file count does
+   (live: 31 files scanned; the 32nd was an OpenAPI JSON that was 91% of the
+   "IaC" lines); that file is reported on its own line.
+7. **CxOne's own totals can disagree with each other.** `totalScannedLoc` and
+   the per-language LOC / file counts don't always sum (live: 3,381 vs 2,979
+   LOC; 44 vs 46 files, because script extracted from HTML/JSP is counted as
+   JavaScript). Report the figure you were asked for and say which field it is.
+8. `changePercentage` is a ratio (0.0061 = 0.61% of files), not a percent.
 
 ## "Triage" is ambiguous — ALWAYS disambiguate before acting
 

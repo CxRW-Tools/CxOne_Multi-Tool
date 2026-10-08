@@ -45,10 +45,14 @@ Two traps worth knowing (both from the spec's own field descriptions):
   scan's LOC; ``totalScannedLoc`` is the subset parsed successfully. Both are
   shown, labelled, so neither gets mistaken for the other.
 
-Incremental scans: an incremental SAST scan only re-analyses changed files, so
-the rollup also finds the most recent FULL scan on the same branch and reports
-its LOC as ``last_full_loc``. ``sizing_loc`` is the full-scan figure whenever
-one exists — that is the number to quote for "how big is this codebase".
+Incremental scans: an incremental scan only re-analyses changed files, but its
+``sast-metadata.loc`` is still the whole codebase. Verified live (2026-10-08):
+TS_TEST full 13,423 -> incremental +1 file = 13,504 (exactly the added file's
+non-blank lines); a no-change incremental reports the same LOC as its base; and
+across 26 incrementals in the tenant, ``loc`` followed additions and deletions.
+So ``sizing_loc`` is the in-scope scan's own ``loc``. ``last_full_loc`` is kept as
+a reference column, and per-language LOC (which IS re-analysed-only for an
+incremental scan) is taken from that last full scan when one exists.
 """
 
 from __future__ import annotations
@@ -86,6 +90,18 @@ _SUMMARY_BLOCKS = [
 ]
 # configuration/scan keys worth surfacing in the text view (JSON carries all).
 _CONFIG_PREFIXES = ("scan.config.",)
+
+# configuration/scan also returns scan.handler.* keys (git token, ssh key,
+# confluence token, ...). Never print a value that could be a credential.
+_SECRET_KEY_HINTS = ("token", "secret", "password", "sshkey", "credential", "apikey", "privatekey")
+
+
+def _mask_config_value(key, value):
+    if value in (None, ""):
+        return value
+    if any(h in str(key).lower() for h in _SECRET_KEY_HINTS):
+        return "***"
+    return value
 
 
 # =================================================================== fetchers
@@ -555,8 +571,9 @@ def collect_scan_info(api, project: dict, scan_id: str, *, choice=None,
         info["iac"] = iac
     info.update(shaped)                      # sca / containers / aisc
     info["config"] = [
-        {"key": c.get("key"), "value": c.get("value"), "origin": c.get("originLevel"),
-         "category": c.get("category")}
+        {"key": c.get("key"),
+         "value": _mask_config_value(c.get("key"), c.get("value")),
+         "origin": c.get("originLevel"), "category": c.get("category")}
         for c in config if c.get("key")]
 
     if source_loc:
@@ -650,16 +667,18 @@ def render_scan_info(info: dict, *, brief: bool = False, all_config: bool = Fals
             reason = sast.get("incremental_cancel_reason") or "no reason given"
             mode = f"FULL (incremental requested, cancelled: {reason})"
         elif mode == "incremental":
-            delta = (f"+{_n(sast.get('added_files'))} ~{_n(sast.get('changed_files'))} "
-                     f"-{_n(sast.get('deleted_files'))} files")
+            delta = (f"+{_n(sast.get('added_files') or 0)} ~{_n(sast.get('changed_files') or 0)} "
+                     f"-{_n(sast.get('deleted_files') or 0)} files")
             pct = sast.get("change_percentage")
             if pct is not None:
-                delta += f", {pct:.1f}% changed"
+                # changePercentage is a ratio (1 added file of 163 = 0.00613), not a percent.
+                delta += f", {pct * 100:.2f}% of files changed"
             mode = f"INCREMENTAL ({delta}); base scan {sast.get('base_scan_id') or '?'}"
         _kv(L, "Scan mode", mode)
         if sast.get("ran_as") == "incremental":
-            L.append("  NOTE: an incremental scan's LOC covers only re-analysed code; "
-                     "`scan loc` reports the last full scan's LOC (sizing_loc).")
+            L.append("  NOTE: an incremental scan's `loc` is the whole codebase (base scan plus "
+                     "new/changed code). `Successfully scanned` and the per-language table "
+                     "cover only the re-analysed files.")
         if sast.get("configuration_changed") is not None:
             _kv(L, "Config changed vs base", "yes" if sast["configuration_changed"] else "no")
         _kv(L, "Engine version", sast.get("engine_version"))
@@ -780,6 +799,9 @@ def render_scan_info(info: dict, *, brief: bool = False, all_config: bool = Fals
                 for plat, b in src["iac"].items():
                     L.append(f"    {plat:<22}{_n(b['files']):>7}{_n(b['code']):>10}"
                              f"{_n(b['comment']):>9}{_n(b['blank']):>8}")
+                for plat, b in (src.get("iac_excluded") or {}).items():
+                    L.append(f"  Not counted as IaC: {plat} - {_n(b['files'])} file(s), "
+                             f"{_n(b['code'])} lines (KICS's file count excludes it)")
                 if not brief and src.get("iac_files"):
                     L.append("  Largest IaC files:")
                     for f in src["iac_files"]:
@@ -848,10 +870,20 @@ def loc_rollup(api, projects: list[dict], *, scope: str = "primary",
             lookback[pid] = older
     older_meta = sast_metadata_batch(api, [i for ids_ in lookback.values() for i in ids_])
 
+    # An incremental scan's per-language LOC covers only re-analysed files, so the
+    # per-language table uses the last full scan's metrics when there is one.
+    full_ids: list[str] = []
+    for older in lookback.values():
+        for oid in older:
+            om = older_meta.get(oid)
+            if om and is_full_scan(om):
+                full_ids.append(oid)
+                break
+
     metrics: dict[str, dict] = {}
     if languages:
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            sids = [s for s in ids if s in meta]
+            sids = [s for s in ids if s in meta] + full_ids
             for sid, m in zip(sids, pool.map(lambda x: sast_metrics(api, x), sids)):
                 if m:
                     metrics[sid] = m
@@ -895,8 +927,7 @@ def loc_rollup(api, projects: list[dict], *, scope: str = "primary",
                             "last_full_scan_date": (hist.get(oid, {}).get("createdAt") or "")[:10]
                             or None})
                         break
-            row["sizing_loc"] = row["last_full_loc"] if row["last_full_loc"] is not None \
-                else m.get("loc")
+            row["sizing_loc"] = m.get("loc")
         else:
             row["scan_mode"] = "no SAST"
         summ = summaries.get(sid) or {}
@@ -912,8 +943,9 @@ def loc_rollup(api, projects: list[dict], *, scope: str = "primary",
         cont = summ.get("containersCounters") or {}
         if cont.get("totalPackagesCounter") is not None:
             row["container_packages"] = cont.get("totalPackagesCounter")
-        if sid in metrics:
-            ok = metrics[sid].get("successfullLocPerLanguage") or {}
+        lang_sid = row.get("last_full_scan_id") or sid
+        if lang_sid in metrics:
+            ok = metrics[lang_sid].get("successfullLocPerLanguage") or {}
             row["languages"] = ";".join(f"{k}={v}" for k, v in
                                         sorted(ok.items(), key=lambda kv: -(kv[1] or 0)))
         rows.append(row)
@@ -942,31 +974,30 @@ def rollup_totals(rows: list[dict]) -> dict:
 def render_rollup(rows: list[dict], totals: dict, *, header: str) -> str:
     L = [header, ""]
     L.append(f"  {'Project':<34}{'Branch':<16}{'Scan date':<11}{'SAST LOC':>11}{'Files':>7}"
-             f"  {'Mode':<15}{'Sizing LOC':>11}{'IaC files':>10}{'SCA pkgs':>9}  Preset")
+             f"  {'Mode':<27}{'Sizing LOC':>11}{'IaC files':>10}{'SCA pkgs':>9}  Preset")
     for r in sorted(rows, key=lambda r: -(r.get("sizing_loc") or -1)):
         name = (r.get("project") or "?")
         name = name if len(name) <= 33 else name[:30] + "..."
         br = (r.get("branch") or "—")
         br = br if len(br) <= 15 else br[:12] + "..."
         mode = r.get("scan_mode") or "—"
-        if mode == "incremental" and r.get("last_full_scan_id") is None:
-            mode = "incr (no full)"
         L.append(f"  {name:<34}{br:<16}{r.get('scan_date') or '—':<11}"
-                 f"{_n(r.get('sast_loc')):>11}{_n(r.get('sast_files')):>7}  {mode[:15]:<15}"
+                 f"{_n(r.get('sast_loc')):>11}{_n(r.get('sast_files')):>7}  {mode[:26]:<27}"
                  f"{_n(r.get('sizing_loc')):>11}{_n(r.get('iac_files_scanned')):>10}"
                  f"{_n(r.get('sca_packages')):>9}  {r.get('preset') or ''}")
-    L.append("  " + "-" * 123)
+    L.append("  " + "-" * 135)
     L.append(f"  {'TOTAL (' + str(totals['projects']) + ' projects)':<61}"
-             f"{_n(totals['sast_loc']):>11}{_n(totals['sast_files']):>7}  {'':<15}"
+             f"{_n(totals['sast_loc']):>11}{_n(totals['sast_files']):>7}  {'':<27}"
              f"{_n(totals['sizing_loc']):>11}{_n(totals['iac_files_scanned']):>10}"
              f"{_n(totals['sca_packages']):>9}")
     L.append("")
     L.append(f"  Projects with SAST: {totals['projects_with_sast']} of {totals['projects']}.  "
-             f"Sizing LOC uses each project's last FULL SAST scan on the same branch.")
+             f"Sizing LOC is the in-scope scan's own LOC (an incremental scan still reports the whole codebase).")
     if totals["incremental_latest"]:
-        L.append(f"  {totals['incremental_latest']} project(s) have an incremental latest scan"
-                 + (f"; {totals['incremental_without_full']} with no full scan in history "
-                    f"(their sizing LOC is the incremental figure — an undercount)"
+        L.append(f"  {totals['incremental_latest']} project(s) have an incremental latest scan; "
+                 f"per-language LOC for those comes from the last full scan"
+                 + (f" ({totals['incremental_without_full']} have none in history, so theirs "
+                    f"covers only re-analysed files)"
                     if totals["incremental_without_full"] else "") + ".")
     if any(r.get("languages") for r in rows):
         L.append("")

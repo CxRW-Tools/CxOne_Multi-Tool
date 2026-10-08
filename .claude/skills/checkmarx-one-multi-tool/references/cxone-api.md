@@ -206,11 +206,14 @@ below is a GET; nothing writes.
 part the engine parsed successfully. Both are shown, labelled.
 
 **Incremental scans.** `isIncremental: true` with `isIncrementalCanceled: false`
-is a true incremental, and its `loc` covers only the re-analysed code. An
-incremental that was cancelled ran as a full scan (`incrementalCancelReason`
-says why). For sizing, `scan loc` walks back up to 25 Completed scans on the
-same branch to find the most recent full one and reports it as
-`last_full_loc` / `sizing_loc`.
+is a true incremental. Its `loc` is the whole codebase (base scan plus
+new/changed code); only `metrics.totalScannedLoc` and the per-language metrics
+are limited to the re-analysed files. An incremental that was cancelled ran as a
+full scan (`incrementalCancelReason` says why). `scan loc` reports the scan's own
+`loc` as `sizing_loc`, and keeps the most recent full scan on the same branch
+(looked back up to 25 Completed scans) as `last_full_loc`, whose per-language
+metrics it uses for `--languages`. `changePercentage` is a ratio, and the
+`added/changed/deletedFilesCount` fields are omitted when zero.
 
 **No IaC LOC from the platform.** KICS reports files scanned, never lines. The
 only way to get an IaC line count is to count the scanned snapshot
@@ -221,9 +224,22 @@ Kubernetes, Helm, Ansible, Dockerfile, DockerCompose, ARM, Bicep, OpenAPI,
 ServerlessFW, Pulumi, Crossplane, Knative, GRPC, CICD). It is an estimate:
 the engines apply their own exclusions.
 
-**Not yet verified live** (spec-derived; confirm on first real use and update
-this note): units of `memoryPeak` (assumed MB), the `scan-summary` batch limit
-(50 used), and what `loc` reports for an incremental scan.
+**Verified live (2026-10-08, DEU tenant, TS_TEST full vs incremental, plus 26
+incrementals tenant-wide):** `GET /api/scans` returns newest first by default (so
+`BranchResolver` is right); an incremental's `loc` is the whole codebase;
+`fileCount` equals the snapshot's file count; the file-level KICS counter equals
+the classified IaC files minus OpenAPI; findings by severity/status, durations and
+the effective configuration match `/api/results`, `statusDetails` and
+`configuration/scan` exactly; errors exit 1. `scan loc` and `scan info` work for
+SAST-only, SCA-only and mixed projects, every `--scope`, and `--branch`.
+`configuration/scan` also returns `scan.handler.*` keys, including tokens and SSH
+keys; the tool masks any key that looks like a credential.
+
+**Still unverified:** units of `memoryPeak` (assumed MB, 2-4 GB peaks look right),
+the `scan-summary` batch limit (50 used; none in the spec), whether `loc` after a
+*modified* file is exactly base plus delta (it tracks, but only add-only scans
+could be matched line by line), `--source-loc` on archives that have aged out,
+and a tenant-wide `scan loc --all` (1,800+ projects here; not run, to avoid load).
 
 ## Results + triage — `ops/triage/*`  (AST plane)
 
