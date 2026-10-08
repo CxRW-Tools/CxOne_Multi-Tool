@@ -152,8 +152,8 @@ def scan_history(cfg: CxConfig, project_name: str, limit: int = 10) -> int:
         nm, om = meta.get(newer["id"]), meta.get(older["id"])
         if nm and om and nm.get("loc") is not None and om.get("loc") is not None:
             dl = nm["loc"] - om["loc"]
-            note = "" if is_full_scan(nm) and is_full_scan(om) else \
-                " (an incremental scan is involved; LOC is not like-for-like)"
+            note = "" if newer.get("branch") == older.get("branch") else \
+                f" (different branches: {older.get('branch') or '?'} -> {newer.get('branch') or '?'})"
             logger.info("  delta (latest vs previous completed): %s%s SAST LOC%s",
                         "+" if dl >= 0 else "", f"{dl:,}", note)
     return 0

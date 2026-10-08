@@ -65,6 +65,13 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[str, str] | None]] = {
 _EXT: dict[str, tuple[str, str]] = {}
 
 
+# Classified as IaC by content, but not part of KICS's scanned-file count. Live
+# check (TS_TEST, 2026-10-08): the snapshot held 32 recognised files, KICS reported
+# filesScannedCounter=31, and the odd one out was an OpenAPI JSON that was 91% of
+# all "IaC" lines. Reported separately so it can't inflate the IaC figure.
+IAC_NOT_COUNTED_BY_KICS = {"OpenAPI"}
+
+
 def _reg(lang: str, family: str, *exts: str) -> None:
     for e in exts:
         _EXT[e] = (lang, family)
@@ -278,6 +285,7 @@ def count_tree(root: Path, *, top_files: int = 10) -> dict:
     languages: dict[str, dict] = {}
     iac: dict[str, dict] = {}
     iac_files: list[dict] = []
+    iac_excluded: dict = {}
     unrecognised = 0
     all_files = 0
 
@@ -309,7 +317,9 @@ def count_tree(root: Path, *, top_files: int = 10) -> dict:
             if name == "YAML" and platform is None:
                 name = "YAML (other)"
             _add(languages.setdefault(name, _blank_bucket()), code, comment, blank)
-        if platform:
+        if platform in IAC_NOT_COUNTED_BY_KICS:
+            _add(iac_excluded.setdefault(platform, _blank_bucket()), code, comment, blank)
+        elif platform:
             _add(iac.setdefault(platform, _blank_bucket()), code, comment, blank)
             iac_files.append({"file": rel, "platform": platform, "code": code,
                               "total": code + comment + blank})
@@ -335,5 +345,6 @@ def count_tree(root: Path, *, top_files: int = 10) -> dict:
         "totals": totals,
         "iac": dict(sorted(iac.items(), key=lambda kv: -kv[1]["code"])),
         "iac_totals": iac_totals,
+        "iac_excluded": dict(iac_excluded),
         "iac_files": iac_files[:top_files],
     }
