@@ -191,7 +191,7 @@ whenever the question is about a specific scan, not just the tenant's live defau
 |---|---|---|
 | `PATCH /api/scans/{id}` body `{"status": "Canceled"}` | cancels a Queued/Running scan | "Canceled is the only valid input". Returns 204. A running scan then goes to `Canceled` or `Partial` after a moment, so confirmation is a re-read, not the response |
 | `DELETE /api/scans/{id}` | deletes one scan and its results | returns 204. Works on a single scan, so a project's other scans are untouched |
-| `GET /api/scans?...` | selection | server filters exist (`statuses`, `source-origins`, `initiators`, `project-ids`, `branch`, `from-date`, `to-date`) but an unrecognised parameter is IGNORED, so every row is re-checked client-side |
+| `GET /api/scans?...` | selection | server filters exist (`statuses`, `source-origins`, `initiators`, `project-ids`, `branch`, `from-date`, `to-date`) but an unrecognised parameter is IGNORED, so every row is re-checked client-side. `from-date` / `to-date` need a full UTC timestamp (`2026-10-08T00:00:00Z`); a bare date or a timestamp without a zone returns HTTP 400 |
 
 **Who started a scan.** `initiator` is the identity behind the credential, so a
 tool that submits scans with someone's API key shows up as that person. The tool
