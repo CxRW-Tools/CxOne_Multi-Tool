@@ -3,6 +3,7 @@
 #   python validate_spec.py --emit-used spec/used-endpoints.txt
 DELETE /api/applications/{}
 DELETE /api/projects/{}
+DELETE /api/scans/{}
 GET /api/applications
 GET /api/audit-events
 GET /api/configuration/project
@@ -28,6 +29,7 @@ GET /api/sast-results/compare
 GET /api/scan-summary
 GET /api/scans
 GET /api/scans/{}
+PATCH /api/scans/{}
 POST /api/ai-triage/triage
 POST /api/applications
 POST /api/containers/triage/triage/triage-history/{}/{}

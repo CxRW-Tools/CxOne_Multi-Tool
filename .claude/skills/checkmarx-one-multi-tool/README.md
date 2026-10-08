@@ -153,7 +153,7 @@ audit trail, which records events rather than current state), **lines of code an
 full vs incremental, engine version, effective config, per-engine timing, IaC
 files/platforms, SCA packages; `--source-loc` adds a local line count of the
 scanned snapshot, including IaC; `scan loc`: a per-project LOC rollup for the
-tenant or an application, with CSV/JSON export), **multi-identity attribution** (register secondary
+tenant or an application, with CSV/JSON export), **scan cancel and delete** (`scan cancel` / `scan delete`, selected by source origin, user agent, initiator, project, status, branch or date; preview first, one selector required, Queued/Running scans are never deleted; `project delete --scan-origin X --exclusive` only removes projects whose every scan came from X), **multi-identity attribution** (register secondary
 users' API keys and scans/triage run as different team members — `--as` on
 `scan`, `triage-simulate` and `triage-real apply`, incl. `-secondary` variants
 that exclude the admin key, automatic

@@ -224,6 +224,8 @@ def _scan_entry(argv: list[str]) -> int:
     # trigger path, so `scan --project-names ...` stays backward-compatible.
     if argv and argv[0] in ("status", "history", "info", "loc"):
         return _scan_query_entry(argv[0], argv[1:])
+    if argv and argv[0] in ("cancel", "delete"):
+        return _scan_manage_entry(argv[0], argv[1:])
 
     from ops.run import run_scan
     p = argparse.ArgumentParser(prog="multitool scan")
@@ -260,6 +262,59 @@ def _scan_entry(argv: list[str]) -> int:
              force=a.force, no_overrides=a.no_overrides, seed=seed,
              api=api, acting_as=acting, identity_selector=selector)
     return 0
+
+
+def _scan_manage_entry(sub: str, argv: list[str]) -> int:
+    """`scan cancel` / `scan delete`: act on scans chosen by how they were started."""
+    from cxone import CxConfig
+    from ops.scan_manage import ScanSelector, run_manage
+
+    def csv(value):
+        return [v.strip() for v in (value or "").split(",") if v.strip()]
+
+    p = argparse.ArgumentParser(
+        prog=f"multitool scan {sub}",
+        description=("Cancel the Queued/Running scans" if sub == "cancel" else
+                     "Permanently delete the (non-active) scans") + " that match the selectors.")
+    p.add_argument("--env", default=None); p.add_argument("--debug", action="store_true")
+    p.add_argument("--dry-run", action="store_true",
+                   help="list what would be acted on and stop")
+    p.add_argument("--yes", action="store_true",
+                   help="skip the confirmation prompt (required when run unattended "
+                        "with a selector)")
+    g = p.add_argument_group("selection (at least one is required; they combine with AND)")
+    g.add_argument("--scan-id", action="append", default=[], metavar="ID",
+                   help="a specific scan; repeatable")
+    g.add_argument("--project-names", default=None, help="comma-separated, exact names")
+    g.add_argument("--project-ids", default=None, help="comma-separated")
+    g.add_argument("--status", default=None,
+                   help="comma-separated: Queued,Running,Completed,Failed,Partial,Canceled")
+    g.add_argument("--source-origin", default=None,
+                   help="comma-separated sourceOrigin, exact (e.g. cxone-scan-replicator, "
+                        "'Push Webhook'). A tool that submits scans with someone's API key "
+                        "shows up as THAT PERSON in initiator; its own name is here")
+    g.add_argument("--user-agent", default=None,
+                   help="comma-separated userAgent substrings (e.g. cxone-scan-replicator, "
+                        "cxone-multitool)")
+    g.add_argument("--initiator", default=None,
+                   help="comma-separated initiator substrings (a user or key owner)")
+    g.add_argument("--branch", default=None, help="exact branch")
+    g.add_argument("--created-after", default=None, metavar="YYYY-MM-DD",
+                   help="inclusive, UTC")
+    g.add_argument("--created-before", default=None, metavar="YYYY-MM-DD",
+                   help="exclusive, UTC")
+    a = p.parse_args(argv)
+    logging.basicConfig(level=logging.DEBUG if a.debug else logging.INFO,
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    cfg = CxConfig.from_env(a.env)
+    cfg.dry_run = cfg.dry_run or a.dry_run
+    selector = ScanSelector(
+        scan_ids=list(a.scan_id), project_names=csv(a.project_names),
+        project_ids=csv(a.project_ids), statuses=csv(a.status),
+        source_origins=csv(a.source_origin), user_agents=csv(a.user_agent),
+        initiators=csv(a.initiator), branch=a.branch,
+        created_after=a.created_after, created_before=a.created_before)
+    return run_manage(cfg, sub, selector, yes=a.yes)
 
 
 def _scan_query_entry(sub: str, argv: list[str]) -> int:
@@ -466,8 +521,10 @@ Verbs:
   project     projects + repo onboarding (manual, github, ...)
   scanconfig  per-project SAST preset / incremental
   scan        trigger scans (by name/id or random %); also read-only: scan status /
-              history / info (LOC + per-engine stats) / loc (LOC rollup, CSV)
-  results     summarize / drill into findings (per project or per application)
+              history / info (LOC + per-engine stats) / loc (LOC rollup, CSV);
+              and scan cancel / scan delete, selected by origin, user agent,
+              initiator, project, status, branch or date (preview first)
+  results    summarize / drill into findings (per project or per application)
   report      generate PDF/JSON/CSV scan reports and SBOMs
   audit       search/export tenant audit trail (who did what, when)
   triage-simulate  FABRICATED triage for demo realism (weighted rolls; free)
