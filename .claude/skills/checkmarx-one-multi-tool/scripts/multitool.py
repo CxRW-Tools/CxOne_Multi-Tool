@@ -226,6 +226,8 @@ def _scan_entry(argv: list[str]) -> int:
         return _scan_query_entry(argv[0], argv[1:])
     if argv and argv[0] in ("cancel", "delete"):
         return _scan_manage_entry(argv[0], argv[1:])
+    if argv and argv[0] in ("workflow", "log", "stats"):
+        return _scan_diag_entry(argv[0], argv[1:])
 
     from ops.run import run_scan
     p = argparse.ArgumentParser(prog="multitool scan")
@@ -262,6 +264,84 @@ def _scan_entry(argv: list[str]) -> int:
              force=a.force, no_overrides=a.no_overrides, seed=seed,
              api=api, acting_as=acting, identity_selector=selector)
     return 0
+
+
+def _scan_diag_entry(sub: str, argv: list[str]) -> int:
+    """`scan workflow` / `scan log` / `scan stats`: read-only per-scan diagnostics."""
+    from cxone import CxConfig
+    from ops.scan_inputs import split_csv
+
+    helps = {"workflow": "Show or save the workflow events of one or more scans.",
+             "log": "Download the SAST / IaC engine log of one or more scans.",
+             "stats": "One row of statistics per scan, for many scans (CSV / JSONL / JSON / table)."}
+    p = argparse.ArgumentParser(prog=f"multitool scan {sub}", description=helps[sub])
+    p.add_argument("--env", default=None); p.add_argument("--debug", action="store_true")
+    if sub in ("workflow", "log"):
+        p.add_argument("--scan-id", action="append", default=[], metavar="ID",
+                       help="a scan; repeatable")
+        p.add_argument("--scan-ids-file", default=None, metavar="FILE",
+                       help=".txt (one per line), .csv (scan_id column) or .json; '-' = stdin")
+        p.add_argument("--out", default=None, metavar="DIR",
+                       help="directory for the files (required for more than one scan; "
+                            "never the skill folder)")
+        if sub == "workflow":
+            p.add_argument("--json", action="store_true", help="JSON instead of a table / CSV")
+        else:
+            p.add_argument("--engine", default=None,
+                           help="comma-separated: sast,kics (default both). Other engines keep no log")
+    else:
+        sel = p.add_argument_group("selection (exactly one)")
+        sel.add_argument("--scan-ids", default=None, help="comma-separated scan ids")
+        sel.add_argument("--scan-ids-file", default=None, metavar="FILE",
+                         help=".txt, .csv (scan_id column) or .json; '-' = stdin")
+        sel.add_argument("--project-names", default=None, help="comma-separated, exact names")
+        sel.add_argument("--projects-file", default=None, metavar="FILE",
+                         help=".txt, .csv (name column) or .json; '-' = stdin")
+        sel.add_argument("--all-projects", action="store_true")
+        flt = p.add_argument_group("project filters")
+        flt.add_argument("--mode", default="latest", choices=["latest", "all"],
+                         help="latest: the in-scope scan per project (default); all: every scan")
+        flt.add_argument("--scope", default="primary",
+                         choices=["primary", "production", "latest", "all"],
+                         help="branch scope for --mode latest (default: primary, as in the UI)")
+        flt.add_argument("--branch", default=None, help="exact branch (overrides --scope)")
+        flt.add_argument("--statuses", default="Completed",
+                         help="comma-separated, for --mode all (default Completed)")
+        flt.add_argument("--since", default=None, metavar="YYYY-MM-DD")
+        flt.add_argument("--until", default=None, metavar="YYYY-MM-DD")
+        flt.add_argument("--engine", default=None, help="only scans that ran this engine")
+        p.add_argument("--languages", action="store_true",
+                       help="add per-language SAST LOC (one extra call per scan)")
+        out = p.add_argument_group("output")
+        out.add_argument("--format", dest="fmt", default=None,
+                         choices=["table", "csv", "jsonl", "json"],
+                         help="default: table on a terminal, jsonl when piped")
+        out.add_argument("--output", default=None, metavar="PATH",
+                         help="write here instead of stdout (never the skill folder)")
+        out.add_argument("--fields", default=None, help="comma-separated columns to keep")
+        out.add_argument("--summary-only", action="store_true", help="totals only")
+        out.add_argument("--resume", action="store_true",
+                         help="skip scans already in --output (csv/jsonl)")
+        p.add_argument("--workers", type=int, default=8, help="threads (default 8, max 32)")
+    a = p.parse_args(argv)
+    logging.basicConfig(level=logging.DEBUG if a.debug else logging.INFO,
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    cfg = CxConfig.from_env(a.env)
+    if sub == "workflow":
+        from ops.scan_logs import cmd_workflow
+        return cmd_workflow(cfg, scan_ids=a.scan_id, ids_file=a.scan_ids_file, out=a.out,
+                            as_json=a.json)
+    if sub == "log":
+        from ops.scan_logs import cmd_log
+        return cmd_log(cfg, scan_ids=a.scan_id, ids_file=a.scan_ids_file, engines=a.engine, out=a.out)
+    from ops.scan_stats import cmd_stats
+    return cmd_stats(
+        cfg, scan_ids=split_csv(a.scan_ids), ids_file=a.scan_ids_file,
+        names=split_csv(a.project_names), names_file=a.projects_file,
+        all_projects=a.all_projects, mode=a.mode, scope=a.scope, branch=a.branch,
+        statuses=split_csv(a.statuses), since=a.since, until=a.until, engine=a.engine,
+        languages=a.languages, fmt=a.fmt, output=a.output, fields=a.fields,
+        summary_only=a.summary_only, resume=a.resume, workers=a.workers)
 
 
 def _scan_manage_entry(sub: str, argv: list[str]) -> int:
@@ -523,7 +603,8 @@ Verbs:
   scan        trigger scans (by name/id or random %); also read-only: scan status /
               history / info (LOC + per-engine stats) / loc (LOC rollup, CSV);
               and scan cancel / scan delete, selected by origin, user agent,
-              initiator, project, status, branch or date (preview first)
+              initiator, project, status, branch or date (preview first);
+              read-only: scan stats (bulk rows, CSV/JSONL), scan workflow, scan log
   results    summarize / drill into findings (per project or per application)
   report      generate PDF/JSON/CSV scan reports and SBOMs
   audit       search/export tenant audit trail (who did what, when)

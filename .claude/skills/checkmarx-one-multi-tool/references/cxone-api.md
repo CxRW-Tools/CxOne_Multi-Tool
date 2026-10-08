@@ -185,6 +185,20 @@ whenever the question is about a specific scan, not just the tenant's live defau
 - Branch/repo are read from the latest Completed/Partial scan when available.
 - Weighted config rolls (preset/incremental) come from `config/scan_rules.yaml`.
 
+## Scan diagnostics, bulk stats, API keys, SCM import
+
+| Call | Does | Notes |
+|---|---|---|
+| `GET /api/scans/{id}/workflow` | the scan's task events | a JSON list of `{Timestamp, Source, Info}` (capitalised keys; timestamps have 9 fractional digits). 192 events for a full multi-engine scan |
+| `GET /api/logs/{scan-id}/{engine}` | the engine log | `sast` and `kics` only. Answers **307** to a same-host storage URL, so following the redirect is safe with the bearer token; `sca` returns 404 |
+| `GET {iam}/auth/admin/realms/{tenant}/clients?clientId=ast-app` then `.../clients/{id}/offline-sessions` | the tenant's API keys (one offline session each) | returns `id, username, userId, ipAddress, start, lastAccess` (epoch ms), never the key. **Default page is 100 rows**: pass `first` and `max` (live: `max=5000` returned all 465 sessions, 93 users) |
+| `POST /api/repos-manager/project-conversion` | convert a manual project to an SCM project | body `{scmType, scmOnPremUrl, orgIdentity, token, webhookEnabled, autoScanCxProjectAfterConversion, projects:[{cxProjectId, scmRepositoryUrl}]}` -> `{processId, message}` |
+| `GET /api/repos-manager/project-conversion?processId=` | conversion status | `migrationStatus` is `OK`, `IN_PROGRESS`, `PARTIAL`...; `processId` must match `^[A-Za-z0-9_-]{11}$` (a wrong shape is HTTP 400). `/api/repos-manager/conversion/status` is **404** |
+
+`GET /sast-metadata/{id}/metrics` returns 404 "scan was skipped due to unchanged
+conditions" for a scan whose SAST the engine skipped; there is nothing to report.
+`changePercentage` is a ratio, not a percent.
+
 ## Scan cancel / delete — `ops/scan_manage.py`  (AST plane, destructive)
 
 | Call | Does | Notes |

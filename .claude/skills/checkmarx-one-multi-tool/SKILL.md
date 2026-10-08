@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.55.1
+  version: 3.56.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -147,7 +147,8 @@ results rather than assuming they equal the preview.
 `scan delete`, which are destructive: see "Cancelling and deleting scans"), `triage-simulate`,
 `triage-real apply`, `provision`,
 `quickstart`, `purge`, `iam` (create-user / set-password / delete / role &
-group changes), `app create`, `project` / `onboard` (incl. `set-repo`),
+group changes), `app create`, `project` / `onboard` (incl. `set-repo` and
+`import-scm`, which converts a project to an SCM project and can't be undone cleanly),
 `scanconfig set`, `identities add` / `remove` / `import` (they write the
 credentials sidecar), `ai-assist triage` / `remediate` / `discard` (they spend
 real AI credits — treat the cost as part of the blast radius you list), and any
@@ -155,7 +156,8 @@ real AI credits — treat the cost as part of the blast radius you list), and an
 
 **Read-only verbs (announce tenant, then just run — no confirmation stop):**
 `welcome`, `results`, `report`, `scan status`, `scan history`, `scan info`,
-`scan loc`, `export`,
+`scan loc`, `scan stats`, `scan workflow`, `scan log` (it writes local files, to
+the user's own directory), `iam list-api-keys`, `export`,
 `identities list`, `identities test`, `triage-real prepare`, `ai-assist find` /
 `triage-status` / `remediation-details` / `credits`,
 `env show`, `env derive`, and `--help`. (`export` reads the whole tenant but
@@ -492,6 +494,52 @@ python multitool.py scan history --project "Acme/web"               # LOC per sc
    LOC; 44 vs 46 files, because script extracted from HTML/JSP is counted as
    JavaScript). Report the figure you were asked for and say which field it is.
 8. `changePercentage` is a ratio (0.0061 = 0.61% of files), not a percent.
+
+## Scan diagnostics, bulk stats, API keys, SCM import
+
+Four capabilities that mirror standalone CxOne tools. All reads are safe to run
+after announcing the tenant; `project import-scm` mutates, so it follows the full
+preview-confirm-act cycle.
+
+```bash
+python multitool.py scan workflow --scan-id <id>                      # the task events, as a table
+python multitool.py scan workflow --scan-ids-file ids.txt --out wf/   # one CSV per scan
+python multitool.py scan log --scan-id <id> --out logs/               # <id>-sast.txt, <id>-kics.txt
+python multitool.py scan stats --project-names "A,B" --format csv --output stats.csv
+python multitool.py scan stats --all-projects --mode all --since 2026-01-01 --format jsonl --output s.jsonl --resume
+python multitool.py iam list-api-keys --stale-days 90 --csv keys.csv
+python multitool.py project --dry-run import-scm --name Acme --repo-url https://github.com/acme/web --scm-org acme
+```
+
+Rules:
+
+1. **Write only to the user's directory.** `--out` / `--output` refuse the skill
+   folder. Name a folder next to `cxone.env`.
+2. **`scan log` covers `sast` and `kics` only.** Other engines, and logs that
+   have aged out, return 404; the command reports them as "not available", not as
+   failures.
+3. **`scan stats` is the bulk, lean version of `scan info`.** Exactly one of
+   `--scan-ids`, `--scan-ids-file`, `--project-names`, `--projects-file`,
+   `--all-projects`. `--mode latest` (default) takes the in-scope scan per project;
+   `--mode all` takes every scan in the window. `sast_loc` is the codebase size
+   even for incremental scans (see the LOC rules above), so there is no
+   "sizing" flag, and the footer totals sum only the LATEST scan per
+   project/branch. `--languages` costs a call per scan; scans the engine skipped
+   as unchanged have no metrics and say so in `errors` as a `note:` (not a failure).
+   `change_pct` is a percent here (the API's ratio times 100).
+4. **`iam list-api-keys` pages.** The endpoint returns only 100 rows by default;
+   the command asks for all of them (live: 465 keys across 93 users). It shows
+   owner and dates, never the key. `idle_days` is days since last access.
+5. **`import-scm` needs a token from an environment variable you name**
+   (`--scm-token-env VAR`); it never takes the token on the command line, and
+   github.com falls back to the configured GitHub token. It stops, with a
+   message, when the project is already an SCM project or the repository is already
+   onboarded under another project. SCM type is taken from the host; a
+   self-hosted server needs `--scm-type` and `--scm-url`. Always `--dry-run`
+   first and show the user the plan.
+6. **Status route.** The conversion is polled at
+   `GET /api/repos-manager/project-conversion?processId=...`. An older importer
+   polled `/api/repos-manager/conversion/status`, which returns 404 now.
 
 ## Cancelling and deleting scans — select by origin, preview first
 

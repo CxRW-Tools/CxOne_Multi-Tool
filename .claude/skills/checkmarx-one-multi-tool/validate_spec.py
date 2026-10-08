@@ -92,12 +92,20 @@ def _norm(path: str) -> str:
 DYNAMIC_PATHS = {
     "/{}/{}",          # download_sca_export(file_url): GETs a runtime signed URL
 }
+# Endpoints called through a raw HTTP request instead of `api.get(...)` (so the
+# scraper can't see them): the engine-log download needs the redirect followed
+# and the body kept as bytes (ops/scan_logs.py).
+RAW_HTTP_ENDPOINTS = {
+    ("GET", "/logs/{}/{}"),
+}
 IAM_PLANE_PATHS = {
     "/groups", "/groups/{}", "/users", "/users/{}",
     "/users/{}/groups", "/users/{}/groups/{}", "/users/{}/reset-password",
     "/users/{}/role-mappings/realm", "/roles",
     # Client (ast-app) role assignment for demo personas — Keycloak admin API.
     "/clients", "/clients/{}/roles", "/users/{}/role-mappings/clients/{}",
+    # API keys = the ast-app client's offline sessions (`iam list-api-keys`).
+    "/clients/{}/offline-sessions",
     # Role-by-id lookup — audit.py's UUID resolver (roleId/assignedRoles/
     # unassignedRoles in audit event payloads -> role name).
     "/roles-by-id/{}",
@@ -173,7 +181,7 @@ def collect_code_endpoints(scripts_dir: Path) -> set[tuple[str, str]]:
             if not base or not _looks_like_path(base):
                 continue
             found.add((_VERB_METHOD[verb], _norm(base + suffix)))
-    return found
+    return found | RAW_HTTP_ENDPOINTS
 
 
 USED_HEADER = (

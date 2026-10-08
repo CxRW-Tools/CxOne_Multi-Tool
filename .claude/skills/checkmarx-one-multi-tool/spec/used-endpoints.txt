@@ -12,10 +12,12 @@ GET /api/credits/consumption
 GET /api/credits/info
 GET /api/kics-results
 GET /api/kics-results-predicates/{}
+GET /api/logs/{}/{}
 GET /api/micro-engines/read/predicates/{}
 GET /api/projects
 GET /api/projects/{}
 GET /api/reports/{}
+GET /api/repos-manager/project-conversion
 GET /api/repos-manager/protected-branches
 GET /api/results
 GET /api/sast-configuration
@@ -29,6 +31,7 @@ GET /api/sast-results/compare
 GET /api/scan-summary
 GET /api/scans
 GET /api/scans/{}
+GET /api/scans/{}/workflow
 PATCH /api/scans/{}
 POST /api/ai-triage/triage
 POST /api/applications
@@ -39,6 +42,7 @@ POST /api/micro-engines/write/predicates
 POST /api/projects
 POST /api/remediation/remediate
 POST /api/reports
+POST /api/repos-manager/project-conversion
 POST /api/repos-manager/scm-projects
 POST /api/sast-results-predicates
 POST /api/sast-results-predicates/attack-vector
