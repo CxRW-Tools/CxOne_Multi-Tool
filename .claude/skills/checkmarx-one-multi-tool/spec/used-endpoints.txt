@@ -6,8 +6,10 @@ DELETE /api/projects/{}
 GET /api/applications
 GET /api/audit-events
 GET /api/configuration/project
+GET /api/configuration/scan
 GET /api/credits/consumption
 GET /api/credits/info
+GET /api/kics-results
 GET /api/kics-results-predicates/{}
 GET /api/micro-engines/read/predicates/{}
 GET /api/projects
@@ -16,9 +18,14 @@ GET /api/reports/{}
 GET /api/repos-manager/protected-branches
 GET /api/results
 GET /api/sast-configuration
+GET /api/sast-metadata
+GET /api/sast-metadata/engine-version
+GET /api/sast-metadata/{}
+GET /api/sast-metadata/{}/metrics
 GET /api/sast-results
 GET /api/sast-results-predicates/{}
 GET /api/sast-results/compare
+GET /api/scan-summary
 GET /api/scans
 GET /api/scans/{}
 POST /api/ai-triage/triage

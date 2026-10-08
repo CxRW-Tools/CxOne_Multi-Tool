@@ -149,7 +149,11 @@ and `ai-assist` (Checkmarx Assist AI Triage + Remediation — real, and spends A
 credits, with balance and cost shown before every run), **triage history**
 (`results show --history` / `--full-history`: past state, comment, user and
 timestamp, read from each engine's own predicate/action store — never from the
-audit trail, which records events rather than current state), **multi-identity attribution** (register secondary
+audit trail, which records events rather than current state), **lines of code and scan statistics** (`scan info`: SAST LOC per language,
+full vs incremental, engine version, effective config, per-engine timing, IaC
+files/platforms, SCA packages; `--source-loc` adds a local line count of the
+scanned snapshot, including IaC; `scan loc`: a per-project LOC rollup for the
+tenant or an application, with CSV/JSON export), **multi-identity attribution** (register secondary
 users' API keys and scans/triage run as different team members — `--as` on
 `scan`, `triage-simulate` and `triage-real apply`, incl. `-secondary` variants
 that exclude the admin key, automatic
@@ -181,6 +185,9 @@ simulation, no time compression). One entry point: `run.py` (or
   the realism model (`realism.py`), runners.
 - `scripts/triage_real.py` + `scripts/ops/source_fetch.py` — genuine review
   (`triage-real prepare` -> assistant reads the real scanned source -> `apply`).
+- `scripts/ops/scan_info.py` + `scripts/ops/source_loc.py` — scan statistics
+  and lines of code (`scan info`, `scan loc`, the LOC column in `scan history`);
+  `source_loc` counts a scanned snapshot locally (languages + IaC platforms).
 - `scripts/ops/triage_history.py` — past triage (state, comment, user, when) per
   engine, behind `results show --history`.
 - `scripts/selfcheck.py` — is this checkout current with the published branch,

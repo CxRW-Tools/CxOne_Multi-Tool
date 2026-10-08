@@ -129,6 +129,10 @@ class BranchResolver:
         self._scans[project_id] = scans
         return scans
 
+    def completed_scans(self, project_id: str) -> list[dict]:
+        """A project's Completed scans, newest first (cached per run)."""
+        return self._completed_scans(project_id)
+
     # ------------------------------------------------------------ resolving
     def primary_branch(self, project: dict) -> tuple[str | None, str]:
         """The project's primary branch and how it was determined.

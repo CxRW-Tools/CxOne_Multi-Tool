@@ -185,6 +185,46 @@ whenever the question is about a specific scan, not just the tenant's live defau
 - Branch/repo are read from the latest Completed/Partial scan when available.
 - Weighted config rolls (preset/incremental) come from `config/scan_rules.yaml`.
 
+## Scan info + lines of code — `ops/scan_info.py`, `ops/source_loc.py`  (AST plane, read-only)
+
+Backs `scan info`, `scan loc` and the LOC column of `scan history`. Every call
+below is a GET; nothing writes.
+
+| Endpoint | Gives | Notes |
+|---|---|---|
+| `GET /api/sast-metadata?scan-ids=a,b,…` | per scan: `loc`, `fileCount`, `queryPreset`, `isIncremental`, `isIncrementalCanceled`, … | **max 50 ids per call** (spec `maxItems`), comma-joined (`explode: false`). Scans with no SAST come back under `missing`, not as an error. The tool retries a failed batch one scan at a time |
+| `GET /api/sast-metadata/{scan-id}` | the same, plus `baseId`, `added/changed/deletedFilesCount`, `changePercentage`, `hasConfigurationChanged`, `incrementalCancelReason` | the incremental detail is here, not in the batch form |
+| `GET /api/sast-metadata/{scan-id}/metrics` | `totalScannedLoc`, `successfullLocPerLanguage` (sic), `failedLocPerLanguage`, `scannedFilesPerLanguage` {good/partiallyGood/bad}, `fileCountOfDetectedButNotScannedLanguages`, `domObjectsPerLanguage`, `memoryPeak`, `virtualMemoryPeak` | `failedLocPerLanguage` can be `{"null": null}`; filter it |
+| `GET /api/sast-metadata/engine-version?scan-ids=…` | SAST engine version per scan | list body |
+| `GET /api/scan-summary?scan-ids=…` | per-engine counters: severity/status/state, SAST queries/languages/compliance, **KICS `filesScannedCounter` / `platformSummary` / `categorySummary`**, SCA `scaPackagesCounters` (packages, outdated, licenses, risk levels), containers packages/vulnerable images, AISC assets | `scan-ids` repeats (`scan-ids=a&scan-ids=b`). **`filesScannedCounter` is documented "NOT IN USE (always 0)" for SAST, SCA packages and micro-engines** — only the KICS one is real. `include-queries=true` for top SAST queries |
+| `GET /api/kics-results?scan-id=…` | IaC findings with `fileName`, `platform`, `cloudProvider`, `resourceType` | `offset` is a record count (default paginate is correct) |
+| `GET /api/configuration/scan?project-id=&scan-id=` | the resolved config that ran (see "Scan configuration") | |
+| `GET /api/scans/{id}` | branch, commit, initiator, `sourceType`/`sourceOrigin`/`userAgent`, `engines`, `statusDetails[]` with per-engine `startDate`/`endDate` | live tenants also return `loc` on the SAST `statusDetails` entry; the published schema omits it. Used only as a fallback |
+
+**`loc` vs `totalScannedLoc`.** They differ slightly (the spec's own example:
+106,956 vs 106,819). `loc` is the scan's reported LOC; `totalScannedLoc` is the
+part the engine parsed successfully. Both are shown, labelled.
+
+**Incremental scans.** `isIncremental: true` with `isIncrementalCanceled: false`
+is a true incremental, and its `loc` covers only the re-analysed code. An
+incremental that was cancelled ran as a full scan (`incrementalCancelReason`
+says why). For sizing, `scan loc` walks back up to 25 Completed scans on the
+same branch to find the most recent full one and reports it as
+`last_full_loc` / `sizing_loc`.
+
+**No IaC LOC from the platform.** KICS reports files scanned, never lines. The
+only way to get an IaC line count is to count the scanned snapshot
+(`GET /api/repostore/code/{scan-id}`, see "Scanned source"), which
+`scan info --source-loc` does with `ops/source_loc.py`: a cloc-style count per
+language plus per-KICS-platform IaC classification (Terraform, CloudFormation,
+Kubernetes, Helm, Ansible, Dockerfile, DockerCompose, ARM, Bicep, OpenAPI,
+ServerlessFW, Pulumi, Crossplane, Knative, GRPC, CICD). It is an estimate:
+the engines apply their own exclusions.
+
+**Not yet verified live** (spec-derived; confirm on first real use and update
+this note): units of `memoryPeak` (assumed MB), the `scan-summary` batch limit
+(50 used), and what `loc` reports for an incremental scan.
+
 ## Results + triage — `ops/triage/*`  (AST plane)
 
 **SAST grouping modes.** Tenants triage SAST by Similarity ID (classic) or by
