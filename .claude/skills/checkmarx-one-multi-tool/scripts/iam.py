@@ -275,6 +275,28 @@ class IamManager:
             return []
         return self.api.get(f"clients/{cid}/roles", use_iam=True) or []
 
+    def list_api_keys(self, page_size: int = 500) -> list[dict]:
+        """API keys = the ast-app client's offline sessions (one per key).
+
+        The endpoint returns only 100 rows unless `first`/`max` are passed, so a
+        plain GET silently drops every key past the first hundred (live: 465
+        sessions, 100 returned). Each row carries username, userId, start and
+        lastAccess (epoch ms) and never the key itself.
+        """
+        cid = self._ast_client_uuid()
+        if not cid:
+            return []
+        rows: list[dict] = []
+        first = 0
+        while True:
+            page = self.api.get(f"clients/{cid}/offline-sessions",
+                                params={"first": first, "max": page_size}, use_iam=True) or []
+            rows.extend(page)
+            if len(page) < page_size:
+                break
+            first += page_size
+        return rows
+
     def assign_client_role(self, user_id: str, role_name: str) -> bool:
         """POST /users/{id}/role-mappings/clients/{clientUuid}. Returns True if the
         role existed and was assigned, False if not found (so callers can fall back)."""
@@ -366,7 +388,69 @@ def _build_cli() -> argparse.ArgumentParser:
     ar.add_argument("--username", required=True)
     ar.add_argument("--roles", required=True,
                     help="comma-separated role names, e.g. ast-viewer,view-applications")
+    ak = sub.add_parser("list-api-keys", help="list the tenant's API keys with owner, created "
+                        "and last-access dates (read-only; never shows the keys)")
+    ak.add_argument("--stale-days", type=int, default=None, metavar="N",
+                    help="only keys not used in the last N days")
+    ak.add_argument("--user", default=None, help="only keys whose owner contains this text")
+    ak.add_argument("--csv", dest="csv_path", default=None, metavar="PATH")
+    ak.add_argument("--json", action="store_true", dest="as_json")
     return p
+
+
+def _ms_to_iso(value) -> str:
+    """Epoch milliseconds -> 'YYYY-MM-DD HH:MM:SS' UTC, or '' when unset."""
+    import datetime as _dt
+    try:
+        return _dt.datetime.fromtimestamp(int(value) / 1000, _dt.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError, OverflowError, OSError):
+        return ""
+
+
+def _cmd_list_api_keys(iam, args) -> int:
+    import csv
+    import datetime as _dt
+    import json as _json
+    from ops.scan_inputs import REFUSED_INSIDE_SKILL, open_output, output_file
+
+    now_ms = _dt.datetime.now(_dt.timezone.utc).timestamp() * 1000
+    rows = []
+    for key in iam.list_api_keys():
+        idle = None
+        if key.get("lastAccess"):
+            idle = max(0, int((now_ms - int(key["lastAccess"])) // 86_400_000))
+        rows.append({"username": key.get("username") or "", "user_id": key.get("userId") or "",
+                     "created": _ms_to_iso(key.get("start")),
+                     "last_access": _ms_to_iso(key.get("lastAccess")), "idle_days": idle})
+    if args.user:
+        rows = [r for r in rows if args.user.lower() in r["username"].lower()]
+    if args.stale_days is not None:
+        rows = [r for r in rows if r["idle_days"] is None or r["idle_days"] >= args.stale_days]
+    rows.sort(key=lambda r: (r["last_access"], r["username"]))
+    if args.csv_path:
+        target = output_file(args.csv_path)
+        if target is None:
+            print(REFUSED_INSIDE_SKILL, file=sys.stderr)
+            return 2
+        with open_output(target, "w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(rows[0]) if rows else
+                                    ["username", "user_id", "created", "last_access", "idle_days"])
+            writer.writeheader()
+            writer.writerows(rows)
+        logger.info("Wrote %d API key row(s) to %s", len(rows), target)
+    if args.as_json:
+        print(_json.dumps(rows, indent=2))
+        return 0
+    width = max([len(r["username"]) for r in rows] + [8])
+    print(f"{'Username':<{width}}  {'Created (UTC)':<19}  {'Last access (UTC)':<19}  Idle days")
+    for r in rows:
+        idle = "" if r["idle_days"] is None else r["idle_days"]
+        print(f"{r['username']:<{width}}  {r['created']:<19}  {r['last_access']:<19}  {idle}")
+    owners = len({r["user_id"] for r in rows})
+    print(f"\n{len(rows)} API key(s) across {owners} user(s)."
+          + ("" if args.stale_days is None else f" (not used in {args.stale_days}+ days)"))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -418,6 +502,8 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             desc = role.get("description") or ""
             print(f"[{scope}] {name}{'  — ' + desc if desc else ''}")
+    elif args.cmd == "list-api-keys":
+        return _cmd_list_api_keys(iam, args)
     elif args.cmd == "assign-role":
         ok = iam.assign_roles_to_user(
             args.username, [r.strip() for r in args.roles.split(",") if r.strip()])

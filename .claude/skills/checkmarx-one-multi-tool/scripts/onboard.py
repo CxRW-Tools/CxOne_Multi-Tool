@@ -679,6 +679,26 @@ def main(argv: list[str] | None = None) -> int:
     at = sub.add_parser("add-tags", help="add tag(s) to a project (key or key:value, comma-separated)")
     at.add_argument("--name", required=True)
     at.add_argument("--tags", required=True, help="comma-separated tag keys")
+    im = sub.add_parser("import-scm", help="turn a repository into an SCM (Code Repository) "
+                        "project: creates the project if needed, then converts it")
+    im.add_argument("--name", required=True, help="project name (created when absent)")
+    im.add_argument("--repo-url", required=True, help="the repository URL")
+    im.add_argument("--scm-org", required=True,
+                    help="the SCM organisation / workspace that owns the repository")
+    im.add_argument("--scm-token-env", default=None, metavar="VAR",
+                    help="NAME of an environment variable holding the SCM token (never the "
+                         "token itself, so it stays out of shell history). github.com falls "
+                         "back to the configured GitHub token")
+    im.add_argument("--scm-type", default=None, choices=["github", "gitlab", "bitbucket", "azure"],
+                    help="override the type detected from the URL (needed for self-hosted)")
+    im.add_argument("--scm-url", default=None, help="base URL of a self-hosted SCM server")
+    im.add_argument("--groups", default="", help="comma-separated group names for a new project")
+    im.add_argument("--tags", default="", help="comma-separated tags for a new project")
+    im.add_argument("--criticality", type=int, default=3)
+    im.add_argument("--no-webhook", action="store_true",
+                    help="don't install the SCM webhook (push/PR triggers)")
+    im.add_argument("--scan", action="store_true", help="scan right after the conversion")
+    im.add_argument("--timeout", type=int, default=300, help="seconds to wait for the conversion")
     d = sub.add_parser("delete", help="delete projects by name or selector")
     d.add_argument("name", nargs="*", help="project name(s); or use the selector flags")
     _add_selector(d)
@@ -736,6 +756,15 @@ def main(argv: list[str] | None = None) -> int:
              "groups": [g for g in args.groups.split(",") if g]}
             for r in args.repos.split(",") if r.strip()
         ])
+    elif args.cmd == "import-scm":
+        from ops.scm_import import import_scm
+        return import_scm(
+            mgr, name=args.name, repo_url=args.repo_url, scm_org=args.scm_org,
+            token_env=args.scm_token_env, scm_type=args.scm_type, scm_url=args.scm_url,
+            groups=[g.strip() for g in args.groups.split(",") if g.strip()],
+            tags=[t.strip() for t in args.tags.split(",") if t.strip()],
+            webhook=not args.no_webhook, auto_scan=args.scan, criticality=args.criticality,
+            timeout=args.timeout)
     elif args.cmd == "set-repo":
         ok = mgr.set_project_repo(args.name, args.repo_url, args.branch)
         return 0 if ok else 1
