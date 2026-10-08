@@ -210,7 +210,7 @@ def _looks_like_path(s: str) -> bool:
              "configuration/", "repos-manager", "sca/", "sast-results", "kics-results",
              "micro-engines", "containers/", "results", "reports", "audit",
              "custom-states", "feedback", "byor", "uploads", "policy",
-             "sast-configuration")
+             "sast-configuration", "sast-metadata", "scan-summary")
     return "/" in s or s in ("applications", "projects", "scans", "groups", "users", "roles") \
         or s.startswith(roots)
 

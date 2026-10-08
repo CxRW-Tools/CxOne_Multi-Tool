@@ -220,9 +220,9 @@ def _resolve_identity(cfg, as_spec: str | None, kind: str, key: str,
 def _scan_entry(argv: list[str]) -> int:
     from cxone import CxConfig
     # Optional read-only subcommands share the `scan` verb: `scan status`,
-    # `scan history`. Anything else is the (flag-based) trigger path, so
-    # `scan --project-names ...` stays backward-compatible.
-    if argv and argv[0] in ("status", "history"):
+    # `scan history`, `scan info`, `scan loc`. Anything else is the (flag-based)
+    # trigger path, so `scan --project-names ...` stays backward-compatible.
+    if argv and argv[0] in ("status", "history", "info", "loc"):
         return _scan_query_entry(argv[0], argv[1:])
 
     from ops.run import run_scan
@@ -273,6 +273,45 @@ def _scan_query_entry(sub: str, argv: list[str]) -> int:
     elif sub == "history":
         p.add_argument("--project", required=True)
         p.add_argument("--limit", type=int, default=10)
+    elif sub == "info":
+        tgt = p.add_mutually_exclusive_group(required=True)
+        tgt.add_argument("--project", help="project name (its in-scope scan is used)")
+        tgt.add_argument("--scan-id", help="a specific scan (any status, any branch)")
+        p.add_argument("--scope", default="primary",
+                       choices=["primary", "production", "latest", "all"],
+                       help="branch scope when --project is used (default: primary, "
+                            "which matches the UI)")
+        p.add_argument("--branch", default=None, help="exact branch (overrides --scope)")
+        p.add_argument("--source-loc", action="store_true",
+                       help="download the scanned source snapshot and count its lines "
+                            "(all languages + IaC by KICS platform). The only way to "
+                            "get an IaC line count; costs a source download")
+        p.add_argument("--keep-source", default=None, metavar="DIR",
+                       help="with --source-loc: extract into DIR and keep it "
+                            "(default: a temp dir, deleted afterwards)")
+        p.add_argument("--no-kics-detail", action="store_true",
+                       help="skip reading every IaC finding (faster on huge IaC repos)")
+        p.add_argument("--top", type=int, default=10,
+                       help="rows in each top-N list (queries, files, licenses...)")
+        p.add_argument("--brief", action="store_true",
+                       help="headline numbers only: no top-N lists or configuration")
+        p.add_argument("--all-config", action="store_true",
+                       help="show every configuration key, not only scan.config.*")
+        p.add_argument("--json", action="store_true", help="machine-readable output")
+    elif sub == "loc":
+        g = p.add_mutually_exclusive_group()
+        g.add_argument("--project-names", default=None, help="comma-separated project names")
+        g.add_argument("--app", default=None, help="every project in this application")
+        g.add_argument("--all", action="store_true", help="every project (the default)")
+        p.add_argument("--scope", default="primary",
+                       choices=["primary", "production", "latest", "all"],
+                       help="branch scope (default: primary, which matches the UI)")
+        p.add_argument("--branch", default=None, help="exact branch (overrides --scope)")
+        p.add_argument("--languages", action="store_true",
+                       help="add per-language SAST LOC (one extra call per project)")
+        p.add_argument("--csv", dest="csv_path", default=None, metavar="PATH",
+                       help="also write the per-project rows to this CSV file")
+        p.add_argument("--json", action="store_true", help="machine-readable output")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if a.debug else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -282,6 +321,19 @@ def _scan_query_entry(sub: str, argv: list[str]) -> int:
         return ss.scan_status(cfg, names)
     if sub == "history":
         return ss.scan_history(cfg, a.project, a.limit)
+    if sub == "info":
+        from ops import scan_info
+        return scan_info.cmd_info(
+            cfg, project=a.project, scan_id=a.scan_id, scope=a.scope, branch=a.branch,
+            as_json=a.json, brief=a.brief, all_config=a.all_config,
+            source_loc=a.source_loc or bool(a.keep_source), keep_source=a.keep_source,
+            top=a.top, no_kics_detail=a.no_kics_detail)
+    if sub == "loc":
+        from ops import scan_info
+        names = [n.strip() for n in (a.project_names or "").split(",") if n.strip()] or None
+        return scan_info.cmd_loc(
+            cfg, names=names, app=a.app, scope=a.scope, branch=a.branch,
+            languages=a.languages, as_json=a.json, csv_path=a.csv_path)
     return 0
 
 
@@ -413,7 +465,8 @@ Verbs:
   app         applications (create/list/delete, tag-rule association)
   project     projects + repo onboarding (manual, github, ...)
   scanconfig  per-project SAST preset / incremental
-  scan        trigger scans (by name/id or random %); also: scan status/history
+  scan        trigger scans (by name/id or random %); also read-only: scan status /
+              history / info (LOC + per-engine stats) / loc (LOC rollup, CSV)
   results     summarize / drill into findings (per project or per application)
   report      generate PDF/JSON/CSV scan reports and SBOMs
   audit       search/export tenant audit trail (who did what, when)

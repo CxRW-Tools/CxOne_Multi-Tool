@@ -3,7 +3,8 @@ Scan status and history helpers (AST plane, read-only).
 
 These complement the scan *trigger* path in ops/scans.py with on-demand checks:
   - status   : the latest scan per project, with per-engine breakdown
-  - history  : the last N scans for a project (status, when, engines, finding delta)
+  - history  : the last N scans for a project (status, when, engines, SAST LOC
+               and full/incremental, finding delta)
 
 Scans are fire-and-forget: once requested, the platform owns running them to
 completion, so there is no client-side "wait until done" loop here — check status
@@ -121,6 +122,9 @@ def scan_history(cfg: CxConfig, project_name: str, limit: int = 10) -> int:
             counts[s["id"]] = _finding_count(api, s["id"])
         else:
             counts[s["id"]] = None
+    # SAST LOC for every listed scan in one batched call (50 ids per request).
+    from ops.scan_info import sast_metadata_batch, is_full_scan
+    meta = sast_metadata_batch(api, [s["id"] for s in scans if s.get("id")])
     for s in scans:  # display newest first
         sid = s.get("id", "?")
         status = s.get("status", "?")
@@ -128,8 +132,14 @@ def scan_history(cfg: CxConfig, project_name: str, limit: int = 10) -> int:
         count = counts.get(sid)
         count_str = str(count) if count is not None else "—"
         engines = ",".join(s.get("engines") or [])
-        logger.info("  %s  %-10s %-19s findings=%-6s [%s]",
-                    sid[:8], status, created, count_str, engines)
+        m = meta.get(sid)
+        if m and m.get("loc") is not None:
+            loc_str = f"{m['loc']:,}" + ("" if is_full_scan(m) else " (incr)")
+        else:
+            loc_str = "—"
+        logger.info("  %s  %-10s %-19s %-14s findings=%-6s loc=%-18s [%s]",
+                    sid[:8], status, created, (s.get("branch") or "")[:14],
+                    count_str, loc_str, engines)
     # Delta between the two most recent completed scans
     completed = [s for s in scans if (s.get("status") or "").lower() in ("completed", "partial")]
     if len(completed) >= 2:
@@ -139,4 +149,11 @@ def scan_history(cfg: CxConfig, project_name: str, limit: int = 10) -> int:
             delta = n - o
             sign = "+" if delta >= 0 else ""
             logger.info("  delta (latest vs previous completed): %s%d findings", sign, delta)
+        nm, om = meta.get(newer["id"]), meta.get(older["id"])
+        if nm and om and nm.get("loc") is not None and om.get("loc") is not None:
+            dl = nm["loc"] - om["loc"]
+            note = "" if is_full_scan(nm) and is_full_scan(om) else \
+                " (an incremental scan is involved; LOC is not like-for-like)"
+            logger.info("  delta (latest vs previous completed): %s%s SAST LOC%s",
+                        "+" if dl >= 0 else "", f"{dl:,}", note)
     return 0

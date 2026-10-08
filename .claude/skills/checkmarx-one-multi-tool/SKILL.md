@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.53.1
+  version: 3.54.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -153,7 +153,8 @@ real AI credits — treat the cost as part of the blast radius you list), and an
 `env init` / `env set` that writes credentials.
 
 **Read-only verbs (announce tenant, then just run — no confirmation stop):**
-`welcome`, `results`, `report`, `scan status`, `scan history`, `export`,
+`welcome`, `results`, `report`, `scan status`, `scan history`, `scan info`,
+`scan loc`, `export`,
 `identities list`, `identities test`, `triage-real prepare`, `ai-assist find` /
 `triage-status` / `remediation-details` / `credits`,
 `env show`, `env derive`, and `--help`. (`export` reads the whole tenant but
@@ -354,7 +355,8 @@ unimplemented things → Keep the package current**. Don't leave the installed
 | Projects & onboarding | `onboard.py` | `project` | manual projects; one-shot `create` (repo+preset+groups+app-tag); batch `onboard` (many repos, one call); GitHub bulk import (async); GitLab/Azure/Bitbucket extension points. `list` takes the shared selector (`--tag`/`--name-filter`/`--owner`/`--stale-days`/`--no-scans`/`--created-before`) plus `--columns`/`--json`/`--csv`; `delete` accepts many names OR a selector, with `--dry-run` and a `--yes` gate |
 | Tenant hygiene | `ops/project_inventory.py` + `ops/project_provenance.py` | `project inventory` | "what is in this tenant that shouldn't be": scratch-tagged, stale (`--stale-days`), never-scanned (`--no-scans`), by owner. Joins project tags + creator + scan history in one pass. **Creator attribution is labelled**: `audit` (a real `projects.create` event) or `(first scan)` (INFERRED — no create event survives the 365-day window). Never present an inferred creator as a record |
 | Scan configuration | `scanconfig.py` | `scanconfig` | per-project SAST preset / incremental |
-| Scans | `ops/scans.py` + `ops/scan_status.py` | `scan` | trigger by name/id or random %, with weighted config rolls; duplicate-scan guard (`--force`); on-demand `scan status` / `history` (scans are fire-and-forget — no blocking wait) |
+| Scans | `ops/scans.py` + `ops/scan_status.py` | `scan` | trigger by name/id or random %, with weighted config rolls; duplicate-scan guard (`--force`); on-demand `scan status` / `history` (scans are fire-and-forget — no blocking wait; `history` shows SAST LOC per scan) |
+| Scan info & LOC | `ops/scan_info.py` + `ops/source_loc.py` | `scan info`, `scan loc` | **lines of code and scan statistics.** `info`: one scan in depth (SAST LOC + per-language LOC/files, full vs incremental and why, engine version, effective config, per-engine timing, IaC files/platforms/categories, SCA packages/licenses, containers, findings by engine×severity; `--source-loc` counts the scanned snapshot, the only source of an **IaC line count**). `loc`: per-project rollup for the tenant / `--app` / `--project-names` with a sizing LOC that uses the last FULL scan; `--languages`, `--csv`, `--json`. See "Lines of code" below |
 | Results | `results.py` | `results` | `summary` by engine×severity (per project or per-application rollup), `show` finding drill-down (SCA rows labelled `<CVE> — <package>`; filter by engine/severity/state/`--match`, which also matches CVE ids, with `--ids`/`--json` exposing the scan/result/group ids the APIs need, and `--history`/`--full-history` showing WHO triaged each finding, when, and their comment), `kpi` — tenant-wide server-aggregated KPIs (severity×state, aging, most-common, etc.) via the Analytics API in one call |
 | Triage history | `ops/triage_history.py` | (via `results show --history`) | past triage — state, comment, user, timestamp — read from each engine's own predicate/action store (SAST/IaC/Secrets/SCA/Containers). **The only correct source for "who triaged this"; never the audit trail.** See `references/cxone-api.md` "Triage history" |
 | Reports | `reports.py` | `report` | PDF/JSON/CSV scan reports (async poll+download) and CycloneDX/SPDX SBOMs |
@@ -440,6 +442,42 @@ explicitly set). See `references/cxone-api.md` → "Scan configuration" and
 grep `spec/cxone_openapi.json` and skim `references/cxone-api.md` /
 `api-index.md` for the resource name *before* reaching for `audit` to rebuild
 a historical answer by hand.
+
+## "Lines of code" — which number, and where it comes from
+
+`scan info` and `scan loc` answer "how big is this codebase / what did the scan
+cover". Read-only, so no confirmation stop.
+
+```bash
+python multitool.py scan info --project "Acme/web"                 # everything about the in-scope scan
+python multitool.py scan info --scan-id <id> --source-loc           # + local count incl. IaC lines
+python multitool.py scan loc                                        # every project, sized
+python multitool.py scan loc --app "Acme Banking" --languages --csv acme-loc.csv
+python multitool.py scan history --project "Acme/web"               # LOC per scan, full vs incr
+```
+
+**Rules when quoting LOC to a user:**
+
+1. **SAST is the only engine CxOne reports LOC for** (`sast-metadata.loc`).
+   IaC (KICS) reports *files scanned* only; SCA reports packages; containers
+   report images/packages. Never present an IaC "LOC" unless it came from
+   `--source-loc`, and then call it a local count of the scanned snapshot.
+2. **An incremental scan's `loc` is not the codebase size.** It covers only
+   re-analysed code. For sizing, quote `scan loc`'s `sizing_loc` (the last FULL
+   scan on the same branch) and say so; if the row says `incr (no full)`, the
+   project has never had a full scan in range and the number is an undercount.
+3. **`loc` vs `totalScannedLoc`.** `scan info` shows both: `loc` is CxOne's
+   figure for the scan; `metrics.totalScannedLoc` is the subset parsed
+   successfully. Quote `loc` unless the question is about parse coverage.
+4. **Name the branch scope**, exactly as for result counts (below): `scan loc`
+   defaults to `--scope primary` (UI parity) and takes `--branch`.
+5. **`scan-summary`'s `filesScannedCounter` is always 0 for SAST, SCA and
+   micro-engines** (documented "NOT IN USE"). The tool never reads it for those;
+   don't reach for it in ad-hoc queries either. Use `sast-metadata.fileCount`.
+6. `--source-loc` downloads the scanned source (needs the source-download
+   permission; archives age out). Its numbers are a cloc-style estimate and
+   will not equal the SAST engine's own count, which applies exclusions and
+   preset language filters. Present it as a cross-check, not as CxOne's number.
 
 ## "Triage" is ambiguous — ALWAYS disambiguate before acting
 
@@ -977,6 +1015,8 @@ python multitool.py project github --org your-demo-org --repos WebGoat,juice-sho
 # Scan config, scan, realistic triage
 python multitool.py scanconfig set <project-id> --preset "ASA Premium"
 python multitool.py scan --auto --percentage 20
+python multitool.py scan info --project "WebGoat"          # LOC, per-engine stats, IaC, config
+python multitool.py scan loc --csv tenant-loc.csv          # LOC rollup for every project
 python multitool.py triage-simulate --projects "Acme Online Banking" --scan-types sast,iac,sca --intensity some
 python multitool.py triage-real prepare --project "Acme Online Banking" --match "SQL Injection"
 
@@ -1414,7 +1454,7 @@ covered there:
   features (policies, GitLab/ADO/Bitbucket onboarding, audit trail, feedback
   apps, DAST triage, custom states, pre-commit hooks, BYOR), each with CLI
   design, API shapes, and implementation notes. Reports, role assignment,
-  results querying, scan status/history, batch onboarding and quickstart have
+  results querying, scan status/history/info/LOC, batch onboarding and quickstart have
   shipped — see the "Completed" note at its top.
 - `Dockerfile` / `.dockerignore` — the agent's container packaging
   (`run --container` builds it automatically); creds via env vars, ledger on the
