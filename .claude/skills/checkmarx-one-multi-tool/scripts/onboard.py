@@ -439,6 +439,9 @@ def _selector_from(args):
         stale_days=getattr(args, "stale_days", None),
         no_scans=bool(getattr(args, "no_scans", False)),
         created_before=getattr(args, "created_before", None),
+        created_after=getattr(args, "created_after", None),
+        scan_origin=getattr(args, "scan_origin", None),
+        exclusive=bool(getattr(args, "exclusive", False)),
     )
 
 
@@ -462,7 +465,7 @@ def _cmd_inventory(mgr, args) -> int:
     need_scans = bool(wanted & _SCAN_COLUMNS) or selector.no_scans \
         or selector.stale_days is not None
     need_creator = (bool(wanted & _CREATOR_COLUMNS) or bool(selector.owner)
-                    or bool(selector.created_before))
+                    or bool(selector.created_before) or bool(selector.created_after))
     if getattr(args, "no_creator", False):
         need_creator = False
         columns = [c for c in columns if c not in _CREATOR_COLUMNS]
@@ -510,7 +513,7 @@ def _cmd_delete(mgr, args) -> int:
 
     if not names and not selector.active:
         print("Nothing selected: pass project name(s) or a selector "
-              "(--tag/--name-filter/--stale-days/--no-scans/--owner).")
+              "(--tag/--name-filter/--stale-days/--no-scans/--owner/--scan-origin).")
         return 2
 
     targets: list[tuple[str, str]] = []          # (name, project_id)
@@ -524,7 +527,8 @@ def _cmd_delete(mgr, args) -> int:
     if selector.active:
         builder = inv.InventoryBuilder(mgr.api)
         need_scans = selector.no_scans or selector.stale_days is not None
-        need_creator = bool(selector.owner or selector.created_before)
+        need_creator = bool(selector.owner or selector.created_before
+                            or selector.created_after)
         for row in builder.build(selector, enrich_scans=need_scans,
                                  enrich_creator=need_creator):
             if row.project_id not in {t[1] for t in targets}:
@@ -551,13 +555,18 @@ def _cmd_delete(mgr, args) -> int:
     # A selector can match more than the caller pictured; an explicit name list
     # cannot. So confirmation is required for selectors unless --yes is given.
     if selector.active and not args.yes:
+        refusal = ("\nRefusing a selector-based delete without confirmation. "
+                   "Re-run with --dry-run to review, then --yes to proceed.")
         if not sys.stdin.isatty():
-            print("\nRefusing a selector-based delete without confirmation. "
-                  "Re-run with --dry-run to review, then --yes to proceed.")
+            print(refusal)
             return 2
         sys.stdout.flush()
-        reply = input(f"\nPermanently delete these {len(targets)} project(s) "
-                      f"and all their scan history? [y/N] ").strip().lower()
+        try:
+            reply = input(f"\nPermanently delete these {len(targets)} project(s) "
+                          f"and all their scan history? [y/N] ").strip().lower()
+        except EOFError:             # stdin looks like a terminal but has no input
+            print(refusal)
+            return 2
         if reply not in ("y", "yes"):
             print("Aborted.")
             return 1
@@ -602,6 +611,17 @@ def main(argv: list[str] | None = None) -> int:
                        help="only projects that have never been scanned")
         g.add_argument("--created-before", default=None, metavar="YYYY-MM-DD",
                        help="only projects created before this date")
+        g.add_argument("--created-after", default=None, metavar="YYYY-MM-DD",
+                       help="only projects created on or after this date")
+        g.add_argument("--scan-origin", default=None, metavar="ORIGIN",
+                       help="only projects with a scan started by ORIGIN (matched on the "
+                            "scan's sourceOrigin or userAgent, e.g. cxone-scan-replicator). "
+                            "NOT the initiator field: a tool using someone's API key shows "
+                            "up as that person there")
+        g.add_argument("--exclusive", action="store_true",
+                       help="with --scan-origin: only projects where EVERY scan came from "
+                            "that origin, so a project that also holds other scan history "
+                            "is never selected")
 
     ls = sub.add_parser("list", help="list projects, with optional filters and columns")
     _add_selector(ls)

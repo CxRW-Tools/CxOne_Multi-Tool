@@ -62,12 +62,15 @@ class Selector:
     stale_days: int | None = None                        # no scan in N days
     no_scans: bool = False                               # never scanned
     created_before: str | None = None                    # YYYY-MM-DD
+    created_after: str | None = None                     # YYYY-MM-DD, inclusive
+    scan_origin: str | None = None                       # has a scan started by this
+    exclusive: bool = False                              # ...and ONLY such scans
 
     @property
     def active(self) -> bool:
         return any([self.tags, self.names, self.exclude_names, self.owner,
                     self.stale_days is not None, self.no_scans,
-                    self.created_before])
+                    self.created_before, self.created_after, self.scan_origin])
 
     def describe(self) -> str:
         """The active filters, for an empty-result message. "Nothing matched" and
@@ -88,6 +91,10 @@ class Selector:
             bits.append("never-scanned")
         if self.created_before:
             bits.append(f"created<{self.created_before}")
+        if self.created_after:
+            bits.append(f"created>={self.created_after}")
+        if self.scan_origin:
+            bits.append(f"scans-from={self.scan_origin}" + (" (exclusively)" if self.exclusive else ""))
         return "; ".join(bits)
 
     # ------------------------------------------------------------- predicates
@@ -144,6 +151,11 @@ class Selector:
             created = _parse_iso(row.created_at)
             cutoff = _parse_iso(self.created_before + "T00:00:00+00:00")
             if created is None or cutoff is None or created >= cutoff:
+                return False
+        if self.created_after:
+            created = _parse_iso(row.created_at)
+            cutoff = _parse_iso(self.created_after + "T00:00:00+00:00")
+            if created is None or cutoff is None or created < cutoff:
                 return False
         return True
 
@@ -212,9 +224,9 @@ class InventoryBuilder:
 
     def projects(self) -> list[dict]:
         if self._projects is None:
-            resp = self.api.get("projects", params={"limit": 200})
-            data = resp.data if hasattr(resp, "data") else resp
-            self._projects = (data or {}).get("projects") or []
+            # Paged: a single `limit=200` call silently dropped every project past
+            # the first 200, so a selector could never reach them on a big tenant.
+            self._projects = self.api.paginate("projects", results_key="projects", limit=200)
         return self._projects
 
     def _prov(self):
@@ -228,6 +240,18 @@ class InventoryBuilder:
               progress=None) -> list[InventoryRow]:
         selector = selector or Selector()
         candidates = [p for p in self.projects() if selector.matches_project(p)]
+        origin_counts = None
+        if selector.scan_origin:
+            from ops.scan_manage import origin_index
+            origin_counts = origin_index(self.api, selector.scan_origin)
+            # A project with no scan from this origin can never match: skip its
+            # (expensive) enrichment entirely. Exclusive mode additionally needs
+            # every scan in the project to come from that origin.
+            candidates = [
+                p for p in candidates
+                if origin_counts.get(p.get("id"), (0, 0))[0] > 0 and (
+                    not selector.exclusive
+                    or origin_counts[p["id"]][0] == origin_counts[p["id"]][1])]
         rows: list[InventoryRow] = []
         for i, p in enumerate(candidates, 1):
             pid = p.get("id")

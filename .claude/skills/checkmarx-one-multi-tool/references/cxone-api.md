@@ -185,6 +185,26 @@ whenever the question is about a specific scan, not just the tenant's live defau
 - Branch/repo are read from the latest Completed/Partial scan when available.
 - Weighted config rolls (preset/incremental) come from `config/scan_rules.yaml`.
 
+## Scan cancel / delete — `ops/scan_manage.py`  (AST plane, destructive)
+
+| Call | Does | Notes |
+|---|---|---|
+| `PATCH /api/scans/{id}` body `{"status": "Canceled"}` | cancels a Queued/Running scan | "Canceled is the only valid input". Returns 204. A running scan then goes to `Canceled` or `Partial` after a moment, so confirmation is a re-read, not the response |
+| `DELETE /api/scans/{id}` | deletes one scan and its results | returns 204. Works on a single scan, so a project's other scans are untouched |
+| `GET /api/scans?...` | selection | server filters exist (`statuses`, `source-origins`, `initiators`, `project-ids`, `branch`, `from-date`, `to-date`) but an unrecognised parameter is IGNORED, so every row is re-checked client-side |
+
+**Who started a scan.** `initiator` is the identity behind the credential, so a
+tool that submits scans with someone's API key shows up as that person. The tool
+identifies itself in `userAgent` and `sourceOrigin` (live: `cxone-scan-replicator/1.0.0`
+and `cxone-scan-replicator` for 290 scans in one tenant, all with the key owner as
+`initiator`; this tool sends `cxone-multitool`). Replicated scans also carry
+tags such as `cx-replicated-from-tenant`.
+
+**Audit trail.** A project deletion is a `projects.delete` event whose
+`actionUserId` is the credential's owner, with a gateway-internal `ipAddress`.
+A UI session and an API key under the same user are indistinguishable there, so
+the audit trail can say WHEN and as WHOM, not through which client.
+
 ## Scan info + lines of code — `ops/scan_info.py`, `ops/source_loc.py`  (AST plane, read-only)
 
 Backs `scan info`, `scan loc` and the LOC column of `scan history`. Every call

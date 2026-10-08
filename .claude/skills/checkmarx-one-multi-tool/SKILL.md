@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.54.1
+  version: 3.55.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -143,7 +143,8 @@ inherent; don't present the seed as a stronger guarantee than that. When it
 matters, run the live step promptly after confirming, and report the actual
 results rather than assuming they equal the preview.
 
-**Mutating verbs (require the full cycle):** `scan`, `triage-simulate`,
+**Mutating verbs (require the full cycle):** `scan` (incl. `scan cancel` and
+`scan delete`, which are destructive: see "Cancelling and deleting scans"), `triage-simulate`,
 `triage-real apply`, `provision`,
 `quickstart`, `purge`, `iam` (create-user / set-password / delete / role &
 group changes), `app create`, `project` / `onboard` (incl. `set-repo`),
@@ -355,7 +356,7 @@ unimplemented things → Keep the package current**. Don't leave the installed
 | Projects & onboarding | `onboard.py` | `project` | manual projects; one-shot `create` (repo+preset+groups+app-tag); batch `onboard` (many repos, one call); GitHub bulk import (async); GitLab/Azure/Bitbucket extension points. `list` takes the shared selector (`--tag`/`--name-filter`/`--owner`/`--stale-days`/`--no-scans`/`--created-before`) plus `--columns`/`--json`/`--csv`; `delete` accepts many names OR a selector, with `--dry-run` and a `--yes` gate |
 | Tenant hygiene | `ops/project_inventory.py` + `ops/project_provenance.py` | `project inventory` | "what is in this tenant that shouldn't be": scratch-tagged, stale (`--stale-days`), never-scanned (`--no-scans`), by owner. Joins project tags + creator + scan history in one pass. **Creator attribution is labelled**: `audit` (a real `projects.create` event) or `(first scan)` (INFERRED — no create event survives the 365-day window). Never present an inferred creator as a record |
 | Scan configuration | `scanconfig.py` | `scanconfig` | per-project SAST preset / incremental |
-| Scans | `ops/scans.py` + `ops/scan_status.py` | `scan` | trigger by name/id or random %, with weighted config rolls; duplicate-scan guard (`--force`); on-demand `scan status` / `history` (scans are fire-and-forget — no blocking wait; `history` shows SAST LOC per scan) |
+| Scans | `ops/scans.py` + `ops/scan_status.py` + `ops/scan_manage.py` | `scan` | **`scan cancel` / `scan delete`** (destructive; selected by `--source-origin` / `--user-agent` / `--initiator` / project / status / branch / date; see "Cancelling and deleting scans"); trigger by name/id or random %, with weighted config rolls; duplicate-scan guard (`--force`); on-demand `scan status` / `history` (scans are fire-and-forget — no blocking wait; `history` shows SAST LOC per scan) |
 | Scan info & LOC | `ops/scan_info.py` + `ops/source_loc.py` | `scan info`, `scan loc` | **lines of code and scan statistics.** `info`: one scan in depth (SAST LOC + per-language LOC/files, full vs incremental and why, engine version, effective config, per-engine timing, IaC files/platforms/categories, SCA packages/licenses, containers, findings by engine×severity; `--source-loc` counts the scanned snapshot, the only source of an **IaC line count**). `loc`: per-project rollup for the tenant / `--app` / `--project-names` with a sizing LOC (the scan's own `loc`, which is the whole codebase even when incremental); `--languages`, `--csv`, `--json`. See "Lines of code" below |
 | Results | `results.py` | `results` | `summary` by engine×severity (per project or per-application rollup), `show` finding drill-down (SCA rows labelled `<CVE> — <package>`; filter by engine/severity/state/`--match`, which also matches CVE ids, with `--ids`/`--json` exposing the scan/result/group ids the APIs need, and `--history`/`--full-history` showing WHO triaged each finding, when, and their comment), `kpi` — tenant-wide server-aggregated KPIs (severity×state, aging, most-common, etc.) via the Analytics API in one call |
 | Triage history | `ops/triage_history.py` | (via `results show --history`) | past triage — state, comment, user, timestamp — read from each engine's own predicate/action store (SAST/IaC/Secrets/SCA/Containers). **The only correct source for "who triaged this"; never the audit trail.** See `references/cxone-api.md` "Triage history" |
@@ -491,6 +492,50 @@ python multitool.py scan history --project "Acme/web"               # LOC per sc
    LOC; 44 vs 46 files, because script extracted from HTML/JSP is counted as
    JavaScript). Report the figure you were asked for and say which field it is.
 8. `changePercentage` is a ratio (0.0061 = 0.61% of files), not a percent.
+
+## Cancelling and deleting scans — select by origin, preview first
+
+`scan cancel` and `scan delete` act on scans (not projects), chosen by how they
+were started. Both are destructive, so they follow the full cycle: preview, say
+what will change, confirm, then act.
+
+```bash
+python multitool.py scan cancel --dry-run --source-origin cxone-scan-replicator    # what would be cancelled
+python multitool.py scan cancel --source-origin cxone-scan-replicator --yes
+python multitool.py scan delete --dry-run --project-names "Acme/web" --status Canceled,Partial
+python multitool.py scan delete --scan-id <id> --scan-id <id>                      # explicit ids: no prompt
+python multitool.py project delete --dry-run --scan-origin cxone-scan-replicator --exclusive
+```
+
+Rules:
+
+1. **`initiator` is not "who started it".** A tool that submits scans with
+   someone's API key appears as THAT PERSON in `initiator`. It identifies itself
+   in `userAgent` and `sourceOrigin` (`cxone-scan-replicator/1.0.0`;
+   this tool is `cxone-multitool`). Select with `--source-origin` or
+   `--user-agent`; use `--initiator` only to mean the key owner. If a search by
+   initiator finds nothing, search the other two before concluding the scans
+   don't exist.
+2. **Selectors AND together and one is required.** There is no "all scans".
+   Every row is re-checked client-side, because the API silently ignores a filter
+   it doesn't recognise.
+3. **`scan cancel` touches only Queued and Running scans; `scan delete` never
+   touches those** (cancel first, then delete). Both say how many matching scans
+   they skipped and why.
+4. **Always `--dry-run` first and show the user the grouped list**, then ask. A
+   selector-based action refuses to run unattended without `--yes`. Explicit
+   `--scan-id`s skip the prompt. The first scan is acted on alone; if it fails the
+   run stops.
+5. **Cancellation is asynchronous.** A running scan can take a moment to reach
+   Canceled/Partial: re-run the same selector to confirm nothing is still active.
+6. **Deleting a project deletes all its scans, including ones from other
+   sources.** `project delete --scan-origin X --exclusive` selects only projects
+   where EVERY scan came from X, so a project that also holds other history is
+   never swept in. Without `--exclusive`, report any selected project that has
+   other scans before deleting. Prefer `scan delete` for the mixed ones.
+7. Existing in the tool now: `project delete` / `inventory` also take
+   `--created-after`, and the project list behind them is paged (it used to stop
+   at the first 200 projects).
 
 ## "Triage" is ambiguous — ALWAYS disambiguate before acting
 
