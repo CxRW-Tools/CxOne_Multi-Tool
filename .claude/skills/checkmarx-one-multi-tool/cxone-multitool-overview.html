@@ -482,7 +482,7 @@
   <div class="hero-badge">Solution Engineer Tool</div>
   <h1>Checkmarx One Multi-Tool</h1>
   <p class="tagline">
-    Natural language automation for building and maintaining realistic
+    Natural language automation for building, administering and maintaining realistic
     Checkmarx One demo and POV tenants — no commands, no clicking, no API calls.
   </p>
   <div class="hero-pill-row">
@@ -491,6 +491,7 @@
     <div class="hero-pill"><span class="dot"></span>Scans &amp; Results</div>
     <div class="hero-pill"><span class="dot"></span>Three Triage Modes</div>
     <div class="hero-pill"><span class="dot"></span>Reports &amp; SBOM</div>
+    <div class="hero-pill"><span class="dot"></span>Diagnostics &amp; Cleanup</div>
     <div class="hero-pill"><span class="dot"></span>Blueprint Provisioning</div>
     <div class="hero-pill"><span class="dot"></span>Autonomous Activity</div>
     <div class="hero-pill"><span class="dot"></span>Multi-User Realism</div>
@@ -514,7 +515,7 @@
     <div class="cap-card">
       <span class="cap-icon">🗂️</span>
       <div class="cap-title">Projects &amp; Onboarding</div>
-      <div class="cap-desc">One-shot project create (repo + preset + groups + app tag in a single step) and batch onboarding of many repos in one command. GitHub bulk import; extensible to GitLab, ADO, Bitbucket.</div>
+      <div class="cap-desc">One-shot project create (repo + preset + groups + app tag in a single step) and batch onboarding of many repos in one command. GitHub bulk import, plus conversion of manual projects to SCM-backed ones; extensible to GitLab, ADO, Bitbucket.</div>
     </div>
     <div class="cap-card">
       <span class="cap-icon">⚙️</span>
@@ -542,6 +543,16 @@
       <div class="cap-desc">Generate PDF, JSON, and CSV scan reports plus CycloneDX/SPDX SBOMs — the CISO takeaway and the compliance artifact, straight from a prompt.</div>
     </div>
     <div class="cap-card">
+      <span class="cap-icon">📊</span>
+      <div class="cap-title">Insights &amp; Diagnostics</div>
+      <div class="cap-desc">Lines of code and scan statistics per engine, bulk scan data (durations, engines, languages) to table or CSV, scan timelines and engine logs, and an audit of API keys that have gone stale.</div>
+    </div>
+    <div class="cap-card">
+      <span class="cap-icon">🧹</span>
+      <div class="cap-title">Safe Cleanup</div>
+      <div class="cap-desc">Cancel or delete scans, or remove projects, selected by who or what created them, status, branch or date. Always previewed first; active scans are never deleted.</div>
+    </div>
+    <div class="cap-card">
       <span class="cap-icon">📋</span>
       <div class="cap-title">Blueprint Provisioning</div>
       <div class="cap-desc">Build an entire tenant from one YAML file, or provision, scan and triage in a single step. Works both ways: export a tenant you built by hand so you can rebuild it any time.</div>
@@ -564,11 +575,11 @@
     <div class="feature-row">
       <div class="feature-card">
         <div class="feature-title">Self-updating</div>
-        <div class="feature-desc">When the agent adds a capability or fixes a bug during your session, it repackages and exports an updated <code>.skill</code> file. Reinstall once to make the change permanent — improvements carry forward automatically.</div>
+        <div class="feature-desc">Improvements ship as versioned releases. A built-in check keeps your copy current with one command, and if you hit a gap you can't fix yourself, the tool bundles it as a feature request to share with the tool maintainer.</div>
       </div>
       <div class="feature-card green">
         <div class="feature-title">Extensible by design</div>
-        <div class="feature-desc">Ships with a comprehensive Checkmarx One OpenAPI spec and a module pattern guide. If you ask for something not yet built — a new report, a new SCM integration, a policy workflow — the agent looks it up and implements it on the spot.</div>
+        <div class="feature-desc">Ships with a Checkmarx One OpenAPI reference (refreshed from the live API docs, with a warning when it ages) and a module pattern guide. If you ask for something not yet built — a new report, a new SCM integration, a policy workflow — the agent looks it up and implements it on the spot.</div>
       </div>
       <div class="feature-card">
         <div class="feature-title">Safe by default</div>
@@ -580,7 +591,7 @@
       </div>
       <div class="feature-card">
         <div class="feature-title">Runs as a container or a process</div>
-        <div class="feature-desc">Long-running activity can run in a container so it keeps going when your laptop sleeps, or as a normal process if you have no container runtime.</div>
+        <div class="feature-desc">Long-running activity can run in a container so it keeps going when your laptop sleeps, or as a normal process if you have no container runtime. Either way it runs in its own Python virtualenv, so it never disturbs your system Python.</div>
       </div>
       <div class="feature-card green">
         <div class="feature-title">Outage-safe cadence</div>
@@ -695,15 +706,15 @@
       <tr><td><code>env</code></td><td>Stores credentials for one tenant. Your API key is a refresh token, so the region and tenant are read from it — nothing to look up.</td><td class="vsay">&quot;Here&apos;s my API key&quot; &middot; &quot;What tenant am I on?&quot;</td></tr>
 
       <tr class="vgroup"><td colspan="3">Building a tenant</td></tr>
-      <tr><td><code>iam</code></td><td>Users, groups, roles and membership — demo personas that actually work.</td><td class="vsay">&quot;Create a Developers group and three demo users&quot;</td></tr>
+      <tr><td><code>iam</code></td><td>Users, groups, roles and membership — demo personas that actually work. Also audits API keys and flags stale ones.</td><td class="vsay">&quot;Create a Developers group and three demo users&quot;</td></tr>
       <tr><td><code>app</code></td><td>Applications, with tag rules so projects join automatically.</td><td class="vsay">&quot;Make an application called Acme Banking&quot;</td></tr>
-      <tr><td><code>project</code> / <code>onboard</code></td><td>Create projects and onboard repositories, one or many at a time.</td><td class="vsay">&quot;Onboard WebGoat and juice-shop from our GitHub org&quot;</td></tr>
+      <tr><td><code>project</code> / <code>onboard</code></td><td>Create projects and onboard repositories, one or many at a time, or convert a manual project to an SCM-backed one.</td><td class="vsay">&quot;Onboard WebGoat and juice-shop from our GitHub org&quot;</td></tr>
       <tr><td><code>scanconfig</code></td><td>Per-project SAST preset and incremental settings.</td><td class="vsay">&quot;Set the preset to ASA Premium on that project&quot;</td></tr>
       <tr><td><code>provision</code> / <code>export</code></td><td>Stand up a whole tenant from one YAML blueprint — or capture a hand-built tenant back into one so it&apos;s repeatable.</td><td class="vsay">&quot;Apply this blueprint&quot; &middot; &quot;Export this tenant so I can rebuild it&quot;</td></tr>
       <tr><td><code>quickstart</code></td><td>Blueprint → scan → triage in a single step.</td><td class="vsay">&quot;Stand up a demo tenant for Acme and populate it&quot;</td></tr>
 
       <tr class="vgroup"><td colspan="3">Scanning &amp; findings</td></tr>
-      <tr><td><code>scan</code></td><td>Trigger scans by name or a random share of projects; check status and history; report lines of code and per-engine scan statistics (incl. IaC).</td><td class="vsay">&quot;Scan a bunch of the projects&quot; &middot; &quot;Are the scans done?&quot; &middot; &quot;How many lines of code are in this tenant?&quot;</td></tr>
+      <tr><td><code>scan</code></td><td>Trigger scans by name or a random share of projects; check status and history; report lines of code and per-engine statistics (incl. IaC); pull bulk scan data, timelines and engine logs; cancel or delete scans in bulk (previewed first).</td><td class="vsay">&quot;Scan a bunch of the projects&quot; &middot; &quot;How many lines of code are in this tenant?&quot; &middot; &quot;Export stats for the last 50 scans&quot; &middot; &quot;Delete the scans that tool created&quot;</td></tr>
       <tr><td><code>results</code></td><td>Counts by engine and severity, drill into individual findings, or tenant-wide KPIs.</td><td class="vsay">&quot;Show me the critical SAST and SCA results for X&quot;</td></tr>
       <tr><td><code>report</code></td><td>PDF / JSON / CSV scan reports and CycloneDX &amp; SPDX SBOMs.</td><td class="vsay">&quot;Generate a PDF report for that scan&quot;</td></tr>
 
@@ -719,6 +730,10 @@
       <tr class="vgroup"><td colspan="3">Housekeeping</td></tr>
       <tr><td><code>purge</code></td><td>Ordered teardown. Scoped to what this tool created unless you explicitly ask for everything — and always confirmed first.</td><td class="vsay">&quot;Reset the demo tenant&quot;</td></tr>
       <tr><td><code>ui</code></td><td>A small local web panel if you&apos;d rather click than type.</td><td class="vsay">&quot;Open the local UI&quot;</td></tr>
+
+      <tr class="vgroup"><td colspan="3">Staying current</td></tr>
+      <tr><td><code>selfcheck</code></td><td>Shows whether your copy is up to date with the published tool, and updates it on request.</td><td class="vsay">&quot;Are we up to date?&quot;</td></tr>
+      <tr><td><code>feature-request</code></td><td>Captures a missing capability as a bundle you can share with the tool maintainer.</td><td class="vsay">&quot;Package this as a feature request&quot;</td></tr>
     </tbody>
   </table>
 </div>
@@ -1166,7 +1181,7 @@
 
 <!-- ════════════ FOOTER ════════════ -->
 <div style="text-align:center; padding: 28px 24px 40px; font-size: 12px; color: #94a3b8;">
-  Checkmarx One Multi-Tool · Powered by Claude · Session log: se_demo · Doc updated 2026-08-01
+  Checkmarx One Multi-Tool · Powered by Claude · Session log: se_demo · Doc updated 2026-10-14
 </div>
 
 </body>
