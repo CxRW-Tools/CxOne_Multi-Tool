@@ -30,3 +30,6 @@ scratch/
 tmp/
 *.tmp
 *.bak
+
+# Checkmarx ASCA local ignore list (per-developer, never commit)
+**/.checkmarx/
