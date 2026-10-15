@@ -290,6 +290,28 @@ class ScanOperation(Operation):
                         "reason": f"already {status_l}"}
 
         route = "SCM" if self._is_scm_project(full_project) else "manual"
+
+        # Pre-flight for manual projects: POST /scans needs a repo URL, and a
+        # project created from a zip upload (or never scanned from a repo) has
+        # none, so the scan is certain to fail. Find that out before anything
+        # else happens and report it as a skip with the reason, not as a failed
+        # scan. Read-only, so it also runs in DRY-RUN, keeping the preview
+        # honest about what the live run will do.
+        manual_source = None
+        if route == "manual":
+            manual_source = self._resolve_manual_source(full_project, project_name, project_id)
+            if not manual_source[2]:
+                verb = "Would skip" if self.config.dry_run else "Skipping"
+                self.logger.warning(
+                    "%s '%s': no repository configured (manual project with no "
+                    "repo URL and no earlier repo-based scan to reuse; zip-upload "
+                    "projects can't be re-scanned). Set one with `project set-repo`.",
+                    verb, project_name,
+                )
+                return {"skipped": True, "project_name": project_name,
+                        "project_id": project_id,
+                        "reason": "no repository configured"}
+
         self.logger.info(
             "['%s'] routing scan via %s endpoint (%s).",
             project_name, route,
@@ -297,7 +319,7 @@ class ScanOperation(Operation):
         )
         if route == "SCM":
             return self._trigger_scan_scm(full_project, project_name, project_id)
-        return self._trigger_scan_manual(full_project, project_name, project_id)
+        return self._trigger_scan_manual(full_project, project_id, manual_source)
 
     def _is_scm_project(self, project: dict) -> bool:
         """True if this project was imported from an SCM and must scan via the
@@ -790,10 +812,15 @@ class ScanOperation(Operation):
             sorted(response.keys()) if isinstance(response, dict) else type(response).__name__)
         return "unknown"
 
-    def _trigger_scan_manual(
+    def _resolve_manual_source(
         self, project: dict, project_name: str, project_id: str
-    ) -> dict | None:
-        """Trigger scan via POST /scans (manual/clone-URL project). Branch and repo from latest scan or project."""
+    ) -> tuple[str, str | None, str | None]:
+        """Work out where a manual project's code comes from: (name, branch, repo_url).
+
+        Prefers the repo and branch of the project's latest scan, then falls back
+        to the project's own repoUrl/mainBranch. `repo_url` is None when neither
+        exists, which means a manual scan cannot be started.
+        """
         repo_url: str | None = None
         branch: str | None = None
         self.logger.debug(
@@ -810,13 +837,18 @@ class ScanOperation(Operation):
             repo_url = self._get_project_repo_url(project)
             if not branch:
                 branch = project.get("mainBranch")
+        return project_name, branch, repo_url
 
-        if not repo_url:
-            self.logger.warning(
-                "Skipping '%s': manual project with no repository URL (no previous repo-based scan and no repoUrl on project).",
-                project_name,
-            )
-            return None
+    def _trigger_scan_manual(
+        self, project: dict, project_id: str,
+        source: tuple[str, str | None, str | None],
+    ) -> dict | None:
+        """Trigger scan via POST /scans (manual/clone-URL project).
+
+        `source` is the (name, branch, repo_url) from _resolve_manual_source,
+        already checked for a repo URL by the caller's pre-flight.
+        """
+        project_name, branch, repo_url = source
 
         branch = (branch or "main").strip()
         branch_display = branch or "main"
