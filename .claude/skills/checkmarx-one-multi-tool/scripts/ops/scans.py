@@ -381,6 +381,7 @@ class ScanOperation(Operation):
         if not scanner_types:
             engines = self._scan_rules.get("engines", [])
             scanner_types = self._engine_list_to_scm_scanner_types(engines) if engines else SCM_SCANNER_TYPES.copy()
+        scanner_types = self._scanner_types_for_origin(scanner_types, repo_origin, project_name)
 
         # 2) PATCH only when something actually changed (live runs only)
         if not self._patch_config_if_needed(project_id, project_name,
@@ -711,6 +712,25 @@ class ScanOperation(Operation):
             else:
                 out.append(t)
         return out
+
+    def _scanner_types_for_origin(self, scanner_types: list[str], repo_origin: str,
+                                  project_name: str) -> list[str]:
+        """Drop scanners the project's SCM cannot run.
+
+        Scorecard (OpenSSF) only works against GitHub. Sending it for Azure
+        DevOps made `projectScan` reject the WHOLE request with
+        `400 UNSUPPORTED_SCM_TYPE`, so every scan of that project failed, not
+        just the scorecard part. The default engine list includes it for all
+        projects, so filter it by origin here rather than asking users to edit
+        scan_rules.yaml per SCM.
+        """
+        if (repo_origin or "").strip().lower().startswith("github"):
+            return scanner_types
+        kept = [t for t in scanner_types if t != "scorecard"]
+        if len(kept) != len(scanner_types):
+            self.logger.debug("['%s'] Dropping scorecard: only supported for GitHub (origin: %s).",
+                              project_name, repo_origin)
+        return kept
 
     def _parse_repo_org(self, repo_url: str, scm_type: str) -> str:
         """Extract org/group from repo URL (e.g. GitHub org); else 'anyorg'."""
