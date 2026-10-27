@@ -7,7 +7,7 @@ under  {iam}/auth/admin/realms/{tenant}/...  via ApiClient(use_iam=True).
 Capabilities:
   Groups      list / get / create / delete            (ported from v1)
   Users       list / get / create / set-password /     (NET NEW — the real gap)
-              delete
+              delete / disable / enable
   Membership  add user to group / remove               (NET NEW)
   Roles       list realm roles / assign to user        (NET NEW)
 
@@ -222,6 +222,32 @@ class IamManager:
         self.api.delete(f"users/{user['id']}", use_iam=True)
         logger.info("Deleted user '%s'", username)
 
+    def disable_user(self, username: str) -> None:
+        """PUT /users/{id} with enabled=false. Requires fetching the full user object first."""
+        user = self.find_user(username)
+        if not user:
+            logger.warning("User '%s' not found; nothing to disable", username)
+            return
+        if self.cfg.dry_run:
+            logger.info("[dry-run] would disable user '%s' (%s)", username, user["id"])
+            return
+        user["enabled"] = False
+        self.api.put(f"users/{user['id']}", user, use_iam=True)
+        logger.info("Disabled user '%s'", username)
+
+    def enable_user(self, username: str) -> None:
+        """PUT /users/{id} with enabled=true. Requires fetching the full user object first."""
+        user = self.find_user(username)
+        if not user:
+            logger.warning("User '%s' not found; nothing to enable", username)
+            return
+        if self.cfg.dry_run:
+            logger.info("[dry-run] would enable user '%s' (%s)", username, user["id"])
+            return
+        user["enabled"] = True
+        self.api.put(f"users/{user['id']}", user, use_iam=True)
+        logger.info("Enabled user '%s'", username)
+
     # ---------------------------------------------------------- membership
     def add_user_to_group(self, user_id: str, group_name: str) -> None:
         """PUT /users/{userId}/groups/{groupId}."""
@@ -381,6 +407,12 @@ def _build_cli() -> argparse.ArgumentParser:
 
     u = sub.add_parser("delete-user"); u.add_argument("username")
 
+    d = sub.add_parser("disable-user", help="disable an existing user (sets enabled=false)")
+    d.add_argument("username")
+
+    e = sub.add_parser("enable-user", help="enable an existing user (sets enabled=true)")
+    e.add_argument("username")
+
     lr = sub.add_parser("list-roles", help="list assignable roles (ast-app client + realm)")
     lr.add_argument("--filter", default=None, help="substring filter on role name")
     ar = sub.add_parser("assign-role", help="assign role(s) to an existing user "
@@ -492,6 +524,10 @@ def main(argv: list[str] | None = None) -> int:
         iam.set_password(user["id"], args.password, args.temporary)
     elif args.cmd == "delete-user":
         iam.delete_user(args.username)
+    elif args.cmd == "disable-user":
+        iam.disable_user(args.username)
+    elif args.cmd == "enable-user":
+        iam.enable_user(args.username)
     elif args.cmd == "list-roles":
         flt = (getattr(args, "filter", None) or "").lower()
         rows = [("ast-app", r) for r in iam.list_client_roles()]
