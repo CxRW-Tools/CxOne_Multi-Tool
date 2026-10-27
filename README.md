@@ -122,7 +122,48 @@ python run.py selfcheck --sync   # fast-forward to the published version
 ## Contributing changes back
 
 The skill is built to be extended in-session: ask Claude for something it doesn't
-do yet and it will implement it. To publish that work:
+do yet and it will implement it. What happens next depends on whether you can
+push to this repo. Check with:
+
+```bash
+python run.py selfcheck          # look for the "Contribution:" line
+```
+
+### If you can't push (most users)
+
+You don't need write access, a fork, or any git knowledge. Ask Claude:
+
+> "Package this as a feature request."
+
+Or run it yourself:
+
+```bash
+python run.py feature-request new --title "<one line>" \
+    --use-case "<what you were trying to do>" --gap "<what the tool couldn't do>"
+```
+
+This writes a zip to `cxone-feature-requests/` in your working directory containing
+`REQUEST.md` (the use case, gap and scenario) and `change.patch` (any code you
+already wrote, including new files). Credentials and your tenant name are scrubbed
+automatically, but skim `REQUEST.md` before sending. Then **send the zip to the
+person who gave you this tool.**
+
+Claude will also offer this on its own when it hits something the tool can't do,
+or when a push is refused. You don't need to know the command exists.
+
+### Receiving a bundle (maintainers)
+
+```bash
+unzip 2026-01-01-my-feature.zip
+git am < my-feature/change.patch      # if the patch was made from commits
+git apply my-feature/change.patch     # if it is a plain diff
+```
+
+Review the diff like any other contribution, then publish it with the flow below.
+If `REQUEST.md` has no `change.patch` beside it, the sender only identified the gap
+and nothing has been built yet.
+
+### If you can push
 
 ```bash
 python .claude/skills/checkmarx-one-multi-tool/scripts/publish_skill.py "what changed"
