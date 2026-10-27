@@ -36,6 +36,7 @@ Handled by `cxone/auth.py`; never build this by hand.
 | Set password | `PUT users/{id}/reset-password` | `{"type":"password","value":...,"temporary":bool}` |
 | Add to group | `PUT users/{id}/groups/{groupId}` | membership = access in CxOne |
 | Delete user | `DELETE users/{id}` | |
+| Disable / enable user | `PUT users/{id}` | full user object from Find user with `enabled` flipped; `iam disable-user` refuses the API key's own user and registered identities unless `--force` |
 | List realm roles | `GET roles` | |
 | Assign realm role | `POST users/{id}/role-mappings/realm` | `[{"id","name"}]` |
 | List user's groups | `GET users/{id}/groups` | read-only; used by blueprint export |

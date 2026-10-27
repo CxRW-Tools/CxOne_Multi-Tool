@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.56.5
+  version: 3.57.0
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -146,7 +146,7 @@ results rather than assuming they equal the preview.
 **Mutating verbs (require the full cycle):** `scan` (incl. `scan cancel` and
 `scan delete`, which are destructive: see "Cancelling and deleting scans"), `triage-simulate`,
 `triage-real apply`, `provision`,
-`quickstart`, `purge`, `iam` (create-user / set-password / delete / role &
+`quickstart`, `purge`, `iam` (create-user / set-password / delete / disable-user / enable-user / role &
 group changes), `app create`, `project` / `onboard` (incl. `set-repo` and
 `import-scm`, which converts a project to an SCM project and can't be undone cleanly),
 `scanconfig set`, `identities add` / `remove` / `import` (they write the
@@ -353,7 +353,7 @@ unimplemented things → Keep the package current**. Don't leave the installed
 
 | Group | Module | Verb | Covers |
 |---|---|---|---|
-| Identity & access | `iam.py` | `iam` | users, groups, roles (realm + ast-app client roles), membership; `assign-role`/`list-roles`; `create-user --roles`; `set-password` (deliberate reset — create-user never resets an existing user's password) |
+| Identity & access | `iam.py` | `iam` | users, groups, roles (realm + ast-app client roles), membership; `assign-role`/`list-roles`; `create-user --roles`; `set-password` (deliberate reset — create-user never resets an existing user's password); `disable-user`/`enable-user` (suspend without deleting; disable refuses the primary key's user and registered identities unless `--force`, since that locks the tool out — don't reach for `--force` without the user saying so) |
 | Applications | `applications.py` | `app` | create/list/delete; tag-rule project association |
 | Projects & onboarding | `onboard.py` | `project` | manual projects; one-shot `create` (repo+preset+groups+app-tag); batch `onboard` (many repos, one call); GitHub bulk import (async); GitLab/Azure/Bitbucket extension points. `list` takes the shared selector (`--tag`/`--name-filter`/`--owner`/`--stale-days`/`--no-scans`/`--created-before`) plus `--columns`/`--json`/`--csv`; `delete` accepts many names OR a selector, with `--dry-run` and a `--yes` gate |
 | Tenant hygiene | `ops/project_inventory.py` + `ops/project_provenance.py` | `project inventory` | "what is in this tenant that shouldn't be": scratch-tagged, stale (`--stale-days`), never-scanned (`--no-scans`), by owner. Joins project tags + creator + scan history in one pass. **Creator attribution is labelled**: `audit` (a real `projects.create` event) or `(first scan)` (INFERRED — no create event survives the 365-day window). Never present an inferred creator as a record |
