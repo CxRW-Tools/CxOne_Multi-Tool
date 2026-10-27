@@ -7,7 +7,7 @@ under  {iam}/auth/admin/realms/{tenant}/...  via ApiClient(use_iam=True).
 Capabilities:
   Groups      list / get / create / delete            (ported from v1)
   Users       list / get / create / set-password /     (NET NEW — the real gap)
-              delete
+              delete / disable / enable
   Membership  add user to group / remove               (NET NEW)
   Roles       list realm roles / assign to user        (NET NEW)
 
@@ -222,6 +222,49 @@ class IamManager:
         self.api.delete(f"users/{user['id']}", use_iam=True)
         logger.info("Deleted user '%s'", username)
 
+    def _protected_user_ids(self) -> set[str]:
+        """User ids the tool authenticates as: the primary API key's user plus
+        every registered secondary identity. Disabling one locks the tool (or
+        that persona) out of the tenant, so disable-user refuses them."""
+        ids: set[str] = set()
+        try:
+            from cxone.identity_pool import IdentityPool, _decode_jwt_claims
+            sub = _decode_jwt_claims(self.cfg.api_key).get("sub")
+            if sub:
+                ids.add(sub)
+            ids |= IdentityPool(self.cfg).user_ids()
+        except Exception as exc:
+            logger.debug("Identity pool unavailable for disable protection: %s", exc)
+        return ids
+
+    def set_user_enabled(self, username: str, enabled: bool, force: bool = False) -> bool:
+        """PUT /users/{id} with the full user object and `enabled` flipped.
+
+        Returns False only when the change is refused: disabling a user the
+        tool itself authenticates as, without `force`. Not-found and
+        already-in-state are logged no-ops, matching delete_user.
+        """
+        verb = "enable" if enabled else "disable"
+        user = self.find_user(username)
+        if not user:
+            logger.warning("User '%s' not found; nothing to %s", username, verb)
+            return True
+        if user.get("enabled") is enabled:
+            logger.info("User '%s' is already %sd", username, verb)
+            return True
+        if not enabled and not force and user["id"] in self._protected_user_ids():
+            logger.error("Refusing to disable '%s': it owns an API key this tool uses "
+                         "(primary or a registered identity), so disabling it would "
+                         "lock the tool out. Pass --force to do it anyway.", username)
+            return False
+        if self.cfg.dry_run:
+            logger.info("[dry-run] would %s user '%s' (%s)", verb, username, user["id"])
+            return True
+        user["enabled"] = enabled
+        self.api.put(f"users/{user['id']}", user, use_iam=True)
+        logger.info("%sd user '%s'", verb.capitalize(), username)
+        return True
+
     # ---------------------------------------------------------- membership
     def add_user_to_group(self, user_id: str, group_name: str) -> None:
         """PUT /users/{userId}/groups/{groupId}."""
@@ -381,6 +424,15 @@ def _build_cli() -> argparse.ArgumentParser:
 
     u = sub.add_parser("delete-user"); u.add_argument("username")
 
+    d = sub.add_parser("disable-user", help="disable an existing user (sets enabled=false); "
+                       "refuses users the tool authenticates as unless --force")
+    d.add_argument("username")
+    d.add_argument("--force", action="store_true",
+                   help="disable even a user whose API key this tool uses")
+
+    e = sub.add_parser("enable-user", help="enable an existing user (sets enabled=true)")
+    e.add_argument("username")
+
     lr = sub.add_parser("list-roles", help="list assignable roles (ast-app client + realm)")
     lr.add_argument("--filter", default=None, help="substring filter on role name")
     ar = sub.add_parser("assign-role", help="assign role(s) to an existing user "
@@ -492,6 +544,11 @@ def main(argv: list[str] | None = None) -> int:
         iam.set_password(user["id"], args.password, args.temporary)
     elif args.cmd == "delete-user":
         iam.delete_user(args.username)
+    elif args.cmd == "disable-user":
+        if not iam.set_user_enabled(args.username, False, force=args.force):
+            return 1
+    elif args.cmd == "enable-user":
+        iam.set_user_enabled(args.username, True)
     elif args.cmd == "list-roles":
         flt = (getattr(args, "filter", None) or "").lower()
         rows = [("ast-app", r) for r in iam.list_client_roles()]
