@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.56.4
+  version: 3.56.5
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -1269,6 +1269,14 @@ Offer when any of these happens:
 - You hit a bug or a confusing error in the tool itself (not in the user's
   tenant or inputs).
 - The user says "it would be nice if", "why can't it", or "can you add".
+- **The user built or changed something themselves and wants to share it**, or a
+  push is refused (permission denied, 403, "not allowed to push"). Do not
+  suggest forking or opening a pull request as the first answer: most users have
+  no GitHub write access and no git background. Run `selfcheck`, and if the
+  Contribution level is `local-only` or `standalone`, explain in one or two
+  sentences that `feature-request new` packages their change as a zip for the
+  maintainer, then offer it. If they say "send", "share", "contribute",
+  "submit" or "push this back", this is the answer.
 
 How to offer:
 
@@ -1284,6 +1292,10 @@ How to offer:
   have just built and published yourself.
 - **Check `selfcheck` first.** If the Contribution level is `publish`, build and
   publish the feature instead of writing a bundle.
+- **After the bundle is written, finish the handoff.** Tell the user the full path
+  to the zip, remind them to skim `REQUEST.md` for anything sensitive, and say
+  to send it to whoever gave them the tool. Don't leave them holding a file with
+  no next step.
 
 ### Keep the skill current (sync in, publish out)
 
