@@ -165,6 +165,29 @@ real time (business-hours-weighted, jittered, container or process — no
 simulation, no time compression). One entry point: `run.py` (or
 `scripts/multitool.py` directly).
 
+## Command index
+
+Every command, one line each. `SKILL.md` has the flags and the safety rules;
+`python run.py <verb> --help` always shows the real options. Put global flags
+(`--env`, `--dry-run`, `--debug`) right after the verb, before any subcommand.
+
+| Verb | Commands |
+|---|---|
+| `iam` | `list-users`, `create-user`, `set-password`, `disable-user`, `enable-user`, `delete-user`, `list-groups`, `create-group`, `delete-group`, `list-roles`, `assign-role`, `list-api-keys` |
+| `app` | `list`, `create`, `delete` |
+| `project` | `list`, `inventory`, `create`, `create-manual`, `onboard`, `github`, `import-scm`, `set-repo`, `authorize`, `add-tags`, `delete` |
+| `scanconfig` | `get`, `set` |
+| `scan` | trigger (by name/id or random %), `status`, `history`, `info`, `loc`, `stats`, `workflow`, `log`, `cancel`, `delete` |
+| `results` | `summary`, `show`, `kpi` |
+| `report` | `generate` (pdf/json/csv), `sbom` |
+| `audit` | `list` |
+| `triage-simulate` / `triage-real` / `ai-assist` | simulated triage; `prepare` and `apply`; `find`, `triage`, `triage-status`, `remediate`, `remediation-details`, `credits`, `discard` |
+| `provision` / `export` / `quickstart` / `purge` | blueprint apply, blueprint export, apply then scan then triage, ordered teardown |
+| `identities` | `list`, `test`, `add`, `remove`, `import` |
+| `agent` | `run`, `plan` (real activity over real time) |
+| `env` | `derive`, `init`, `show`, `set`, `set-token` |
+| `welcome`, `version`, `selfcheck`, `feature-request`, `ui` | orientation, version, keep current, share a feature gap, local web panel |
+
 ## Layout
 - `run.py` — recommended entry point (skill root); self-locates the scripts and
   works around the Windows Store Python stub. Invoke relatively each session.
