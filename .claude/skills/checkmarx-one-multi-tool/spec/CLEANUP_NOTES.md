@@ -29,6 +29,13 @@ python cx_docs_mirror.py --stage api-spec \
 Read `api/API-SPEC-REPORT.md` first. The tool exits 10 only when an endpoint our
 code calls has *breaking* drift; additive drift never fails the run. If that
 happens, check what our code sends/reads for those endpoints before adopting.
+Exit 11 means the shrink guard fired (with `--baseline`, a partial fetch would have
+produced a smaller spec) and `cxone_openapi.json` was NOT written; investigate, and
+use `--allow-shrink` only when the shrink is expected. `--fresh` ignores cached
+downloads and `history.json` for a clean run. From Claude Code in the Docs Mirror
+checkout, `/cxone-mirror-docs` runs the whole pipeline (spec and docs) and asks
+before fetching; say "just the API spec" to limit it. Mirror output is LF, so
+normalise line endings before comparing with a Windows (CRLF) checkout.
 Then copy `api/cxone_openapi.json` over `spec/cxone_openapi.json`, set
 `spec/LAST_SYNCED` and the date on the line above, re-run
 `python validate_spec.py --strict`, and publish. `--baseline` only affects the
@@ -106,6 +113,26 @@ reads it and `welcome` / `version` / `--help` print "Reference spec last synced:
 the one below, update this file to today's date** — it's the only thing that
 makes the staleness warning meaningful; forgetting it means the tool keeps
 reporting an old sync as current.
+
+## Spec refresh - 2026-11-02
+
+Replaced `cxone_openapi.json` with the Docs Mirror output of 2026-11-02 (534 paths,
+657 operations; sources: live 75 services, Stoplight 56, overlay 11 ops; no baseline
+given, so baseline-dependent drift categories are empty).
+
+- **Added (18):** AI Secure Coding triage (assets, evidences, risks, history, health),
+  feedback-app v3 profiles and profile/project routes, `GET /api/repos-manager/v2/project-conversion`,
+  `GET /api/configuration/settings`, DAST WSTG coverage, policy incident filters/results.
+- **Removed (1):** `GET /api/risks/ai-insights` (not used by the skill).
+- **Deprecated (7):** cx-audit queries, feedback-app v2 profiles, repostore project-tree,
+  results-overview projects, scm-projects import-status, AI triage discard.
+- **Breaking changes:** none reported. `validate_spec.py --strict`: 0 code mismatches.
+- **Still open:** SAST_QUERIES_AUDIT prefix conflict (`/api/cx-audit` vs `/api/query-editor`),
+  INTEGRATIONS_REPOS unusable prefix, unresolved cross-file `$ref`s, `ai-triage` and
+  `remediation` skipped for needing a login (served from the overlay; four overlay entries
+  are now covered by live and are retire candidates in the Docs Mirror).
+- **Not adopted:** the Docs Mirror documentation snapshot (501 pages) stays out of this repo;
+  it is product documentation, large, and owned by the Docs Mirror.
 
 ## Live sync — 2026-07-21
 

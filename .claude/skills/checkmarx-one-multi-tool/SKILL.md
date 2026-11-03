@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.57.0
+  version: 3.57.1
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -1568,12 +1568,12 @@ any user behind a registered identity.
 The per-source guidance lives under **"Know what's available"** above. Items not
 covered there:
 
-- `references/planned-features.md` — prioritized roadmap of 8 remaining unbuilt
-  features (policies, GitLab/ADO/Bitbucket onboarding, audit trail, feedback
-  apps, DAST triage, custom states, pre-commit hooks, BYOR), each with CLI
-  design, API shapes, and implementation notes. Reports, role assignment,
-  results querying, scan status/history/info/LOC, batch onboarding and quickstart have
-  shipped — see the "Completed" note at its top.
+- `references/planned-features.md` — prioritized roadmap of 7 remaining unbuilt
+  features (policies, GitLab/ADO/Bitbucket bulk onboarding, feedback apps, DAST
+  triage, custom states, pre-commit hooks, BYOR), each with CLI design, API
+  shapes, and implementation notes. Reports, role assignment, results querying,
+  audit trail, scan status/history/info/LOC/stats, scan cleanup, SCM conversion,
+  batch onboarding and quickstart have shipped — see the "Completed" note at its top.
 - `Dockerfile` / `.dockerignore` — the agent's container packaging
   (`run --container` builds it automatically); creds via env vars, ledger on the
   `/state` volume, TZ-aware.
