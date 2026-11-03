@@ -1,16 +1,24 @@
 # Planned Features — Implementation Roadmap
 
-Derived from a review of the full Checkmarx One user guide (May 2026). Each section
-maps a demo-valuable capability to the API and the implementation pattern.
+Derived from a review of the full Checkmarx One user guide (May 2026); endpoints last
+cross-checked against the bundled spec on 2026-11-02. Each section maps a
+demo-valuable capability to the API and the implementation pattern.
 
-*Spec cross-check: 2026-07-21 — the `feedback-app` and `policy_management_service_uri`
-paths referenced below (flagged `METHOD?` by `validate_spec.py`, since the bundled
-spec's export only captured GET on them) do NOT appear by name in this tenant's live
-`{base_url}/spec/v1` catalog of ~90 services (see `api-index.md` "Where to look").
-Either they're under a service name this search didn't match, gated off on this
-tenant/region, or renamed — confirm on Stoplight and/or by browsing `{base_url}/spec/v1`
-directly before implementing either feature, don't assume the bundled spec's GET-only
-capture is complete.*
+*Spec cross-check: 2026-11-02 (bundled spec, Docs Mirror run of the same date). Both
+services are now in the spec, which supersedes the 2026-07-21 note that they were
+missing from the live catalog:*
+
+- *`policy_management_service_uri`: well covered (policies v1/v2/v3, project
+  assignment, incidents and incident results, violations, evaluation). See section 1.*
+- *`feedback-app`: only partly covered. The spec has `GET v2/apps`, `GET v3/profiles`
+  (`GET v2/profiles` is deprecated), profile-to-project assign/unassign, and
+  `GET profiles/{id}/projects`, but **no create routes** for apps or profiles. The
+  `POST` calls in section 3 are unverified (`validate_spec.py` flags them `METHOD?`).
+  Confirm them live before building. See section 3.*
+
+*The Docs Mirror's companion file (`checkmarx-one-docs-<date>-companion.jsonl`,
+generated locally, not committed) is the quickest way to re-read the relevant guide
+pages before implementing any item below.*
 
 ## Completed (this iteration — no longer on the roadmap)
 
@@ -51,12 +59,29 @@ Shipped 2026-07-31 → 08-01 (not previously on this roadmap):
   of actions) — a thin/empty result is a coverage gap, not a bug.
   *(was roadmap #3)*
 
+Shipped 2026-10 → 11 (v3.54 – v3.57, not previously on this roadmap):
+
+- **Lines of code and scan statistics** (`scan info`, `scan loc`, `scan stats`):
+  per-engine statistics including IaC, and bulk scan data to table/CSV/JSON.
+- **Scan diagnostics** (`scan workflow`, `scan log`): scan timelines and raw SAST/KICS
+  engine logs.
+- **Bulk scan cleanup** (`scan cancel`, `scan delete`): selected by origin, status,
+  project, branch or date, previewed first. `project delete` gained `--scan-origin`,
+  `--exclusive` and `--created-after`.
+- **SCM conversion** (`project import-scm`): creates or converts one project to an
+  SCM-backed project for GitHub, GitLab, Bitbucket or Azure DevOps. Partly covers
+  roadmap #2 (see below).
+- **Identity housekeeping** (`iam list-api-keys`, `iam disable-user`, `iam enable-user`):
+  API key audit with stale-key flagging, and user disable/enable.
+- **Scan robustness**: scorecard dropped for non-GitHub SCMs (Azure DevOps scans no
+  longer fail); manual projects without a repo are skipped with a reason.
+
 ## Priority matrix (remaining)
 
 | # | Feature | Module | Priority | Effort |
 |---|---|---|---|---|
 | 1 | Policy management + incidents | `policy` (new) | HIGH | Medium |
-| 2 | GitLab / Azure DevOps / Bitbucket onboarding | `project` (extend) | HIGH | Low-Medium |
+| 2 | GitLab / Azure DevOps / Bitbucket **bulk** onboarding (single-project conversion shipped) | `project` (extend) | HIGH | Low |
 | 3 | Feedback apps (Slack / Jira / Teams / etc.) | `feedback` (new) | MEDIUM | Medium-High |
 | 4 | DAST triage | `ops/triage/` (extend) | MED-LOW | Low |
 | 5 | Custom triage states | `ops/triage/` (extend) | MED-LOW | Low |
@@ -103,9 +128,8 @@ policy delete --name <name>
 class PolicyManager:
     def create(self, name, *, scanner=None, all_scanners=False,
                severities=None, break_build=False, description="", tags=None):
-        # POST /api/policy_management_service_uri/policies/v2
-        # (list: GET /api/policy_management_service_uri/policies/v2)
-        # (OpenAPI export lists GET on policies/v2; create is POST to the same path)
+        # POST /api/policy_management_service_uri/policies/v2   (in spec, 2026-11-02)
+        # list: GET policies/v2 (also v3); read/update: GET|PUT policies/v2/{policyId}
         # Rule type: "ALL_SCANNERS" or "BY_SCANNER" (scanner name upper-cased)
 
     def assign_projects(self, policy_id, project_ids, *, default=False):
@@ -165,6 +189,12 @@ class PolicyManager:
 - `isDefault: true` applies the policy to all projects (only one default at a time).
 - Violations appear under `GET /api/policy_management_service_uri/policy_violations`; each has a
   `policyId`, `projectId`, `scanId`, and the conditions triggered.
+- Incidents (in spec, 2026-11-02): `GET incidents`, `GET incidents/total`,
+  `GET incidents/{incidentId}/results`, and filter lists at `GET incidents/filters`
+  and `incidents/filters/v2`. `policy incidents` should read these, not just violations.
+- Other routes in the spec: `GET policies/default`, `PUT policies/pinPolicy/{policyId}/{pinPolicy}`,
+  `GET projects` and `GET projects/tags` (policy-side project lookup). Ignore the
+  `internal/data-retention` routes.
 - Permissions: `create-policy-management`, `view-policy-management`.
 
 ### Blueprint support
@@ -182,6 +212,16 @@ policies:
 ---
 
 ## 2 — GitLab / Azure DevOps / Bitbucket Onboarding (extend `project`, HIGH)
+
+### Status (2026-11-02)
+Partly shipped. `project import-scm` (`ops/scm_import.py`) creates or converts a
+**single** project to an SCM-backed project for all four providers, using
+`POST /api/repos-manager/project-conversion`. `env set-token` already stores
+`CXONE_GITLAB_TOKEN`, `CXONE_AZURE_TOKEN` and `CXONE_BITBUCKET_TOKEN`, and ADO scans
+work since v3.56.3. What's left is **bulk** onboarding: `onboard_gitlab`,
+`onboard_azure` and `onboard_bitbucket` in `scripts/onboard.py` still raise
+`NotImplementedError`, and `SUPPORTED_SCM` is still `{"github"}`. Reuse
+`scm_import.detect_scm_type` / `resolve_token` when building them.
 
 ### Demo value
 Most enterprise customers aren't on GitHub. Failing to show ADO or GitLab
@@ -222,9 +262,9 @@ org = {"orgIdentity": workspace}
 # repo URL: "https://bitbucket.org/<workspace>/<repo>"
 ```
 
-### Token env vars to add in `envmgr.py`
-- `CXONE_GITLAB_TOKEN` (already exists as `env set-token gitlab <TOKEN>`)
-- `CXONE_ADO_TOKEN` (`env set-token ado <TOKEN>`)
+### Token env vars (already in `envmgr.py`)
+- `CXONE_GITLAB_TOKEN` (`env set-token gitlab <TOKEN>`)
+- `CXONE_AZURE_TOKEN` (`env set-token azure <TOKEN>`, alias `ado`)
 - `CXONE_BITBUCKET_TOKEN` (`env set-token bitbucket <TOKEN>`)
 
 ### Key implementation notes
@@ -237,7 +277,7 @@ org = {"orgIdentity": workspace}
 - Verify the exact `orgIdentity` format by inspecting a manual import in the
   tenant's repos-manager settings, or check Stoplight under `repos-manager`.
 - Add each provider to `SUPPORTED_SCM` constant and the `create_projects` dispatch.
-- Add `CXONE_<PROVIDER>_TOKEN` lookup in `CxConfig` and `env set-token`.
+- Check that `CxConfig` reads each `CXONE_<PROVIDER>_TOKEN`. `env set-token` already writes them.
 
 ---
 
@@ -278,9 +318,20 @@ CxOne separates **Feedback Apps** (integration config + credentials) from
 integration requires both:
 1. `POST /api/feedback-app/v2/apps` → returns `appId`
 2. `POST /api/feedback-app/v2/profiles` with `appId` and `projectIds`
-(list endpoints: `GET /api/feedback-app/v2/apps`, `GET /api/feedback-app/v2/profiles`)
-(NOTE: the OpenAPI export only lists GET on these v2 paths; create is POST to the
-same path — confirm the POST body on Stoplight when implementing.)
+
+**Spec status (2026-11-02): both create calls above are UNVERIFIED.** The bundled
+spec has no POST on any feedback-app path. What it does have:
+- `GET /api/feedback-app/v2/apps`: list apps.
+- `GET /api/feedback-app/v3/profiles`: list profiles (with embedded `feedbackAppDtos`).
+  `GET /api/feedback-app/v2/profiles` is **deprecated**; use v3 for listing.
+- `PUT` / `DELETE /api/feedback-app/v2/projects/{projectId}/profile/{profileId}`:
+  assign or unassign a profile to a project. This is the project-association step,
+  so profiles may not need `projectIds` in their body.
+- `GET /api/feedback-app/profiles/{profileId}/projects`: projects on a profile.
+
+Before building, confirm on a live tenant (browser dev tools while creating an app
+and profile in the UI, or `{base_url}/spec/v1`) whether create is `POST v2/...` or
+moved to v3, and the request bodies. Then update this section and the sketch below.
 
 ### Module to create: `scripts/feedback.py`
 ```python
@@ -318,7 +369,8 @@ class FeedbackManager:
         return self.api.post("feedback-app/v2/apps", json_body=payload)
 
     def create_profile(self, name, app_ids, project_ids):
-        # POST /api/feedback-app/v2/profiles
+        # POST /api/feedback-app/v2/profiles  (UNVERIFIED - see spec status above;
+        # project association may instead be PUT v2/projects/{projectId}/profile/{profileId})
         payload = {
             "name": name,
             "feedbackApps": [{"id": a} for a in app_ids],
