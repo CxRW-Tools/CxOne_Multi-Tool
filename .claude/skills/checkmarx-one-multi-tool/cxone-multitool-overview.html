@@ -706,7 +706,7 @@
       <tr><td><code>env</code></td><td>Stores credentials for one tenant. Your API key is a refresh token, so the region and tenant are read from it — nothing to look up.</td><td class="vsay">&quot;Here&apos;s my API key&quot; &middot; &quot;What tenant am I on?&quot;</td></tr>
 
       <tr class="vgroup"><td colspan="3">Building a tenant</td></tr>
-      <tr><td><code>iam</code></td><td>Users, groups, roles and membership — demo personas that actually work. Also audits API keys and flags stale ones.</td><td class="vsay">&quot;Create a Developers group and three demo users&quot;</td></tr>
+      <tr><td><code>iam</code></td><td>Users, groups, roles and membership — demo personas that actually work. Disable or re-enable users, and audit API keys for stale ones.</td><td class="vsay">&quot;Create a Developers group and three demo users&quot;</td></tr>
       <tr><td><code>app</code></td><td>Applications, with tag rules so projects join automatically.</td><td class="vsay">&quot;Make an application called Acme Banking&quot;</td></tr>
       <tr><td><code>project</code> / <code>onboard</code></td><td>Create projects and onboard repositories, one or many at a time, or convert a manual project to an SCM-backed one.</td><td class="vsay">&quot;Onboard WebGoat and juice-shop from our GitHub org&quot;</td></tr>
       <tr><td><code>scanconfig</code></td><td>Per-project SAST preset and incremental settings.</td><td class="vsay">&quot;Set the preset to ASA Premium on that project&quot;</td></tr>
@@ -716,6 +716,7 @@
       <tr class="vgroup"><td colspan="3">Scanning &amp; findings</td></tr>
       <tr><td><code>scan</code></td><td>Trigger scans by name or a random share of projects; check status and history; report lines of code and per-engine statistics (incl. IaC); pull bulk scan data, timelines and engine logs; cancel or delete scans in bulk (previewed first).</td><td class="vsay">&quot;Scan a bunch of the projects&quot; &middot; &quot;How many lines of code are in this tenant?&quot; &middot; &quot;Export stats for the last 50 scans&quot; &middot; &quot;Delete the scans that tool created&quot;</td></tr>
       <tr><td><code>results</code></td><td>Counts by engine and severity, drill into individual findings, or tenant-wide KPIs.</td><td class="vsay">&quot;Show me the critical SAST and SCA results for X&quot;</td></tr>
+      <tr><td><code>audit</code></td><td>Search and export tenant activity: who did what, and when.</td><td class="vsay">&quot;What changed in this tenant yesterday?&quot;</td></tr>
       <tr><td><code>report</code></td><td>PDF / JSON / CSV scan reports and CycloneDX &amp; SPDX SBOMs.</td><td class="vsay">&quot;Generate a PDF report for that scan&quot;</td></tr>
 
       <tr class="vgroup"><td colspan="3">Triage</td></tr>

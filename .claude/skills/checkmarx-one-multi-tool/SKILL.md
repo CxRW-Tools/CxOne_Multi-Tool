@@ -1,7 +1,7 @@
 ---
 name: checkmarx-one-multi-tool
 metadata:
-  version: 3.57.1
+  version: 3.57.2
 description: >-
   Manage Checkmarx One (CxOne) tenants end to end — built for Solution Engineers
   creating and maintaining realistic demo and POV environments. Use this skill
@@ -341,6 +341,12 @@ so anyone can confirm they're on the latest build. See **Doing novel /
 unimplemented things → Keep the package current**. Don't leave the installed
 `.skill` behind the live code, and never repackage without bumping the version.
 
+**9. Document every new command in the same release.** A new verb or subcommand
+must appear by name in SKILL.md's Capabilities table (with its flags), in the
+README's "Command index", and, if it is a headline capability, in
+`cxone-multitool-overview.html`. Check with `python run.py <verb> --help` that the
+docs and the real command list agree before publishing.
+
 ## Two principles
 
 1. **Feature-complete by default.** Prefer the bundled scripts; they cover the
@@ -353,16 +359,16 @@ unimplemented things → Keep the package current**. Don't leave the installed
 
 | Group | Module | Verb | Covers |
 |---|---|---|---|
-| Identity & access | `iam.py` | `iam` | users, groups, roles (realm + ast-app client roles), membership; `assign-role`/`list-roles`; `create-user --roles`; `set-password` (deliberate reset — create-user never resets an existing user's password); `disable-user`/`enable-user` (suspend without deleting; disable refuses the primary key's user and registered identities unless `--force`, since that locks the tool out — don't reach for `--force` without the user saying so) |
+| Identity & access | `iam.py` | `iam` | users, groups, roles (realm + ast-app client roles), membership; `list-users`/`list-groups` and `delete-user`/`delete-group` (preview before deleting); `assign-role`/`list-roles`; `create-user --roles`; `set-password` (deliberate reset — create-user never resets an existing user's password); `disable-user`/`enable-user` (suspend without deleting; disable refuses the primary key's user and registered identities unless `--force`, since that locks the tool out — don't reach for `--force` without the user saying so) |
 | Applications | `applications.py` | `app` | create/list/delete; tag-rule project association |
-| Projects & onboarding | `onboard.py` | `project` | manual projects; one-shot `create` (repo+preset+groups+app-tag); batch `onboard` (many repos, one call); GitHub bulk import (async); GitLab/Azure/Bitbucket extension points. `list` takes the shared selector (`--tag`/`--name-filter`/`--owner`/`--stale-days`/`--no-scans`/`--created-before`) plus `--columns`/`--json`/`--csv`; `delete` accepts many names OR a selector, with `--dry-run` and a `--yes` gate |
+| Projects & onboarding | `onboard.py` | `project` | manual projects; one-shot `create` (repo+preset+groups+app-tag); batch `onboard` (many repos, one call); GitHub bulk import (async); `add-tags --name P --tags k1,k2` (tag keys on an existing project); `authorize --name P --groups G1,G2` (grant groups access to a project); GitLab/Azure/Bitbucket extension points. `list` takes the shared selector (`--tag`/`--name-filter`/`--owner`/`--stale-days`/`--no-scans`/`--created-before`) plus `--columns`/`--json`/`--csv`; `delete` accepts many names OR a selector, with `--dry-run` and a `--yes` gate |
 | Tenant hygiene | `ops/project_inventory.py` + `ops/project_provenance.py` | `project inventory` | "what is in this tenant that shouldn't be": scratch-tagged, stale (`--stale-days`), never-scanned (`--no-scans`), by owner. Joins project tags + creator + scan history in one pass. **Creator attribution is labelled**: `audit` (a real `projects.create` event) or `(first scan)` (INFERRED — no create event survives the 365-day window). Never present an inferred creator as a record |
-| Scan configuration | `scanconfig.py` | `scanconfig` | per-project SAST preset / incremental |
+| Scan configuration | `scanconfig.py` | `scanconfig` | `set` per-project SAST preset / incremental; `get <project-id>` shows the current settings (read-only) |
 | Scans | `ops/scans.py` + `ops/scan_status.py` + `ops/scan_manage.py` | `scan` | **`scan cancel` / `scan delete`** (destructive; selected by `--source-origin` / `--user-agent` / `--initiator` / project / status / branch / date; see "Cancelling and deleting scans"); trigger by name/id or random %, with weighted config rolls; duplicate-scan guard (`--force`); on-demand `scan status` / `history` (scans are fire-and-forget — no blocking wait; `history` shows SAST LOC per scan) |
 | Scan info & LOC | `ops/scan_info.py` + `ops/source_loc.py` | `scan info`, `scan loc` | **lines of code and scan statistics.** `info`: one scan in depth (SAST LOC + per-language LOC/files, full vs incremental and why, engine version, effective config, per-engine timing, IaC files/platforms/categories, SCA packages/licenses, containers, findings by engine×severity; `--source-loc` counts the scanned snapshot, the only source of an **IaC line count**). `loc`: per-project rollup for the tenant / `--app` / `--project-names` with a sizing LOC (the scan's own `loc`, which is the whole codebase even when incremental); `--languages`, `--csv`, `--json`. See "Lines of code" below |
 | Results | `results.py` | `results` | `summary` by engine×severity (per project or per-application rollup), `show` finding drill-down (SCA rows labelled `<CVE> — <package>`; filter by engine/severity/state/`--match`, which also matches CVE ids, with `--ids`/`--json` exposing the scan/result/group ids the APIs need, and `--history`/`--full-history` showing WHO triaged each finding, when, and their comment), `kpi` — tenant-wide server-aggregated KPIs (severity×state, aging, most-common, etc.) via the Analytics API in one call |
 | Triage history | `ops/triage_history.py` | (via `results show --history`) | past triage — state, comment, user, timestamp — read from each engine's own predicate/action store (SAST/IaC/Secrets/SCA/Containers). **The only correct source for "who triaged this"; never the audit trail.** See `references/cxone-api.md` "Triage history" |
-| Reports | `reports.py` | `report` | PDF/JSON/CSV scan reports (async poll+download) and CycloneDX/SPDX SBOMs |
+| Reports | `reports.py` | `report` | `generate --project P --format pdf|json|csv [--scan-id ID] [--scanners a,b] [--output PATH]` (defaults to the latest completed scan, all scanners); `sbom --project P --format CycloneDxJson|CycloneDxXml|SpdxJson [--scan-id ID] [--output PATH]`. Both poll an async job, then download. Write output to the user's own directory, never the skill folder |
 | Audit trail | `audit.py` | `audit` | `list` — search/export tenant activity (who did what, when) via `GET /api/audit-events`, filter by `--type`/`--resource`/`--user`/`--search`/date range, `--human-readable` UUID resolution, `--csv` export. Read-only; platform event coverage is still growing engine by engine, and only goes back to 2026-03-29 — an empty result isn't proof nothing happened. `--type`/`--resource` are FREE TEXT, not enums (the valid set is whatever the tenant's stream contains), so a zero-row result now says whether the range was empty or your filter value simply doesn't exist, listing the values that do and suggesting near-misses — read that hint before reporting "nothing happened". **History only, not current state** — see caution below and `references/cxone-api.md` |
 | Triage (real review) | `triage_real.py` + `ops/source_fetch.py` | `triage-real` | `prepare` (findings + the exact scanned source) → the assistant reviews → `apply` (validated write). Free, genuine, never "Not Exploitable", no source = no verdict |
 | Checkmarx Assist (AI) | `ai_assist.py` + `ops/findings.py` | `ai-assist` | AI **Triage Assist** and **Remediation Assist**: `find` (resolve findings → scan/result/group ids), `triage`, `triage-status`, `remediate`, `remediation-details`, `discard`, `credits` (balance + per-action cost). SAST+SCA only; **consumes AI credits** |
