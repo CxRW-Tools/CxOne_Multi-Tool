@@ -186,7 +186,8 @@ Every command, one line each. `SKILL.md` has the flags and the safety rules;
 | `identities` | `list`, `test`, `add`, `remove`, `import` |
 | `agent` | `run`, `plan` (real activity over real time) |
 | `env` | `derive`, `init`, `show`, `set`, `set-token` |
-| `welcome`, `version`, `selfcheck`, `feature-request`, `ui` | orientation, version, keep current, share a feature gap, local web panel |
+| `welcome`, `version`, `selfcheck`, `ui` | orientation, version, keep current, local web panel |
+| `feature-request` | `new`, `list` (capture a gap as a bundle to share with the tool maintainer) |
 
 ## Layout
 - `run.py` — recommended entry point (skill root); self-locates the scripts and
