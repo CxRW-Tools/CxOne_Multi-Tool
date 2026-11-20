@@ -110,6 +110,21 @@ def _http_hint(exc: requests.exceptions.HTTPError) -> str:
     return f"HTTP {code}. Body: {body}"
 
 
+
+def _numeric_fields(info: dict) -> dict:
+    """The credits endpoint has returned `used` as a string ("31300") since
+    2026-11; coerce numeric strings so balance arithmetic can't raise."""
+    out = dict(info)
+    for key in ("available", "total", "used", "actionsAvailable"):
+        value = out.get(key)
+        if isinstance(value, str):
+            try:
+                out[key] = int(value) if value.strip().lstrip("-").isdigit() else float(value)
+            except ValueError:
+                pass
+    return out
+
+
 class AiAssistManager:
     def __init__(self, api: ApiClient):
         self.api = api
@@ -164,10 +179,11 @@ class AiAssistManager:
         gateway); read-only, so a failure here must never block the caller.
         """
         try:
-            return self.api.get("credits/info")
+            info = self.api.get("credits/info")
         except requests.exceptions.RequestException as exc:
             logger.debug("credits/info unavailable: %s", exc)
             return None
+        return _numeric_fields(info) if isinstance(info, dict) else info
 
     def credits_consumption(self) -> list[dict]:
         """GET /api/credits/consumption — per-user credits and action counts."""
@@ -274,7 +290,10 @@ class AiAssistManager:
             logger.info("Credits reserved for this %s: %s (available %s -> %s of %s).",
                         action, avail_before - avail_after, avail_before, avail_after,
                         after.get("total"))
-        used_delta = (after.get("used") or 0) - (before.get("used") or 0)
+        used_before, used_after = before.get("used") or 0, after.get("used") or 0
+        used_delta = (used_after - used_before
+                      if isinstance(used_before, (int, float)) and isinstance(used_after, (int, float))
+                      else 0)
         if used_delta:
             logger.info("  settled `used`: +%s", used_delta)
         else:
