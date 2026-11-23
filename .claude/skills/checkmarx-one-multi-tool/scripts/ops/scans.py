@@ -39,6 +39,13 @@ _LOG_FULL_API_BODIES = False
 ALL_SCANNER_TYPES = ["sast", "sca", "kics", "apisec", "containers", "microengines"]
 SCM_SCANNER_TYPES = ["sast", "sca", "kics", "apisec", "containers", "2ms", "scorecard"]
 
+# Fusion (AI-assisted SAST) is OPT-IN per run: nothing Fusion-related is sent
+# unless the caller passes --fusion. These are the models with a published
+# credit rate (the web app offers exactly these three); the number is credits
+# per action, see GET /api/v1/credits/action-rates?type=fusion.
+FUSION_MODELS = {"opus-5.5": 2, "opus-4.7": 2.5, "haiku-4.5": 1.5}
+FUSION_DEFAULT_MODEL = "opus-5.5"   # the tenant default shown in the web app
+
 # Scan execution statuses that mean a scan is still in flight for a project. If one
 # of these is the project's latest scan, re-triggering would stack a duplicate.
 ACTIVE_SCAN_STATUSES = ["Queued", "Running"]
@@ -89,6 +96,8 @@ class ScanOperation(Operation):
         # When True, skip the weighted preset/incremental randomizer entirely so
         # an explicitly pinned preset survives the immediately-following scan.
         self._no_overrides: bool = False
+        # Fusion is off unless execute() sets a model from an explicit --fusion.
+        self._fusion_model: str | None = None
 
     # ------------------------------------------------------------------
     # Entry point
@@ -108,6 +117,14 @@ class ScanOperation(Operation):
         # Opt out of the weighted preset/incremental randomizer for this run so a
         # preset pinned via `scanconfig set` isn't silently re-rolled at scan time.
         self._no_overrides = bool(getattr(args, "no_overrides", False))
+        # Fusion only when explicitly requested; never inferred or defaulted on.
+        self._fusion_model = None
+        if getattr(args, "fusion", False):
+            self._fusion_model = getattr(args, "llm_model", None) or FUSION_DEFAULT_MODEL
+            self.logger.info(
+                "Fusion ENABLED for this run: model=%s (~%s credits per action; "
+                "this run will consume AI credits)",
+                self._fusion_model, FUSION_MODELS.get(self._fusion_model, "?"))
 
         # Reproducible selection + override rolls. With a seed, a dry-run and the
         # live run pick the same random project subset and roll the same overrides.
@@ -423,6 +440,9 @@ class ScanOperation(Operation):
             },
             "orgSshKey": None,
         }
+        if self._fusion_model:
+            body["project"]["fusionScanConfig"] = {
+                "enabled": True, "llmModel": self._fusion_model}
 
         self.logger.debug(
             "Scan project (SCM): name=%s id=%s branch=%s repo_org=%s",
@@ -536,6 +556,22 @@ class ScanOperation(Operation):
             return None
         return scan.get("status")
 
+    def _scan_ran_fusion(self, scan_id: str, project_name: str) -> bool:
+        """True when the created scan lists the `ai` engine (Fusion really on)."""
+        try:
+            scan = self.api.get(f"scans/{scan_id}") or {}
+        except Exception as exc:
+            self.logger.warning("Could not verify Fusion on scan %s: %s", scan_id, exc)
+            return False
+        engines = [str(e).lower() for e in (scan.get("engines") or [])]
+        if "ai" in engines:
+            self.logger.info("Fusion confirmed for '%s' - engines=%s", project_name, engines)
+            return True
+        self.logger.warning(
+            "Fusion was requested for '%s' but scan %s lists engines=%s (no 'ai'). "
+            "The platform did not enable it.", project_name, scan_id, engines)
+        return False
+
     def _confirm_scan(self, project_name: str, project_id: str,
                       triggered_at: datetime,
                       hinted_scan_id: str | None) -> tuple[str | None, str | None]:
@@ -608,6 +644,9 @@ class ScanOperation(Operation):
         res = self._trigger_result(project_name, project_id, scan_id,
                                    branch, config_changes)
         res["status"] = status or "Unknown"
+        if self._fusion_model:
+            res["fusion"] = self._fusion_model
+            res["fusion_confirmed"] = self._scan_ran_fusion(scan_id, project_name)
         if (status or "").lower() in UNSUCCESSFUL_SCAN_STATUSES:
             # The trigger worked; the scan itself is not a clean success. Surface
             # that distinctly instead of burying it under a check mark.
@@ -886,6 +925,11 @@ class ScanOperation(Operation):
             },
             "config": config_for_request,
         }
+        if self._fusion_model:
+            config_for_request = config_for_request + [{
+                "type": "ai",
+                "value": {"fusionEnabled": "true", "llmModel": self._fusion_model}}]
+            payload["config"] = config_for_request
 
         if _LOG_FULL_API_BODIES:
             self.logger.debug(

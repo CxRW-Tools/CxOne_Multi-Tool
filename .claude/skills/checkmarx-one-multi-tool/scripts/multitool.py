@@ -243,6 +243,12 @@ def _scan_entry(argv: list[str]) -> int:
     p.add_argument("--no-overrides", action="store_true",
                    help="skip the weighted preset/incremental randomizer for this run "
                         "(use when a preset was just pinned via `scanconfig set`)")
+    p.add_argument("--fusion", action="store_true",
+                   help="run this scan with Fusion (AI-assisted SAST). OFF unless given; "
+                        "consumes AI credits")
+    p.add_argument("--llm-model", default=None, choices=["opus-5.5", "opus-4.7", "haiku-4.5"],
+                   help="Fusion model (requires --fusion; default opus-5.5). Credits per "
+                        "action: opus-5.5=2, opus-4.7=2.5, haiku-4.5=1.5")
     p.add_argument("--seed", type=int, default=None,
                    help="reproduce a prior run's random project selection and override "
                         "rolls (the dry-run prints the seed it used)")
@@ -252,6 +258,8 @@ def _scan_entry(argv: list[str]) -> int:
                         "per-project affinity); 'random-secondary'/'auto-secondary' "
                         "do the same EXCLUDING the primary/admin key; default: primary")
     a = p.parse_args(argv)
+    if a.llm_model and not a.fusion:
+        p.error("--llm-model requires --fusion (Fusion is only used when explicitly requested)")
     logging.basicConfig(level=logging.DEBUG if a.debug else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cfg = CxConfig.from_env(a.env); cfg.dry_run = cfg.dry_run or a.dry_run
@@ -262,6 +270,7 @@ def _scan_entry(argv: list[str]) -> int:
     run_scan(cfg, project_names=a.project_names, project_ids=a.project_ids,
              auto=a.auto, percentage=a.percentage, min_projects=a.min_projects,
              force=a.force, no_overrides=a.no_overrides, seed=seed,
+             fusion=a.fusion, llm_model=a.llm_model,
              api=api, acting_as=acting, identity_selector=selector)
     return 0
 
