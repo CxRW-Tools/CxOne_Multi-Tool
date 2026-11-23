@@ -177,7 +177,7 @@ Every command, one line each. `SKILL.md` has the flags and the safety rules;
 | `app` | `list`, `create`, `delete` |
 | `project` | `list`, `inventory`, `create`, `create-manual`, `onboard`, `github`, `import-scm`, `set-repo`, `authorize`, `add-tags`, `delete` |
 | `scanconfig` | `get`, `set` |
-| `scan` | trigger (by name/id or random %), `status`, `history`, `info`, `loc`, `stats`, `workflow`, `log`, `cancel`, `delete` |
+| `scan` | trigger (by name/id or random %; opt-in `--fusion` / `--llm-model` for Fusion), `status`, `history`, `info`, `loc`, `stats`, `workflow`, `log`, `cancel`, `delete` |
 | `results` | `summary`, `show`, `kpi` |
 | `report` | `generate` (pdf/json/csv), `sbom` |
 | `audit` | `list` |

@@ -26,8 +26,10 @@ def run_scan(cfg: CxConfig, project_names: str | None = None, project_ids: str |
              auto: bool = False, percentage: int = 20, min_projects: int = 2,
              force: bool = False, no_overrides: bool = False,
              seed: int | None = None, api=None, acting_as: str | None = None,
-             identity_selector=None) -> int:
-    """`api` overrides the client (multi-identity: pass pool.client_for(name));
+             identity_selector=None, fusion: bool = False,
+             llm_model: str | None = None) -> int:
+    """`fusion`/`llm_model`: opt-in Fusion scan (off unless fusion=True).
+    `api` overrides the client (multi-identity: pass pool.client_for(name));
     `acting_as` is the identity label for the log line. `identity_selector`
     (automatic --as specs) resolves the identity PER PROJECT instead, and then
     `api`/`acting_as` are only the fallback/default. Defaults preserve the
@@ -40,7 +42,8 @@ def run_scan(cfg: CxConfig, project_names: str | None = None, project_ids: str |
         log.info("Acting as identity '%s'", acting_as)
     args = Namespace(project_names=project_names, project_ids=project_ids, auto=auto,
                      percentage=percentage, min_projects=min_projects, force=force,
-                     no_overrides=no_overrides, seed=seed)
+                     no_overrides=no_overrides, seed=seed,
+                     fusion=fusion, llm_model=llm_model)
     return ScanOperation(cfg, getattr(api, "auth", None), api, log,
                          identity_selector=identity_selector).execute(args)
 
